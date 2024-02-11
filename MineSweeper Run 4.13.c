@@ -17,7 +17,7 @@
 #define LimHeight 128//最大高度，限制行数
 #define LimWidth 93//最大宽度，限制列数
 #define LimLength 64//最大枚举长度限制
-#define LimDictionary 32768//字典大小
+#define LimDictionary 32768//字典大小1024 32768 8388608
 #define LimName 32//限制自制地图名称长度
 //内存占用至少为 59*H*W+L*D Byte，默认约2.7MB
 
@@ -249,7 +249,7 @@ int operateMode = 2;//操作模式，0@#rc，1wasd23，2鼠标点击，3Window
 int solveMode = 1;//0简单模式，1游戏模式，2分析模式
 //int lengthOfThinkChain = 19;//未知链长度
 int lengthOfThinkNumberCheck = 15;
-int lengthOfThinkMineCheck = 19;
+int lengthOfThinkMineCheck = 32;
 int refreshCycle = 50;//刷新周期，默认50ms，一般鼠标8ms，游戏鼠标1ms
 int fastSign = 0;//#数字快速标记周围
 int newCursor = 2;//1><光标，2淡黄色高亮光标，3淡黄色高亮行列
@@ -763,11 +763,11 @@ int main()
 				{
 					if(NumberOfSign() > numberOfMine)//标记量不能超过雷数
 					{
-						gotoxy(0, yOfMapEnd+5);
-						printf(":(\n标记过多！请重新标记。\n");
-						if(operateMode == 2 && operation == '#') Sleep(refreshCycle);//防止鼠标出现右键菜单
+						//gotoxy(0, yOfMapEnd+5);
+						//printf(":(\n标记过多！请重新标记。\n");
+						//if(operateMode == 2 && operation == '#') Sleep(refreshCycle);//防止鼠标出现右键菜单
 						//system("pause");
-						/*for(r=0; r<heightOfBoard; r++)
+						/*for(r=0; r<heightOfBoard; r++)//自动取消所有标记
 						{
 							for(c=0; c<widthOfBoard; c++)
 							{
@@ -778,28 +778,31 @@ int main()
 								}
 							}
 						}*/
-						if(isShown[r][c] == 2)
+						/*if(isShown[r][c] == 2)//自动取消上一次标记
 						{
 							isShown[r][c] = 0;
 							remainder++;
-						}
-						continue;
+						}*/
+						//continue;
 					}
-					clrscr();
-					DrawControlBar(0);
-					ShowBoard(1);
-					printf(":)\nYou Win!\n");
-					remainder = 0;
-					t1 = time(0);
-					temp = 0;
-					if(showTime == 1) printf("用时：%d ", t1-t0+t2);
-					if(show3BV == 1) printf("3BV：%d 3BV/s：%.2f ", bbbv, (float)bbbv/(t1-t0+t2));
-					printf("\n");
-					remove("minesweeper-lastmap.txt");
-					lastMap = 0;
-					SetConsoleMouseMode(1);
-					choiceMode = 0;
-					break;
+					else
+					{
+						clrscr();
+						DrawControlBar(0);
+						ShowBoard(1);
+						printf(":)\nYou Win!\n");
+						remainder = 0;
+						t1 = time(0);
+						temp = 0;
+						if(showTime == 1) printf("用时：%d ", t1-t0+t2);
+						if(show3BV == 1) printf("3BV：%d 3BV/s：%.2f ", bbbv, (float)bbbv/(t1-t0+t2));
+						printf("\n");
+						remove("minesweeper-lastmap.txt");
+						lastMap = 0;
+						SetConsoleMouseMode(1);
+						choiceMode = 0;
+						break;
+					}
 				}
 				/*显示*/
 				if(heightOfBoard > 40)
@@ -5442,12 +5445,13 @@ int DeepThink()//枚举
 	/*选取未知链*/
 	numberOfThought = ThinkSelect();
 	if(numberOfThought == 0) return 0;
+	if(debug == 2) printf("[Debug]未知链长度%d\n", numberOfThought);
 	//countLengthOfThinkChain[numberOfThought]++;
 	if(numberOfThought > lengthOfThinkMineCheck)
 	{
 		//int上限2147483647=2^31-1，最多支持长度30的未知链
 		//0关 19效率 30最大
-		if(debug == 2) printf("[Debug]该未知链过长(%d)，已放弃\n", numberOfThought);
+		if(debug == 2) printf("[Debug]该未知链过长，已放弃\n");
 		for(r=0; r<heightOfBoard; r++)
 		{
 			for(c=0; c<widthOfBoard; c++)
@@ -5462,24 +5466,14 @@ int DeepThink()//枚举
 		//system("pause");
 		return 1;
 	}
-	if(debug == 2)
-	{
-		printf("[Debug]未知链长度%d\n", numberOfThought);
-	}
 	if(numberOfThought <= lengthOfThinkNumberCheck)
 	{
-		if(debug == 2)
-		{
-			printf("[Debug]准备枚举雷\n");
-		}
+		if(debug == 2) printf("[Debug]准备枚举雷(NC)\n");
 		realNumberOfPossibility = ThinkMine(numberOfThought);
 	}
 	else
 	{
-		if(debug == 2)
-		{
-			printf("[Debug]准备枚举数字\n");
-		}
+		if(debug == 2) printf("[Debug]准备枚举数字(MC)\n");
 		//debug = 2;
 		//clrscr();
 		realNumberOfPossibility = ThinkNumber(numberOfThought);
@@ -6307,10 +6301,7 @@ int ThinkNumber(int numberOfThought)//选取并思考一个未知链
 		}*/
 		if(MergeCheck(ncc.numberCheck[ncc.t]) == 0)//合并失败
 		{
-			/*if(debug == 2)
-			{
-				printf(" 合并失败\n");
-			}*/
+			//if(debug == 2) printf(" 合并失败\n");
 			if(ncc.numberCheck[ncc.t].p + 1 < ncc.numberCheck[ncc.t].numberOfPossibility)
 			{
 				ncc.numberCheck[ncc.t].p++;//切换下一个情况再次尝试
@@ -6534,7 +6525,15 @@ int WholeThink()
 	realNumberOfNotShown = NumberOfNotShown();
 	if(r - maxNumberOfPossibleMine >= 0 && r - minNumberOfPossibleMine <= realNumberOfNotShown)//剩余区域空间不产生雷数限制不拼接
 	{
-		
+		//不拼接，空间释放
+	}
+	if(r - minNumberOfPossibleMine <= 0)
+	{
+		//剩余区域空间均为空
+	}
+	if(r - maxNumberOfPossibleMine >= realNumberOfNotShown)
+	{
+		//剩余区域空间均为雷
 	}
 	// 整合拼接
 	//result.numberOfThought = 0;
@@ -6547,6 +6546,7 @@ int WholeThink()
 		}
 		//result.numberOfThought += results.thinkChain[i].numberOfThought;
 		//仅根据雷数信息拼接
+		//雷数字典
 	}
 	// 空间释放
 	for(i=0; i<results.numberOfThinkChain; i++)
@@ -6890,7 +6890,7 @@ int GamerLevel(struct Records records)//计算玩家等级并显示称号
 				&& records.minimumTime[3] <= 172//高级基准171.57秒
 				&& records.minimumTime[4] != -1)//赢1场顶级地图
 			{
-				level = 6;//"ProGamer*"(Ltabsyy: 3 6 39 139 1392)
+				level = 6;//"ProGamer*"(Ltabsyy: 3 6 39 114 1264)
 				if(records.minimumTime[0] <= 5//4.53秒内赢默认地图
 					&& records.minimumTime[1] <= 6//5.21秒内赢初级地图
 					&& records.minimumTime[2] <= 33//32.19秒内赢中级地图
@@ -7815,7 +7815,7 @@ void Bench(int seedMin, int seedMax, int r0, int c0, int showStep, int showSolut
 			if(showStep > 1)
 			{
 				gotoxy(0, heightOfMapShown+4);
-				//system("pause");//显示在行首
+				system("pause");//显示在行首
 			}
 		}
 		if(showStep == 0)
@@ -7834,7 +7834,7 @@ void Bench(int seedMin, int seedMax, int r0, int c0, int showStep, int showSolut
 		if(showStep > 1)
 		{
 			gotoxy(0, heightOfMapShown+4);//防止显示进度条后光标位置变化
-			//system("pause");
+			system("pause");
 		}
 	}
 	/*输出结果*/
@@ -8022,7 +8022,8 @@ void MapSearch(int seedMin, int seedMax, int r0, int c0)//地图搜索模块
 		if(IsSolvableMap(seed, r0, c0)) count++;
 		t1 = time(0);
 		printf("\rseed=%d 可解数：%d 用时：%d", seed, count, t1-t0);
-	}*/
+	}
+	printf(" 平均用时：%.2f\n", (float)(t1-t0)/count);*/
 }
 
 void** MatrixMemory(void** matrix, int rm, int cm, int sizeOfElements, int mode)//矩阵内存操作，1申请，0释放
@@ -8889,12 +8890,16 @@ MineSweeper Run 4.12
 ——优化 字典改用char存储
 ——优化 最大枚举限制由30提高到64，字典大小由1K提高到32K
 ——优化 可设置NC/MC作用长度范围，默认为15和19
+MineSweeper Run 4.13
+——优化 默认MC长度提高到32
+——优化 标记过多时不再自动取消标记和显示提示
+——修复 Bench帧暂停不暂停
+——修复 执行标记问号导致标记过多时卡死
 //——新增 超大地图支持翻页操作（大于42行或88列时RF上下16行，ET左右30列）
 //——新增 可启用在外部窗口进行游戏
 //——优化 现在地图求解可选择从外部文件读取地图，界面支持鼠标点击
 //——优化 wasd23与鼠标点击模式复用部分代码
 //——优化 重新设计自定义难度设置，以密度设置雷数不再是调试选项
-//——优化 调整默认NC/MC长度
 //——优化 NC不再根据剩余雷数排除
 //——优化 根据多块枚举的整体结果进行剩余雷数判断
 --------------------------------*/
