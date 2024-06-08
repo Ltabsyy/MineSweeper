@@ -18,11 +18,13 @@ int sideLength = 32;//外部窗口方块边长
 #define heightOfBlock sideLength
 #define widthOfBlock sideLength//锁定纵横比
 #define heightOfBar 2*sideLength
+#define widthOfBorder sideLength/4
 #define xOfChar widthOfBlock*10/32
 #define yOfChar heightOfBlock/32
 #define heightOfChar heightOfBlock
 
 // 地图生成和显示
+int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2);
 void SummonBoard(int seed, int r0, int c0);
 int Place(int n);
 void ShowBoard(int mode);
@@ -134,7 +136,7 @@ int main()
 				}
 				/*显示*/
 				system("cls");
-				ShowBoard(0);
+				if(heightOfBoard <= 20 && widthOfBoard <= 58) ShowBoard(0);
 				printf("剩余雷数: %d 用时: %d\n", remainder, t1-t0);//打印剩余雷数
 				/*输入*/
 				while(1)
@@ -289,6 +291,18 @@ int main()
 		}
 	}
 	return 0;
+}
+
+int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2)
+{
+	if(y >= y1 && y <= y2 && x >= x1 && x <= x2)
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 void SummonBoard(int seed, int r0, int c0)//生成后台总板
@@ -473,18 +487,20 @@ void ShowBoard(int mode)
 
 void DrawMine(int r, int c)//绘制地图地雷
 {
+	int x = c*widthOfBlock+widthOfBorder;
+	int y = r*heightOfBlock+heightOfBar+widthOfBorder;
 	//setcolor(LIGHTRED);
-	//xyprintf(c*widthOfBlock+xOfChar, r*heightOfBlock+yOfChar, "@");
+	//xyprintf(x+xOfChar, y+yOfChar, "@");
 	setfillcolor(BLACK);
-	ege_fillellipse((c+7.4/32)*widthOfBlock, (r+7.4/32)*heightOfBlock, 0.6*widthOfBlock, 0.6*heightOfBlock);
+	ege_fillellipse(x+7.4/32*widthOfBlock, y+7.4/32*heightOfBlock, 0.6*widthOfBlock, 0.6*heightOfBlock);
 	setcolor(BLACK);
 	setlinewidth(sideLength/16);
-	line(c*widthOfBlock+widthOfBlock*5/32, r*heightOfBlock+heightOfBlock*17/32, c*widthOfBlock+widthOfBlock*29/32, r*heightOfBlock+heightOfBlock*17/32);
-	line(c*widthOfBlock+widthOfBlock*17/32, r*heightOfBlock+heightOfBlock*5/32, c*widthOfBlock+widthOfBlock*17/32, r*heightOfBlock+heightOfBlock*29/32);
-	line(c*widthOfBlock+widthOfBlock*9/32, r*heightOfBlock+heightOfBlock*9/32, c*widthOfBlock+widthOfBlock*25/32, r*heightOfBlock+heightOfBlock*25/32);
-	line(c*widthOfBlock+widthOfBlock*9/32, r*heightOfBlock+heightOfBlock*25/32, c*widthOfBlock+widthOfBlock*25/32, r*heightOfBlock+heightOfBlock*9/32);
+	line(x+widthOfBlock*5/32, y+heightOfBlock*17/32, x+widthOfBlock*29/32, y+heightOfBlock*17/32);
+	line(x+widthOfBlock*17/32, y+heightOfBlock*5/32, x+widthOfBlock*17/32, y+heightOfBlock*29/32);
+	line(x+widthOfBlock*9/32, y+heightOfBlock*9/32, x+widthOfBlock*25/32, y+heightOfBlock*25/32);
+	line(x+widthOfBlock*9/32, y+heightOfBlock*25/32, x+widthOfBlock*25/32, y+heightOfBlock*9/32);
 	setfillcolor(WHITE);
-	ege_fillrect((c+12.0/32)*widthOfBlock, (r+12.0/32)*heightOfBlock, (4.0/32)*widthOfBlock, (4.0/32)*heightOfBlock);
+	ege_fillrect(x+12.0/32*widthOfBlock, y+12.0/32*heightOfBlock, (4.0/32)*widthOfBlock, (4.0/32)*heightOfBlock);
 }
 
 void DrawMineA(int x0, int y0, int r)//绘制地雷图形
@@ -504,29 +520,31 @@ void DrawMineA(int x0, int y0, int r)//绘制地雷图形
 
 void DrawFlag(int r, int c)//绘制地图旗帜
 {
+	int x = c*widthOfBlock+widthOfBorder;
+	int y = r*heightOfBlock+heightOfBar+widthOfBorder;
 	//setcolor(LIGHTRED);
-	//xyprintf(c*widthOfBlock+xOfChar, r*heightOfBlock+yOfChar, "#");
+	//xyprintf(x+xOfChar, y+yOfChar, "#");
 	setfillcolor(BLACK);
 	//绘制底座
-	ege_fillrect((c+8.0/32)*widthOfBlock, (r+24.0/32)*heightOfBlock, 16.0/32*widthOfBlock, 2.0/32*heightOfBlock);
-	ege_fillrect((c+10.0/32)*widthOfBlock, (r+22.0/32)*heightOfBlock, 12.0/32*widthOfBlock, 2.0/32*heightOfBlock);
+	ege_fillrect(x+8.0/32*widthOfBlock, y+24.0/32*heightOfBlock, 16.0/32*widthOfBlock, 2.0/32*heightOfBlock);
+	ege_fillrect(x+10.0/32*widthOfBlock, y+22.0/32*heightOfBlock, 12.0/32*widthOfBlock, 2.0/32*heightOfBlock);
 	//绘制旗杆
-	ege_fillrect((c+15.0/32)*widthOfBlock, (r+16.0/32)*heightOfBlock, 2.0/32*widthOfBlock, 8.0/32*heightOfBlock);
+	ege_fillrect(x+15.0/32*widthOfBlock, y+16.0/32*heightOfBlock, 2.0/32*widthOfBlock, 8.0/32*heightOfBlock);
 	//绘制旗帜
 	setfillcolor(RED);
 	ege_point polyPoints[3] =
 	{
-		{(c+6.0/32)*widthOfBlock, (r+11.0/32)*heightOfBlock},
-		{(c+17.0/32)*widthOfBlock, (r+6.0/32)*heightOfBlock},
-		{(c+17.0/32)*widthOfBlock, (r+16.0/32)*heightOfBlock}
+		{x+6.0/32*widthOfBlock, y+11.0/32*heightOfBlock},
+		{x+17.0/32*widthOfBlock, y+6.0/32*heightOfBlock},
+		{x+17.0/32*widthOfBlock, y+16.0/32*heightOfBlock}
 	};
 	ege_fillpoly(3, polyPoints);
 }
 
 void DrawBlock(int r, int c, int board, int isShown)//绘制方块
 {
-	int x = c*widthOfBlock;
-	int y = r*heightOfBlock;
+	int x = c*widthOfBlock+widthOfBorder;
+	int y = r*heightOfBlock+heightOfBar+widthOfBorder;
 	//绘制边框和底纹
 	if(isShown == 1 || (board == 9 && isShown == 0))
 	{
@@ -550,8 +568,8 @@ void DrawBlock(int r, int c, int board, int isShown)//绘制方块
 		//setfontbkcolor(LIGHTGRAY);
 	}
 	//绘制文字或图形
-	//xyprintf(c*widthOfBlock+12, r*heightOfBlock+8, "%d", board);
-	//rectprintf(c*widthOfBlock, r*heightOfBlock, widthOfBlock, heightOfBlock, "%d", board);
+	//xyprintf(x+12, y+8, "%d", board);
+	//rectprintf(x, y, widthOfBlock, heightOfBlock, "%d", board);
 	if(isShown == 2)
 	{
 		if(board != 9)//错误标记
@@ -580,10 +598,10 @@ void DrawBlock(int r, int c, int board, int isShown)//绘制方块
 		else
 		{
 			//配色1
-			/*if(board == 1) setcolor(BLUE);
-			else if(board == 2) setcolor(GREEN);
-			else if(board < 6) setcolor(RED);//3-5
-			else setcolor(YELLOW);*/
+			//if(board == 1) setcolor(BLUE);
+			//else if(board == 2) setcolor(GREEN);
+			//else if(board < 6) setcolor(RED);//3-5
+			//else setcolor(YELLOW);
 			//配色2
 			if(board == 1) setcolor(BLUE);
 			else if(board == 2) setcolor(GREEN);
@@ -595,7 +613,7 @@ void DrawBlock(int r, int c, int board, int isShown)//绘制方块
 			else setcolor(GRAY);
 			//数字
 			//setbkmode(TRANSPARENT);
-			xyprintf(c*widthOfBlock+xOfChar, r*heightOfBlock+yOfChar, "%d", board);
+			xyprintf(x+xOfChar, y+yOfChar, "%d", board);
 			//setbkmode(OPAQUE);
 		}
 	}
@@ -648,6 +666,26 @@ void DrawClock(int x0, int y0, int r, int time)//绘制时钟
 void DrawBoard(int mode, int remainder, int t)//绘制总外部窗口
 {
 	int r, c;
+	ege_point polyPoints1[5] =
+	{
+		{0, heightOfBar},
+		{widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar},
+		{widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+widthOfBorder},
+		{widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder},
+		{0, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2}
+	};
+	ege_point polyPoints2[5] =
+	{
+		{widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar},
+		{widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+widthOfBorder},
+		{widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder},
+		{0, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2},
+		{widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2}
+	};
+	setfillcolor(GRAY);
+	ege_fillpoly(5, polyPoints1);
+	setfillcolor(WHITE);
+	ege_fillpoly(5, polyPoints2);
 	for(r=0; r<heightOfBoard; r++)
 	{
 		for(c=0; c<widthOfBoard; c++)
@@ -656,34 +694,34 @@ void DrawBoard(int mode, int remainder, int t)//绘制总外部窗口
 			{
 				if(isShown[r][c] == 2)
 				{
-					DrawBlock(r+2, c, board[r][c], 2);
+					DrawBlock(r, c, board[r][c], 2);
 				}
 				else if(board[r][c] == 0)
 				{
-					DrawBlock(r+2, c, 0, 1);
+					DrawBlock(r, c, 0, 1);
 				}
 				else if(board[r][c] == 9)
 				{
-					DrawBlock(r+2, c, 9, isShown[r][c]);
+					DrawBlock(r, c, 9, isShown[r][c]);
 				}
 				else
 				{
-					DrawBlock(r+2, c, board[r][c], 1);
+					DrawBlock(r, c, board[r][c], 1);
 				}
 			}
 			else if(mode == 0)//前台
 			{
 				if(isShown[r][c] == 2)
 				{
-					DrawBlock(r+2, c, 9, 2);
+					DrawBlock(r, c, 9, 2);
 				}
 				else if(isShown[r][c] == 0)
 				{
-					DrawBlock(r+2, c, 0, 0);
+					DrawBlock(r, c, 0, 0);
 				}
 				else
 				{
-					DrawBlock(r+2, c, board[r][c], 1);
+					DrawBlock(r, c, board[r][c], 1);
 				}
 			}
 		}
@@ -720,14 +758,24 @@ void DrawBoard(int mode, int remainder, int t)//绘制总外部窗口
 
 void InitWindow()//创建窗口
 {
-	sideLength = 32;
-	while(widthOfBlock*widthOfBoard > 1920 || heightOfBar+heightOfBlock*(heightOfBoard+4) > 1080)
+	DEVMODE dm;
+	dm.dmSize = sizeof(DEVMODE);
+	if(EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm) == 0)//无法获取显示屏分辨率
+	{
+		dm.dmPelsWidth = 1920;
+		dm.dmPelsHeight = 1080;
+	}
+	if(dm.dmPelsHeight >= 2160) sideLength = 64;
+	else if(dm.dmPelsHeight >= 1440) sideLength = 40;
+	else sideLength = 32;
+	while(widthOfBlock*widthOfBoard+widthOfBorder*2 > dm.dmPelsWidth
+		|| heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > dm.dmPelsHeight)
 	{
 		sideLength -= 4;
 	}
 	setcaption("MineSweeper Window");
 	SetProcessDPIAware();//避免Windows缩放造成模糊
-	initgraph(widthOfBlock*widthOfBoard, heightOfBar+heightOfBlock*heightOfBoard, INIT_RENDERMANUAL);
+	initgraph(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2, INIT_RENDERMANUAL);
 	setbkcolor(LIGHTGRAY);
 	setfont(heightOfChar, 0, "Consolas");
 	setbkmode(TRANSPARENT);//默认设置为无背景字体
@@ -744,21 +792,23 @@ void GetWindowOperation(char* operation, int* r, int* c)
 		if(mouseMsg.is_left() && mouseMsg.is_down())//鼠标左键按下
 		{
 			mousepos(&xm, &ym);
-			if(ym >= heightOfBar)
+			if(IsPosInRectangle(xm, ym, widthOfBorder, heightOfBar+widthOfBorder,
+				widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder))
 			{
 				*operation = '@';
-				*r = (ym-heightOfBar)/heightOfBlock;
-				*c = xm/widthOfBlock;
+				*r = (ym-heightOfBar-widthOfBorder)/heightOfBlock;
+				*c = (xm-widthOfBorder)/widthOfBlock;
 			}
 		}
 		if(mouseMsg.is_right() && mouseMsg.is_down())//鼠标右键按下
 		{
 			mousepos(&xm, &ym);
-			if(ym >= heightOfBar)
+			if(IsPosInRectangle(xm, ym, widthOfBorder, heightOfBar+widthOfBorder,
+				widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder))
 			{
 				*operation = '#';
-				*r = (ym-heightOfBar)/heightOfBlock;
-				*c = xm/widthOfBlock;
+				*r = (ym-heightOfBar-widthOfBorder)/heightOfBlock;
+				*c = (xm-widthOfBorder)/widthOfBlock;
 			}
 		}
 	}
@@ -785,22 +835,22 @@ void CloseWindow(int isWinning, int remainder, int time)
 	if(isWinning == 1)
 	{
 		setcolor(BLACK);//显示阴影
-		xyprintf(widthOfBlock+2, heightOfBar+2, "You Win!");
+		xyprintf(widthOfBlock+2, heightOfBar+widthOfBorder+2, "You Win!");
 		setcolor(YELLOW);
-		xyprintf(widthOfBlock, heightOfBar, "You Win!");
+		xyprintf(widthOfBlock, heightOfBar+widthOfBorder, "You Win!");
 	}
 	else
 	{
 		setcolor(BLACK);
-		xyprintf(widthOfBlock+2, heightOfBar+2, "Game Over!");
+		xyprintf(widthOfBlock+2, heightOfBar+widthOfBorder+2, "Game Over!");
 		setcolor(RED);
-		xyprintf(widthOfBlock, heightOfBar, "Game Over!");
+		xyprintf(widthOfBlock, heightOfBar+widthOfBorder, "Game Over!");
 	}
 	setfont(heightOfChar/2, 0, "黑体");
 	setcolor(BLACK);
-	xyprintf(widthOfBlock+1, heightOfBar+heightOfBlock+1, "请按键盘任意键关闭窗口");
+	xyprintf(widthOfBlock+1, heightOfBar+widthOfBorder+heightOfBlock+1, "请按键盘任意键关闭窗口");
 	setcolor(RED);
-	xyprintf(widthOfBlock, heightOfBar+heightOfBlock, "请按键盘任意键关闭窗口");
+	xyprintf(widthOfBlock, heightOfBar+widthOfBorder+heightOfBlock, "请按键盘任意键关闭窗口");
 	//xyprintf(widthOfBlock, heightOfBar+heightOfBlock*3/2, "请勿按右上角退出！");
 	//xyprintf(widthOfBlock, heightOfBar+heightOfBlock, "Press any key to continue . . .");
 	setfont(heightOfChar, 0, "Consolas");
@@ -931,4 +981,10 @@ MineSweeper EGE 2
 ——优化 大部分字体以透明背景输出
 ——优化 游戏结束字体增加阴影
 ——优化 使用XP版扫雷数字配色
+MineSweeper EGE 3
+——新增 根据屏幕分辨率调整显示大小
+——优化 减少顶级地图按键延迟
+MineSweeper EGE 4
+——新增 地图边框
+——修复 切换难度后闪退（使用新版EGE编译）
 --------------------------------*/
