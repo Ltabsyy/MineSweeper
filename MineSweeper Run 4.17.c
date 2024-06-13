@@ -117,7 +117,7 @@ struct NumberCheckChain//校验表
 	int numberOfThought;//数字数
 	int t;//当前校验位置，类似栈顶指针，以实现剪枝和回溯
 };
-/*struct LocalResult//单个未知链
+struct LocalResult//单个未知链
 {
 	int** thinkChain;//未知链
 	int** dictionary;//全部可能
@@ -131,15 +131,15 @@ struct GlobalResult//全局未知链
 	struct LocalResult* thinkResult;//未知链数组
 	int numberOfThinkChain;//未知链数
 	int minNumberOfPossibleMine, maxNumberOfPossibleMine;//全局链中雷数范围
-}results;*/
+}results;
 struct NumberCheck SummonMineCheck(struct NumberCheck nc);
 void RefreshMineCheck(struct NumberCheckChain ncc);
 int MergeCheck();//检查并合并入全局numberCheck，0失败，1成功
 int ThinkNumber(int numberOfThought);//选取并思考一个未知链
-/*void SaveResult(int numberOfThought, int numberOfPossibility, int minNumberOfMine, int maxNumberOfMine);
+void SaveResult(int numberOfThought, int numberOfPossibility, int minNumberOfMine, int maxNumberOfMine);
 void ClearResults();
 void ExcludeResult(struct LocalResult* result, int mine);
-int WholeThink();//对全局未知链分块思考并合并思考*/
+int WholeThink();//对全局未知链分块思考并合并思考
 
 // 历史记录
 struct Record
@@ -1967,7 +1967,7 @@ int main()
 						printf("(1)设置求解模式     当前:%d\n", solveMode);
 						printf("(2)设置枚举限制     当前:NC%dMC%d\n", lengthOfThinkNumberCheck, lengthOfThinkMineCheck);
 						printf("(3)设置字典大小     当前:%d\n", dictionaryCapacity);
-						printf("(4)设置剩余雷数判断\n");
+						printf("(4)设置剩余雷数判断 当前:%d%d%d\n", remainedMineJudgeLocalNC, remainedMineJudgeLocalMC, remainedMineJudgeGlobal);
 						printf("(5)退出\n");
 						printf("*******************************\n");
 						printf(">");
@@ -2032,9 +2032,9 @@ int main()
 							else printf("(1)启用NC根据剩余雷数排除\n");
 							if(remainedMineJudgeLocalMC == 0) printf("(2)启用MC根据剩余雷数排除\n");
 							else printf("(2)关闭MC根据剩余雷数排除\n");
-							//if(remainedMineJudgeGlobal == 0) printf("(3)启用全局剩余雷数判断\n");
-							//else printf("(3)关闭全局剩余雷数判断\n");
-							printf("(3)退出\n");
+							if(remainedMineJudgeGlobal == 0) printf("(3)启用全局剩余雷数判断\n");
+							else printf("(3)关闭全局剩余雷数判断\n");
+							printf("(4)退出\n");
 							printf("*******************************\n");
 							printf(">");
 							scanf("%d", &temp);
@@ -2048,11 +2048,11 @@ int main()
 								if(remainedMineJudgeLocalMC == 0) remainedMineJudgeLocalMC = 1;
 								else remainedMineJudgeLocalMC = 0;
 							}
-							/*else if(temp == 3)
+							else if(temp == 3)
 							{
 								if(remainedMineJudgeGlobal == 0) remainedMineJudgeGlobal = 1;
 								else remainedMineJudgeGlobal = 0;
-							}*/
+							}
 						}
 					}
 					else if(operation == '3')//以密度设置雷数
@@ -4970,12 +4970,12 @@ void Solve(int showAnswer)//程序核心部分(doge)
 	if((isFoundOpen == 0 || solveMode == 2) && isThinking == 1)//游戏模式已有翻开解不枚举
 	{
 		// 初始化全局结果缓存
-		/*if(remainedMineJudgeGlobal == 1)
+		if(remainedMineJudgeGlobal == 1)
 		{
 			results.numberOfThinkChain = 0;
 			results.minNumberOfPossibleMine = 0;
 			results.maxNumberOfPossibleMine = 0;
-		}*/
+		}
 		// 逐个枚举全局所有未知链
 		isSolving = 1;
 		while(isSolving == 1)
@@ -5013,21 +5013,22 @@ void Solve(int showAnswer)//程序核心部分(doge)
 				}
 				if(solveMode != 2 && isFoundOpen == 1)
 				{
-					//if(remainedMineJudgeGlobal == 1) ClearResults();
+					if(remainedMineJudgeGlobal == 1) ClearResults();
 					break;//非分析模式有翻开解立即停止
 				}
 			}
 		}//全部未知链枚举完毕，可根据多块枚举的整体结果进行剩余雷数判断
-		/*if(isFoundOpen == 0 || solveMode == 2)//仅枚举后进行
+		if(isFoundOpen == 0 || solveMode == 2)//仅枚举后进行
 		{
 			if(remainedMineJudgeGlobal == 1)
-			{*/
+			{
 				/*策略五
 				全局剩余雷数判断*/
-				/*isFoundOpen = WholeThink();
+				isFoundOpen = WholeThink();
+				if(isFoundOpen == 1) isFound = 1;
 				ClearResults();
 			}
-		}*/
+		}
 	}
 	if(isFoundOpen == 0 || solveMode == 2)//游戏模式有翻开解不分析雷率
 	{
@@ -5735,7 +5736,7 @@ int DeepThink()//枚举
 {
 	int r, c, r1, c1, i;//循环变量
 	int numberOfThought;//枚举准备
-	int realNumberOfPossibility, temp;//枚举判断
+	int realNumberOfPossibility, numberOfPossibility, temp;//枚举判断
 	int minNumberOfMine, maxNumberOfMine;
 	/*选取未知链*/
 	numberOfThought = ThinkSelect();
@@ -5847,15 +5848,19 @@ int DeepThink()//枚举
 		if(realNumberOfPossibility > dictionaryCapacity)
 		{
 			if(debug == 1 || debug == 2) printf("[Debug]字典大小不足%d！\n", realNumberOfPossibility);
-			realNumberOfPossibility = dictionaryCapacity;
+			numberOfPossibility = dictionaryCapacity;
 			countOfDictionaryOverflow++;//Bench统计
+		}
+		else
+		{
+			numberOfPossibility = realNumberOfPossibility;
 		}
 		if(debug == 2)
 		{
-			printf("[Debug]已生成字典，共%d种可能\n", realNumberOfPossibility);
-			if(realNumberOfPossibility <= 1024)
+			printf("[Debug]已生成字典，共%d种可能\n", numberOfPossibility);
+			if(numberOfPossibility <= 1024)
 			{
-				for(i=0; i<realNumberOfPossibility; i++)
+				for(i=0; i<numberOfPossibility; i++)
 				{
 					printf("%3d: ", i);
 					for(c=0; c<numberOfThought; c++)
@@ -5874,7 +5879,7 @@ int DeepThink()//枚举
 		}
 		minNumberOfMine = numberOfThought;
 		maxNumberOfMine = 0;
-		for(i=0; i<realNumberOfPossibility; i++)
+		for(i=0; i<numberOfPossibility; i++)
 		{
 			temp = 0;
 			for(c=0; c<numberOfThought; c++)
@@ -5924,10 +5929,10 @@ int DeepThink()//枚举
 			printf("[Debug]已更新全局不确定雷数范围[%d,%d]\n", minNumberOfPossibleMine, maxNumberOfPossibleMine);
 		}
 	}
-	/*if(remainedMineJudgeGlobal == 1)
+	if(remainedMineJudgeGlobal == 1)
 	{
-		SaveResult(numberOfThought, realNumberOfPossibility, minNumberOfMine, maxNumberOfMine);
-	}*/
+		SaveResult(numberOfThought, numberOfPossibility, minNumberOfMine, maxNumberOfMine);
+	}
 	return 1;//该链枚举完毕，尝试下一未知链
 }
 
@@ -6709,11 +6714,14 @@ int ThinkNumber(int numberOfThought)//选取并思考一个未知链
 						temp *= ncc.numberCheck[i].numberOfPossibility;
 						temp += ncc.numberCheck[i].p;
 					}
-					if(realNumberOfPossibility > 1024) printf("\r");
-					printf("[Debug]已找到第%d种可能性%lld：", realNumberOfPossibility, temp);
-					for(i=0; i<ncc.numberOfThought; i++)
+					if(realNumberOfPossibility <= 1024 || realNumberOfPossibility%1024 == 0)//跳跃输出
 					{
-						printf("%d ", ncc.numberCheck[i].p);
+						if(realNumberOfPossibility > 1024) printf("\r");//覆写输出
+						printf("[Debug]已找到第%d种可能性%lld：", realNumberOfPossibility, temp);
+						for(i=0; i<ncc.numberOfThought; i++)
+						{
+							printf("%d ", ncc.numberCheck[i].p);
+						}
 					}
 					if(realNumberOfPossibility <= 1024) printf("\n");
 				}
@@ -6780,10 +6788,12 @@ int ThinkNumber(int numberOfThought)//选取并思考一个未知链
 	}*/
 	return realNumberOfPossibility;
 }
-/*
+
 void SaveResult(int numberOfThought, int numberOfPossibility, int minNumberOfMine, int maxNumberOfMine)
 {
 	int r, c, i;
+	int* reduceList;//缩链表
+	int* reduceMap;//缩链映射
 	struct LocalResult result;
 	struct LocalResult* resultsTemp;
 	// 记录入结果缓存
@@ -6791,11 +6801,53 @@ void SaveResult(int numberOfThought, int numberOfPossibility, int minNumberOfMin
 	result.numberOfPossibility = numberOfPossibility;
 	result.minNumberOfMine = minNumberOfMine;
 	result.maxNumberOfMine = maxNumberOfMine;
+	// 计算缩链映射
+	reduceList =(int*) calloc(numberOfThought, sizeof(int));
+	for(c=0; c<numberOfThought; c++)
+	{
+		if(sumDictionary[c] == 0 || sumDictionary[c] == numberOfPossibility)
+		{
+			reduceList[c] = 1;
+			result.numberOfThought--;
+			/*if(sumDictionary[c] == numberOfPossibility)
+			{
+				result.minNumberOfMine--;
+				result.maxNumberOfMine--;
+			}*///已计算
+		}
+	}
+	reduceMap =(int*) calloc(result.numberOfThought, sizeof(int));\
+	//A 想写B，但是大脑抽风写成了A的样子(doge)
+	/*----------------
+	c    0 1 2 3 4 5 6 7 8 9
+	List 0 0 1 0 0 1 0 0 1 0
+	r    0 0 1 1 1 2 2 2 3 3
+	c+r  0 1 3 4 5 7 8
+	Map  0 1 3 4 6 7 9
+	----------------*/
+	/*r = 0;
+	for(c=0; c+r<numberOfThought; c++)
+	{
+		if(reduceList[c+r] == 1) r++;
+		reduceMap[c] = c+r;
+		if(reduceList[c+r] == 1) reduceMap[c]++;
+	}*/
+	//B
+	c = 0;
+	for(i=0; i<numberOfThought; i++)
+	{
+		if(reduceList[i] == 0)
+		{
+			reduceMap[c] = i;
+			c++;
+		}
+	}
+	numberOfThought = result.numberOfThought;
 	//记录未知方块为雷可能数(和字典)
 	result.sumDictionary =(int*) calloc(numberOfThought, sizeof(int));
 	for(c=0; c<numberOfThought; c++)
 	{
-		result.sumDictionary[c] = sumDictionary[c];
+		result.sumDictionary[c] = sumDictionary[reduceMap[c]];
 	}
 	//记录某可能的链中雷数
 	result.sumMineOfPossibility =(int*) calloc(numberOfPossibility, sizeof(int));
@@ -6804,16 +6856,26 @@ void SaveResult(int numberOfThought, int numberOfPossibility, int minNumberOfMin
 		//result.sumMineOfPossibility[i] = 0;
 		for(c=0; c<numberOfThought; c++)
 		{
-			result.sumMineOfPossibility[i] += dictionary[i][c];
+			result.sumMineOfPossibility[i] += dictionary[i][reduceMap[c]];
 		}
 	}
 	//记录未知链
 	result.thinkChain =(int**) MatrixMemory(NULL, heightOfBoard, widthOfBoard, sizeof(int), 1);
+	i = 0;
 	for(r=0; r<heightOfBoard; r++)
 	{
 		for(c=0; c<widthOfBoard; c++)
 		{
-			result.thinkChain[r][c] = thinkChain[r][c];
+			if(thinkChain[r][c] == 1)
+			{
+				if(reduceList[i] == 1) result.thinkChain[r][c] = 0;//缩链
+				else result.thinkChain[r][c] = 1;
+				i++;
+			}
+			else
+			{
+				result.thinkChain[r][c] = thinkChain[r][c];
+			}
 		}
 	}
 	//记录全部可能(全字典)
@@ -6822,9 +6884,11 @@ void SaveResult(int numberOfThought, int numberOfPossibility, int minNumberOfMin
 	{
 		for(c=0; c<numberOfThought; c++)
 		{
-			result.dictionary[i][c] = dictionary[i][c];
+			result.dictionary[i][c] = dictionary[i][reduceMap[c]];
 		}
 	}
+	free(reduceList);//原未知链长度必非0
+	if(numberOfThought != 0) free(reduceMap);
 	//存入整体结果
 	resultsTemp =(struct LocalResult*) calloc(results.numberOfThinkChain+1, sizeof(struct LocalResult));
 	for(i=0; i<results.numberOfThinkChain; i++)
@@ -6856,7 +6920,7 @@ void ClearResults()//释放结果缓存
 		free(results.thinkResult);
 	}
 }
-
+/*
 void SortResult(struct LocalResult* result)//冒泡排序提前终止
 {
 	int i, j, exchange, temp1;
@@ -6880,14 +6944,19 @@ void SortResult(struct LocalResult* result)//冒泡排序提前终止
 		if(exchange == 0) break;//一次遍历无交换时终止
 	}
 }
-
+*/
 void ExcludeResult(struct LocalResult* result, int mine)//排除雷数
 {
 	int r, c, i;
 	for(i=0; i < result->numberOfPossibility; )
 	{
+		if(debug == 2) printf("\r[Loading...]%d/%d", i, result->numberOfPossibility);
 		if(result->sumMineOfPossibility[i] == mine)
 		{
+			/*while(i+1 < result->numberOfPossibility && result->sumMineOfPossibility[i] == mine)
+			{
+				//连续排除
+			}*/
 			//和字典减
 			for(c=0; c < result->numberOfThought; c++)
 			{
@@ -6907,6 +6976,7 @@ void ExcludeResult(struct LocalResult* result, int mine)//排除雷数
 			i++;
 		}
 	}
+	if(debug == 2) printf("\n[Debug]已排除雷数%d\n", mine);
 	//重新计算雷数范围
 	if(mine == result->minNumberOfMine || mine == result->maxNumberOfMine)
 	{
@@ -6923,14 +6993,28 @@ void ExcludeResult(struct LocalResult* result, int mine)//排除雷数
 				result->maxNumberOfMine = result->sumMineOfPossibility[i];
 			}
 		}
+		//更新全局雷数范围
+		results.minNumberOfPossibleMine = 0;
+		results.maxNumberOfPossibleMine = 0;
+		for(i=0; i<results.numberOfThinkChain; i++)
+		{
+			results.minNumberOfPossibleMine += results.thinkResult[i].minNumberOfMine;
+			results.maxNumberOfPossibleMine += results.thinkResult[i].maxNumberOfMine;
+		}
+		if(debug == 2)
+		{
+			printf("[Debug]已更新未知链雷数范围[%d,%d]\n", result->minNumberOfMine, result->maxNumberOfMine);
+			printf("[Debug]已更新全局雷数范围[%d,%d]\n", results.minNumberOfPossibleMine, results.maxNumberOfPossibleMine);
+		}
 	}
 }
 
 int WholeThink()
 {
-	int r, c, i;
+	int r, c, r1, c1, i;
 	int remainedMine, remainedNotShown;
-	struct LocalResult result;
+	int isFoundOpen = 0;
+	struct LocalResult result;//避免多次结构体访问
 	remainedMine = numberOfMine - NumberOfSign();//剩余雷数
 	remainedNotShown = NumberOfNotShown();//不含全部未知链的剩余%数
 	for(i=0; i<results.numberOfThinkChain; i++)
@@ -6956,48 +7040,204 @@ int WholeThink()
 				printf("%d ", result.sumDictionary[c]);
 			}
 			printf("\n");
+			printf("雷数字典：");
+			for(r=0; r<result.numberOfPossibility; r++)
+			{
+				if(r == 1024)
+				{
+					printf("...");
+					break;
+				}
+				printf("%d ", result.sumMineOfPossibility[r]);
+			}
+			printf("\n");
+			/*if(result.numberOfPossibility > 32768)
+			{
+				FILE* file = fopen("number.txt", "w");
+				for(r=0; r<result.numberOfPossibility; r++)
+				{
+					fprintf(file, "%d ", result.sumMineOfPossibility[r]);
+				}
+			}*/
 		}
 	}
 	// 是否执行
 	if(results.maxNumberOfPossibleMine > remainedMine//最大雷数大于剩余雷数
 		|| results.minNumberOfPossibleMine < remainedMine - remainedNotShown)//最小雷数小于剩余方块全为雷的剩余雷数
 	{
+		/*for(i=0; i<results.numberOfThinkChain; i++)
+		{
+			if(results.thinkResult[i].numberOfPossibility > dictionaryCapacity)//存在溢出字典
+			{
+				if(debug == 2) printf("[Debug]不可执行全局剩余雷数判断\n");
+			}
+		}*/
 		if(debug == 2) printf("[Debug]可执行全局剩余雷数判断\n");
-		// 整合拼接
-		//result.numberOfThought = 0;
-		//result.numberOfPossibility = 0;
+		// 根据雷数信息排除
 		for(i=0; i<results.numberOfThinkChain; i++)
 		{
-			if(results.thinkResult[i].minNumberOfMine == results.thinkResult[i].maxNumberOfMine)
+			result = results.thinkResult[i];
+			if(result.minNumberOfMine == result.maxNumberOfMine//跳过雷数确定链
+				|| result.numberOfPossibility == dictionaryCapacity)//跳过字典溢出链
 			{
-				continue;//跳过雷数确定链
+				continue;
 			}
-			SortResult(&(results.thinkResult[i]));
-			//result.numberOfThought += results.thinkResult[i].numberOfThought;
-			//仅根据雷数信息拼接
-			//雷数字典
+			if(debug == 2) printf("[Debug]正在探查未知链%d\n", i);
+			/*SortResult(&result);
 			if(debug == 2)
 			{
-				printf("[Debug]已排序未知链%d可能性\n");
+				printf("[Debug]已排序未知链%d可能性\n", i);
+				printf("长度：%d，雷数范围[%d,%d]\n", result.numberOfThought, result.minNumberOfMine, result.maxNumberOfMine);
+				printf("可能数：%d\n", result.numberOfPossibility);
+				printf("和字典：");
+				for(c=0; c<result.numberOfThought; c++)
+				{
+					printf("%d ", result.sumDictionary[c]);
+				}
+				printf("\n");
+				printf("雷数字典：");
+				for(r=0; r<result.numberOfPossibility; r++)
+				{
+					if(r == 1024)
+					{
+						printf("...");
+						break;
+					}
+					printf("%d ", result.sumMineOfPossibility[r]);
+				}
+				printf("\n");
+			}*/
+			//选择雷数
+			c = 0;
+			while(c < result.maxNumberOfMine)
+			{
+				result = results.thinkResult[i];
+				for(r=0; r<result.numberOfPossibility; r++)
+				{
+					if(result.sumMineOfPossibility[r] > c)
+					{
+						c = result.sumMineOfPossibility[r];
+						break;
+					}
+				}
+				if(debug == 2) printf("[Debug]正在探查雷数%d", c);
+				if(results.minNumberOfPossibleMine - result.minNumberOfMine + c <= remainedMine
+					&& results.maxNumberOfPossibleMine - result.maxNumberOfMine + c >= remainedMine - remainedNotShown)
+				{
+					//合法雷数
+					if(debug == 2) printf("：合法\n");
+				}
+				else
+				{
+					if(debug == 2) printf("：非法\n");
+					ExcludeResult(&(results.thinkResult[i]), c);//修改原始数据
+					result = results.thinkResult[i];//更新数据
+				}
 			}
 		}
+		// 寻找解
+		if(debug == 2)
+		{
+			printf("[Debug]已更新全局可能性\n");
+			printf("未知链数：%d\n", results.numberOfThinkChain);
+			printf("全局未知链雷数范围[%d,%d]\n", results.minNumberOfPossibleMine, results.maxNumberOfPossibleMine);
+			printf("剩余雷数：%d 剩余%%数：%d\n", remainedMine, remainedNotShown);
+			printf("约束雷数范围：[%d,%d]\n", remainedMine - remainedNotShown, remainedMine);
+			for(i=0; i<results.numberOfThinkChain; i++)
+			{
+				result = results.thinkResult[i];
+				printf("\n未知链%d：\n", i);
+				printf("长度：%d，雷数范围[%d,%d]\n", result.numberOfThought, result.minNumberOfMine, result.maxNumberOfMine);
+				printf("可能数：%d\n", result.numberOfPossibility);
+				printf("和字典：");
+				for(c=0; c<result.numberOfThought; c++)
+				{
+					printf("%d ", result.sumDictionary[c]);
+				}
+				printf("\n");
+				printf("雷数字典：");
+				for(r=0; r<result.numberOfPossibility; r++)
+				{
+					if(r == 1024)
+					{
+						printf("...");
+						break;
+					}
+					printf("%d ", result.sumMineOfPossibility[r]);
+				}
+				printf("\n");
+			}
+		}
+		for(i=0; i<results.numberOfThinkChain; i++)
+		{
+			result = results.thinkResult[i];
+			if(result.numberOfPossibility == dictionaryCapacity)//无需跳过雷数确定链
+			{
+				continue;
+			}
+			//if(debug == 2) printf("[Debug]正在检索未知链%d\n", i);
+			c = 0;
+			for(r1=0; r1<heightOfBoard; r1++)
+			{
+				for(c1=0; c1<widthOfBoard; c1++)
+				{
+					if(result.thinkChain[r1][c1] == 1)
+					{
+						if(result.sumDictionary[c] == 0)
+						{
+							solution[r1][c1] = 1;
+							isShown[r1][c1] = 1;
+							isFoundOpen = 1;
+							if(debug == 2) printf("[Debug]找到10类点@(%d,%d)\n", r1, c1);
+						}
+						else if(result.sumDictionary[c] == result.numberOfPossibility)
+						{
+							solution[r1][c1] = 2;
+							isShown[r1][c1] = 2;
+							if(debug == 2) printf("[Debug]找到9类点#(%d,%d)\n", r1, c1);
+						}
+						else
+						{
+							isMineRate[r1][c1] =(float) result.sumDictionary[c] / result.numberOfPossibility;
+						}
+						c++;
+					}
+				}
+			}
+		}
+		minNumberOfPossibleMine = results.minNumberOfPossibleMine;
+		maxNumberOfPossibleMine = results.maxNumberOfPossibleMine;
 	}
 	else//剩余区域空间不产生雷数限制不执行
 	{
 		//不执行，空间释放
 		if(debug == 2) printf("[Debug]不可执行全局剩余雷数判断\n");
 	}
-	if(remainedMine - minNumberOfPossibleMine <= 0)
+	/*if(debug == 2)
+	{
+		printf("[Debug]已追踪：\n");
+		for(r=0; r<heightOfBoard; r++)
+		{
+			printf("  ");
+			for(c=0; c<widthOfBoard; c++)
+			{
+				if(isThought[r][c] == 0) printf("  ");
+				else printf("%d ", isThought[r][c]);
+			}
+			printf("\n");
+		}
+	}
+	if(remainedMine - results.minNumberOfPossibleMine <= 0)
 	{
 		//剩余区域空间均为空
 	}
-	if(remainedMine - maxNumberOfPossibleMine >= remainedNotShown)
+	if(remainedMine - results.maxNumberOfPossibleMine >= remainedNotShown)
 	{
 		//剩余区域空间均为雷
-	}
-	return 0;
+	}*/
+	return isFoundOpen;
 }
-*/
+
 int IsEffectiveRecord(struct Record record)
 {
 	if(record.difficulty != 5 && record.isHelped == 0 && record.solved3BV == record.total3BV)
@@ -7328,7 +7568,7 @@ int GamerLevel(struct Records records)//计算玩家等级并显示称号
 				&& records.minimumTime[3] <= 172//高级基准171.57秒
 				&& records.minimumTime[4] != -1)//赢1场顶级地图
 			{
-				level = 6;//"ProGamer*"(Ltabsyy: 3 3 39 114 1264)
+				level = 6;//"ProGamer*"(Ltabsyy: 3 3 39 114 1008)
 				if(records.minimumTime[0] <= 5//4.53秒内赢默认地图
 					&& records.minimumTime[1] <= 6//5.21秒内赢初级地图
 					&& records.minimumTime[2] <= 33//32.19秒内赢中级地图
@@ -9562,7 +9802,10 @@ MineSweeper Run 4.15
 MineSweeper Run 4.16
 ——新增 调试选项可启用快速显示（通过显示缓冲仅刷新更新部分，减少顶级地图按键延迟）
 ——优化 调试选项归纳设置鼠标点击屏蔽空格和点击空地切换左右键
-//——新增 调试选项可启用全局剩余雷数判断（根据多块枚举的整体结果进行剩余雷数判断）
+MineSweeper Run 4.17
+——新增 调试选项可启用全局剩余雷数判断（根据多块枚举的整体结果进行剩余雷数判断）
+——优化 MC可能性超过1024时调试信息跳跃式输出
+——修复 字典溢出时雷率可能大于1
 //——新增 超大地图支持翻页操作（大于42行或88列时RF上下16行，ET左右30列，可设置启用行列数）
 //——新增 可启用在外部窗口进行游戏
 //——优化 现在地图求解可选择从外部文件读取地图，界面支持鼠标点击
