@@ -36,10 +36,11 @@ void DrawFlag(int r, int c);//绘制地图旗帜
 void DrawBlock(int r, int c, int board, int isShown);//绘制方块
 void DrawLineA(int x0, int y0, int r, int angle);//绘制时钟指针
 void DrawClock(int x0, int y0, int r, int time);//绘制时钟
+void DrawFace(int mode);//绘制笑脸
 void DrawBoard(int mode, int remainder, int t);//绘制总外部窗口
 void InitWindow();
 void GetWindowOperation(char* operation, int* r, int* c);
-void CloseWindow(int isWinning, int remainder, int time);
+int CloseWindow(int isWinning, int remainder, int time);
 
 // 后台计算
 int IsAroundZeroChain(int r0, int c0);
@@ -58,10 +59,11 @@ int zeroChain[LimHeight][LimWidth]={0};
 int numberOfMine = 10;//雷数量
 int heightOfBoard = 10;//界面高度
 int widthOfBoard = 10;//界面宽度
+const int refreshCycle = 50;
 
 int main()
 {
-	int choiceMode;//游戏功能的选择
+	int choiceMode = 0;//游戏功能的选择
 	int seed, r0, c0;//地图生成
 	int r, c, remainder, isOpenMine, ra, ca;
 	int t0, t1;
@@ -75,8 +77,11 @@ int main()
 			   "(2)设置\n"
 			   "(3)退出\n"
 			   "*******************************\n");
-		printf(">");
-		scanf("%d", &choiceMode);
+		if(choiceMode == 0)
+		{
+			printf(">");
+			scanf("%d", &choiceMode);
+		}
 		/*--新游戏--*/
 		if(choiceMode == 1)
 		{
@@ -103,6 +108,7 @@ int main()
 			}
 			seed = time(0);//当前时间戳作种子生成随机数
 			t0 = time(0);
+			t1 = t0;
 			SummonBoard(seed, r0, c0);
 			r = r0;
 			c = c0;
@@ -122,7 +128,7 @@ int main()
 						system("cls");
 						ShowBoard(1);
 						printf(":(\nGame Over!\n");
-						CloseWindow(0, remainder, t1-t0);
+						isOpenMine = 1;
 						break;
 					}
 				}
@@ -131,7 +137,6 @@ int main()
 					system("cls");
 					ShowBoard(1);
 					printf(":)\nYou Win!\n");
-					CloseWindow(1, remainder, t1-t0);
 					break;
 				}
 				/*显示*/
@@ -139,84 +144,109 @@ int main()
 				if(heightOfBoard <= 20 && widthOfBoard <= 58) ShowBoard(0);
 				printf("剩余雷数: %d 用时: %d\n", remainder, t1-t0);//打印剩余雷数
 				/*输入*/
+				operation = 0;
 				while(1)
 				{
-					operation = 0;
-					while(operation == 0)
+					if(1)
 					{
 						t1 = time(0);
 						DrawBoard(0, remainder, t1-t0);
 						GetWindowOperation(&operation, &r, &c);
-					}
-					if(operation == '@')
-					{
-						if(isShown[r][c] == 1)//翻开数字则尝试翻开周围
+						if(operation == '%')//重新生成地图
 						{
-							if(NumberOfSignAround(r, c) == numberOfMineAround[r][c])
+							remainder = numberOfMine;
+							for(r=0; r<heightOfBoard; r++)
 							{
-								for(ra=r-1; ra<=r+1; ra++)
+								for(c=0; c<widthOfBoard; c++)
 								{
-									for(ca=c-1; ca<=c+1; ca++)
+									isShown[r][c] = 0;
+								}
+							}
+							r0 = -1;
+							while(r0 == -1)
+							{
+								DrawBoard(0, numberOfMine, 0);
+								GetWindowOperation(&operation, &r0, &c0);
+							}
+							seed = time(0);
+							t0 = time(0);
+							SummonBoard(seed, r0, c0);
+							r = r0;
+							c = c0;
+							isShown[r][c] = 1;
+						}
+					}
+					//if(operation != 0) break;
+					delay_ms(refreshCycle);
+					if(operation != 0) break;
+				}
+				if(operation == '@')
+				{
+					if(isShown[r][c] == 1)//翻开数字则尝试翻开周围
+					{
+						if(NumberOfSignAround(r, c) == numberOfMineAround[r][c])
+						{
+							for(ra=r-1; ra<=r+1; ra++)
+							{
+								for(ca=c-1; ca<=c+1; ca++)
+								{
+									if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
 									{
-										if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
+										if(isShown[ra][ca] == 0)//翻开所有%，如果标错则%中有雷
 										{
-											if(isShown[ra][ca] == 0)//翻开所有%，如果标错则%中有雷
+											isShown[ra][ca] = 1;
+											if(board[ra][ca] == 0)//翻开0连锁翻开
 											{
-												isShown[ra][ca] = 1;
-												if(board[ra][ca] == 0)//翻开0连锁翻开
-												{
-													OpenZeroChain(ra, ca);
-												}
-												else if(board[ra][ca] == 9)//寄
-												{
-													isOpenMine = 1;
-													r = ra;
-													c = ca;
-													break;//维持坐标退出
-												}
+												OpenZeroChain(ra, ca);
+											}
+											else if(board[ra][ca] == 9)//寄
+											{
+												isOpenMine = 1;
+												r = ra;
+												c = ca;
+												break;//维持坐标退出
 											}
 										}
 									}
-									if(isOpenMine == 1) break;
 								}
+								if(isOpenMine == 1) break;
 							}
 						}
-						else if(isShown[r][c] == 2)
-						{
-							remainder++;//取消标记，剩余雷数+1
-							isShown[r][c] = 1;
-						}
-						else
-						{
-							isShown[r][c] = 1;//翻开
-						}
-						break;
 					}
-					else if(operation == '#')
+					else if(isShown[r][c] == 2)
 					{
-						if(isShown[r][c] == 0)//标记
-						{
-							isShown[r][c] = 2;
-							remainder--;
-							break;
-						}
-						else if(isShown[r][c] == 2)//取消标记
-						{
-							isShown[r][c] = 0;
-							remainder++;
-							break;
-						}
-						else
-						{
-							printf(":(\n该坐标已翻开！\n");
-						}
+						remainder++;//取消标记，剩余雷数+1
+						isShown[r][c] = 1;
 					}
 					else
 					{
-						printf(":(\n未选择操作模式！\n");
+						isShown[r][c] = 1;//翻开
 					}
 				}
+				else if(operation == '#')
+				{
+					if(isShown[r][c] == 0)//标记
+					{
+						isShown[r][c] = 2;
+						remainder--;
+					}
+					else if(isShown[r][c] == 2)//取消标记
+					{
+						isShown[r][c] = 0;
+						remainder++;
+					}
+					else
+					{
+						printf(":(\n该坐标已翻开！\n");
+					}
+				}
+				else
+				{
+					printf(":(\n未选择操作模式！\n");
+				}
 			}
+			/*游戏结束*/
+			choiceMode = CloseWindow(1-isOpenMine, remainder, t1-t0);
 		}
 		/*--设置--*/
 		else if(choiceMode == 2)
@@ -279,6 +309,7 @@ int main()
 				else if(temp > heightOfBoard * widthOfBoard) numberOfMine = heightOfBoard * widthOfBoard;
 				else numberOfMine = temp;
 			}
+			choiceMode = 0;
 		}
 		/*--退出--*/
 		else if(choiceMode == 3)
@@ -288,6 +319,7 @@ int main()
 		else
 		{
 			getchar();
+			choiceMode = 0;
 		}
 	}
 	return 0;
@@ -663,6 +695,62 @@ void DrawClock(int x0, int y0, int r, int time)//绘制时钟
 	//xyprintf(x0+r+r/5, y0+r-r/5, "%2d:%2d:%2d", hour, minute, second);
 }
 
+void DrawFace(int mode)//绘制笑脸
+{
+	int h = heightOfBlock*3/2;
+	int w = widthOfBlock*3/2;
+	int x = (widthOfBlock*widthOfBoard-w)/2+widthOfBorder;
+	int y = (heightOfBar-h)/2;
+	//按未翻开方块1.5倍绘制边框和底纹
+	ege_point polyPoints1[3] = {{x, y}, {x+w, y}, {x, y+h}};
+	ege_point polyPoints2[3] = {{x+w, y}, {x, y+h}, {x+w, y+h}};
+	setfillcolor(WHITE);
+	ege_fillpoly(3, polyPoints1);
+	setfillcolor(GRAY);
+	ege_fillpoly(3, polyPoints2);
+	setfillcolor(LIGHTGRAY);
+	ege_fillrect(x+w*3/48, y+h*3/48, w*42/48, h*42/48);
+	//setfontbkcolor(LIGHTGRAY);
+	//绘制脸
+	setfillcolor(YELLOW);
+	ege_setpattern_ellipsegradient({x+w*16/48, y+h*18/48}, WHITE, x+w*6/48, y+h*6/48, w*36/48, h*36/48, GOLD);
+	ege_fillellipse(x+w*6/48, y+h*6/48, w*36/48, h*36/48);
+	setlinewidth(sideLength/16);
+	setcolor(BLACK);
+	ege_ellipse(x+w*6/48, y+h*6/48, w*36/48, h*36/48);//脸框
+	setfillcolor(BLACK);
+	if(mode == 0)//正常
+	{
+		ege_fillellipse(x+w*15/48, y+h*18/48, w*6/48, h*6/48);//左眼
+		ege_fillellipse(x+w*27/48, y+h*18/48, w*6/48, h*6/48);//右眼
+		ege_arc(x+w*19/48, y+h*24/48, w*9/48, h*9/48, 0, 180);//嘴
+	}
+	else if(mode == 1)//按下
+	{
+		ege_fillellipse(x+w*15/48, y+h*18/48, w*6/48, h*6/48);//左眼
+		ege_fillellipse(x+w*27/48, y+h*18/48, w*6/48, h*6/48);//右眼
+		ege_ellipse(x+w*19/48, y+h*27/48, w*9/48, h*9/48);//嘴
+	}
+	else if(mode == 2)//失败
+	{
+		line(x+w*15/48, y+h*18/48, x+w*21/48, y+h*24/48);
+		line(x+w*15/48, y+h*24/48, x+w*21/48, y+h*18/48);
+		//ege_fillellipse(x+w*15/48, y+h*18/48, w*6/48, h*6/48);//左眼
+		line(x+w*27/48, y+h*18/48, x+w*33/48, y+h*24/48);
+		line(x+w*27/48, y+h*24/48, x+w*33/48, y+h*18/48);
+		//ege_fillellipse(x+w*27/48, y+h*18/48, w*6/48, h*6/48);//右眼
+		ege_arc(x+w*19/48, y+h*28/48, w*9/48, h*9/48, 180, 180);//嘴
+	}
+	else if(mode == 3)//成功
+	{
+		ege_arc(x+w*19/48, y+h*24/48, w*9/48, h*9/48, 0, 180);//嘴
+		ege_fillpie(x+w*12/48, y+h*12/48, w*12/48, h*12/48, 0, 180);//左眼镜
+		ege_fillpie(x+w*24/48, y+h*12/48, w*12/48, h*12/48, 0, 180);//右眼镜
+		line(x+w*6/48, y+h*24/48, x+w*12/48, y+h*18/48);
+		line(x+w*42/48, y+h*24/48, x+w*36/48, y+h*18/48);//镜架
+	}
+}
+
 void DrawBoard(int mode, int remainder, int t)//绘制总外部窗口
 {
 	int r, c;
@@ -727,33 +815,72 @@ void DrawBoard(int mode, int remainder, int t)//绘制总外部窗口
 		}
 	}
 	setbkmode(OPAQUE);
-	if(widthOfBoard > 10)
+	//剩余雷数
+	if(widthOfBoard > 12)
 	{
-		//剩余雷数
 		DrawMineA(2*widthOfBlock, heightOfBar/2, 20*heightOfBar/64*4/3);
 		setcolor(RED);
 		setfontbkcolor(BLACK);
 		xyprintf(3*widthOfBlock+xOfChar, (heightOfBar-heightOfChar)/2, " %d ", remainder);
-		//用时
+	}
+	else if(widthOfBoard > 8)
+	{
+		DrawMineA(1*widthOfBlock, heightOfBar/2, 20*heightOfBar/64*4/3);
+		setcolor(RED);
+		setfontbkcolor(BLACK);
+		xyprintf(2*widthOfBlock, (heightOfBar-heightOfChar)/2, " %d ", remainder);
+	}
+	else if(widthOfBoard > 4)
+	{
+		setcolor(RED);
+		setfontbkcolor(BLACK);
+		xyprintf(widthOfBoard*widthOfBlock/4-widthOfBlock, (heightOfBar-heightOfChar)/2, " %d ", remainder);
+	}
+	//用时
+	if(widthOfBoard > 23)
+	{
 		DrawClock(7*widthOfBlock, heightOfBar/2, 20*heightOfBar/64, time(0));//按真实时间走的钟(doge)
 		setcolor(RED);
 		setfontbkcolor(BLACK);
 		xyprintf(8*widthOfBlock+xOfChar, (heightOfBar-heightOfChar)/2, " %d ", t);
 	}
-	else
+	else if(widthOfBoard > 12)
 	{
-		//剩余雷数
-		DrawMineA(1*widthOfBlock, heightOfBar/2, 20*heightOfBar/64*4/3);
+		DrawClock((widthOfBoard+6)*widthOfBlock/2, heightOfBar/2, 20*heightOfBar/64, time(0));
 		setcolor(RED);
 		setfontbkcolor(BLACK);
-		xyprintf(2*widthOfBlock, (heightOfBar-heightOfChar)/2, " %d ", remainder);
-		//用时
-		DrawClock(5*widthOfBlock, heightOfBar/2, 20*heightOfBar/64, time(0));//按真实时间走的钟(doge)
+		xyprintf((widthOfBoard+8)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, " %d ", t);
+	}
+	else if(widthOfBoard > 10)
+	{
+		DrawClock((widthOfBoard+4)*widthOfBlock/2, heightOfBar/2, 20*heightOfBar/64, time(0));
 		setcolor(RED);
 		setfontbkcolor(BLACK);
-		xyprintf(6*widthOfBlock, (heightOfBar-heightOfChar)/2, " %d ", t);
+		xyprintf((widthOfBoard+6)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, " %d ", t);
+	}
+	else if(widthOfBoard == 10)
+	{
+		DrawClock(7*widthOfBlock, heightOfBar/2, 20*heightOfBar/64, time(0));
+		setcolor(RED);
+		setfontbkcolor(BLACK);
+		xyprintf(8*widthOfBlock, (heightOfBar-heightOfChar)/2, " %d ", t);
+	}
+	else if(widthOfBoard == 9)
+	{
+		DrawClock(6*widthOfBlock+widthOfBorder, heightOfBar/2, 20*heightOfBar/64, time(0));
+		setcolor(RED);
+		setfontbkcolor(BLACK);
+		if(t < 1000) xyprintf(7*widthOfBlock+widthOfBorder, (heightOfBar-heightOfChar)/2, " %d ", t);
+		else xyprintf(7*widthOfBlock+widthOfBorder, (heightOfBar-heightOfChar)/2, "%d ", t);
+	}
+	else if(widthOfBoard > 4)
+	{
+		setcolor(RED);
+		setfontbkcolor(BLACK);
+		xyprintf(widthOfBoard*widthOfBlock*3/4, (heightOfBar-heightOfChar)/2, " %d ", t);
 	}
 	setbkmode(TRANSPARENT);
+	DrawFace(0);
 }
 
 void InitWindow()//创建窗口
@@ -780,13 +907,15 @@ void InitWindow()//创建窗口
 	setfont(heightOfChar, 0, "Consolas");
 	setbkmode(TRANSPARENT);//默认设置为无背景字体
 	ege_enable_aa(true);
+	flushmouse();//避免上一局鼠标消息选择起始点
 }
 
 void GetWindowOperation(char* operation, int* r, int* c)
 {
 	int xm, ym;
 	mouse_msg mouseMsg;
-	while(mousemsg())
+	key_msg keyMsg;
+	while(mousemsg())//使用while代替if避免堆积消息产生延迟
 	{
 		mouseMsg = getmouse();
 		if(mouseMsg.is_left() && mouseMsg.is_down())//鼠标左键按下
@@ -798,6 +927,13 @@ void GetWindowOperation(char* operation, int* r, int* c)
 				*operation = '@';
 				*r = (ym-heightOfBar-widthOfBorder)/heightOfBlock;
 				*c = (xm-widthOfBorder)/widthOfBlock;
+				DrawFace(1);
+			}
+			else if(IsPosInRectangle(xm, ym,
+				widthOfBlock*widthOfBoard/2+widthOfBorder-widthOfBlock*3/4, heightOfBar/2-heightOfBlock*3/4,
+				widthOfBlock*widthOfBoard/2+widthOfBorder+widthOfBlock*3/4, heightOfBar/2+heightOfBlock*3/4))
+			{
+				*operation = '%';
 			}
 		}
 		if(mouseMsg.is_right() && mouseMsg.is_down())//鼠标右键按下
@@ -809,15 +945,31 @@ void GetWindowOperation(char* operation, int* r, int* c)
 				*operation = '#';
 				*r = (ym-heightOfBar-widthOfBorder)/heightOfBlock;
 				*c = (xm-widthOfBorder)/widthOfBlock;
+				DrawFace(1);
 			}
 		}
 	}
-	delay_ms(50);
+	/*while(kbmsg())
+	{
+		keyMsg = getkey();
+		if(keyMsg.msg == key_msg_down)
+		{
+			if(keyMsg.flags & key_flag_shift && keyMsg.key == '1')
+			{
+				*operation = '!';//实时求解指令
+			}
+			if(keyMsg.key == '\t')
+			{
+				*operation = '\t';
+			}
+		}
+	}*/
 }
 
-void CloseWindow(int isWinning, int remainder, int time)
+int CloseWindow(int isWinning, int remainder, int time)
 {
-	int r, c;
+	int r, c, newGame;
+	mouse_msg mouseMsg;
 	if(isWinning == 1)//胜利后自动全部标记
 	{
 		for(r=0; r<heightOfBoard; r++)
@@ -834,6 +986,7 @@ void CloseWindow(int isWinning, int remainder, int time)
 	DrawBoard(1, remainder, time);
 	if(isWinning == 1)
 	{
+		DrawFace(3);
 		setcolor(BLACK);//显示阴影
 		xyprintf(widthOfBlock+2, heightOfBar+widthOfBorder+2, "You Win!");
 		setcolor(YELLOW);
@@ -841,23 +994,43 @@ void CloseWindow(int isWinning, int remainder, int time)
 	}
 	else
 	{
+		DrawFace(2);
 		setcolor(BLACK);
 		xyprintf(widthOfBlock+2, heightOfBar+widthOfBorder+2, "Game Over!");
 		setcolor(RED);
 		xyprintf(widthOfBlock, heightOfBar+widthOfBorder, "Game Over!");
 	}
+	delay_ms(1000);
 	setfont(heightOfChar/2, 0, "黑体");
 	setcolor(BLACK);
-	xyprintf(widthOfBlock+1, heightOfBar+widthOfBorder+heightOfBlock+1, "请按键盘任意键关闭窗口");
+	//xyprintf(widthOfBlock+1, heightOfBar+widthOfBorder+heightOfBlock+1, "请按键盘任意键关闭窗口");
+	xyprintf(widthOfBlock+1, heightOfBar+widthOfBorder+heightOfBlock+1, "左键新游戏，右键关闭窗口");
 	setcolor(RED);
-	xyprintf(widthOfBlock, heightOfBar+widthOfBorder+heightOfBlock, "请按键盘任意键关闭窗口");
+	//xyprintf(widthOfBlock, heightOfBar+widthOfBorder+heightOfBlock, "请按键盘任意键关闭窗口");
+	xyprintf(widthOfBlock, heightOfBar+widthOfBorder+heightOfBlock, "左键新游戏，右键关闭窗口");
 	//xyprintf(widthOfBlock, heightOfBar+heightOfBlock*3/2, "请勿按右上角退出！");
 	//xyprintf(widthOfBlock, heightOfBar+heightOfBlock, "Press any key to continue . . .");
 	setfont(heightOfChar, 0, "Consolas");
-	getch();
+	//getch();
 	//delay_ms(2000);
+	flushmouse();
+	while(1)
+	{
+		mouseMsg = getmouse();
+		if(mouseMsg.is_left() && mouseMsg.is_down())
+		{
+			newGame = 1;
+			break;//仅处理点击，不处理移动
+		}
+		if(mouseMsg.is_right() && mouseMsg.is_down())
+		{
+			newGame = 0;
+			break;
+		}
+	}
 	cleardevice();
 	closegraph();
+	return newGame;
 }
 
 int IsAroundZeroChain(int r0, int c0)
@@ -987,4 +1160,12 @@ MineSweeper EGE 3
 MineSweeper EGE 4
 ——新增 地图边框
 ——修复 切换难度后闪退（使用新版EGE编译）
+MineSweeper EGE 5
+——新增 笑脸按钮
+——新增 游戏时点击笑脸按钮重新生成地图
+——新增 游戏结束时左键新游戏，右键关闭窗口
+//——新增 实时求解指令
+——优化 剩余雷数和用时在从1开始的所有界面宽度下适配
+——优化 统一延时位置
+——修复 上一局鼠标消息选择起始点
 --------------------------------*/
