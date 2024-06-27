@@ -10,8 +10,8 @@
  * 
  * https://github.com/Ltabsyy/MineSweeper
  **/
-#define LimHeight 42//最大高度，限制行数
-#define LimWidth 88//最大宽度，限制列数
+#define LimHeight 128//最大高度，限制行数
+#define LimWidth 93//最大宽度，限制列数
 
 // EGE窗口形态
 int sideLength = 32;//外部窗口方块边长
@@ -30,16 +30,17 @@ int Place(int n);
 void ShowBoard(int mode);
 
 // EGE窗口显示
+int dx = 0, dy = 0;//地图偏移
 void DrawMine(int r, int c);//绘制地图地雷
 void DrawMineA(int x0, int y0, int r);//绘制地雷图形
 void DrawFlag(int r, int c);//绘制地图旗帜
-void DrawBlock(int r, int c, int board, int isShown);//绘制方块
+void DrawBlock(int r, int c, int board, int isShown, int highlight);//绘制方块
 void DrawLineA(int x0, int y0, int r, int angle);//绘制时钟指针
 void DrawClock(int x0, int y0, int r, int time);//绘制时钟
 void DrawFace(int mode);//绘制笑脸
 void DrawBoard(int mode, int remainder, int t);//绘制总外部窗口
 void InitWindow();
-void GetWindowOperation(char* operation, int* r, int* c);
+void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t);
 int CloseWindow(int isWinning, int remainder, int time);
 
 // 后台计算
@@ -59,7 +60,9 @@ int zeroChain[LimHeight][LimWidth]={0};
 int numberOfMine = 10;//雷数量
 int heightOfBoard = 10;//界面高度
 int widthOfBoard = 10;//界面宽度
-const int refreshCycle = 50;
+int showTime = 1;
+int refreshCycle = 50;
+int newCursor = 2;
 
 int main()
 {
@@ -104,7 +107,8 @@ int main()
 			while(r0 == -1)
 			{
 				DrawBoard(0, numberOfMine, 0);
-				GetWindowOperation(&operation, &r0, &c0);
+				GetWindowOperation(&operation, &r0, &c0, numberOfMine, 0);
+				delay_ms(refreshCycle);
 			}
 			seed = time(0);//当前时间戳作种子生成随机数
 			t0 = time(0);
@@ -151,7 +155,7 @@ int main()
 					{
 						t1 = time(0);
 						DrawBoard(0, remainder, t1-t0);
-						GetWindowOperation(&operation, &r, &c);
+						GetWindowOperation(&operation, &r, &c, remainder, t1-t0);
 						if(operation == '%')//重新生成地图
 						{
 							remainder = numberOfMine;
@@ -166,7 +170,7 @@ int main()
 							while(r0 == -1)
 							{
 								DrawBoard(0, numberOfMine, 0);
-								GetWindowOperation(&operation, &r0, &c0);
+								GetWindowOperation(&operation, &r0, &c0, numberOfMine, 0);
 							}
 							seed = time(0);
 							t0 = time(0);
@@ -519,8 +523,8 @@ void ShowBoard(int mode)
 
 void DrawMine(int r, int c)//绘制地图地雷
 {
-	int x = c*widthOfBlock+widthOfBorder;
-	int y = r*heightOfBlock+heightOfBar+widthOfBorder;
+	int x = c*widthOfBlock+widthOfBorder+dx;
+	int y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
 	//setcolor(LIGHTRED);
 	//xyprintf(x+xOfChar, y+yOfChar, "@");
 	setfillcolor(BLACK);
@@ -552,8 +556,8 @@ void DrawMineA(int x0, int y0, int r)//绘制地雷图形
 
 void DrawFlag(int r, int c)//绘制地图旗帜
 {
-	int x = c*widthOfBlock+widthOfBorder;
-	int y = r*heightOfBlock+heightOfBar+widthOfBorder;
+	int x = c*widthOfBlock+widthOfBorder+dx;
+	int y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
 	//setcolor(LIGHTRED);
 	//xyprintf(x+xOfChar, y+yOfChar, "#");
 	setfillcolor(BLACK);
@@ -573,16 +577,17 @@ void DrawFlag(int r, int c)//绘制地图旗帜
 	ege_fillpoly(3, polyPoints);
 }
 
-void DrawBlock(int r, int c, int board, int isShown)//绘制方块
+void DrawBlock(int r, int c, int board, int isShown, int highlight)//绘制方块
 {
-	int x = c*widthOfBlock+widthOfBorder;
-	int y = r*heightOfBlock+heightOfBar+widthOfBorder;
+	int x = c*widthOfBlock+widthOfBorder+dx;
+	int y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
 	//绘制边框和底纹
 	if(isShown == 1 || (board == 9 && isShown == 0))
 	{
 		setfillcolor(GRAY);
 		ege_fillrect(x, y, widthOfBlock, heightOfBlock);
-		setfillcolor(DARKGRAY);
+		if(highlight == 1) setfillcolor(LIGHTBLUE);
+		else setfillcolor(DARKGRAY);
 		ege_fillrect(x+widthOfBlock*2/32, y+heightOfBlock*2/32, widthOfBlock*30/32, heightOfBlock*30/32);
 		//setfontbkcolor(DARKGRAY);
 	}
@@ -594,7 +599,8 @@ void DrawBlock(int r, int c, int board, int isShown)//绘制方块
 		ege_fillpoly(3, polyPoints1);
 		setfillcolor(GRAY);
 		ege_fillpoly(3, polyPoints2);
-		setfillcolor(LIGHTGRAY);
+		if(highlight == 1) setfillcolor(LIGHTBLUE);
+		else setfillcolor(LIGHTGRAY);
 		//ege_fillrect(x+widthOfBlock*4/32, y+heightOfBlock*4/32, widthOfBlock*24/32, heightOfBlock*24/32);
 		ege_fillrect(x+widthOfBlock*2/32, y+heightOfBlock*2/32, widthOfBlock*28/32, heightOfBlock*28/32);
 		//setfontbkcolor(LIGHTGRAY);
@@ -678,15 +684,15 @@ void DrawClock(int x0, int y0, int r, int time)//绘制时钟
 	//circle(x0, y0, r);
 	ege_ellipse(x0-r, y0-r, 2*r, 2*r);
 	//秒针
-	setlinewidth(1);
+	setlinewidth(r/20);
 	setcolor(RED);
 	DrawLineA(x0, y0, r*4/5, 270+second*6);
 	setcolor(BLACK);
 	//分针
-	setlinewidth(1);
+	setlinewidth(r/20);
 	DrawLineA(x0, y0, r*3/4, 270+minute*6);
 	//时针
-	setlinewidth(2);
+	setlinewidth(r/10);
 	DrawLineA(x0, y0, r/2, 270+hour%12*30);
 	//转轴
 	setfillcolor(RED);
@@ -754,62 +760,81 @@ void DrawFace(int mode)//绘制笑脸
 void DrawBoard(int mode, int remainder, int t)//绘制总外部窗口
 {
 	int r, c;
+	int xm, ym, rm = -1, cm = -1, highlight;
 	ege_point polyPoints1[5] =
 	{
-		{0, heightOfBar},
-		{widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar},
-		{widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+widthOfBorder},
-		{widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder},
-		{0, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2}
+		{0+dx, heightOfBar+dy},
+		{widthOfBlock*widthOfBoard+widthOfBorder*2+dx, heightOfBar+dy},
+		{widthOfBlock*widthOfBoard+widthOfBorder+dx, heightOfBar+widthOfBorder+dy},
+		{widthOfBorder+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder+dy},
+		{0+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy}
 	};
 	ege_point polyPoints2[5] =
 	{
-		{widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar},
-		{widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+widthOfBorder},
-		{widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder},
-		{0, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2},
-		{widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2}
+		{widthOfBlock*widthOfBoard+widthOfBorder*2+dx, heightOfBar+dy},
+		{widthOfBlock*widthOfBoard+widthOfBorder+dx, heightOfBar+widthOfBorder+dy},
+		{widthOfBorder+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder+dy},
+		{0+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy},
+		{widthOfBlock*widthOfBoard+widthOfBorder*2+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy}
 	};
 	setfillcolor(GRAY);
 	ege_fillpoly(5, polyPoints1);
 	setfillcolor(WHITE);
 	ege_fillpoly(5, polyPoints2);
+	mousepos(&xm, &ym);//悬浮高亮
+	if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
+		widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder))
+	{
+		rm = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
+		cm = (xm-dx-widthOfBorder)/widthOfBlock;
+	}
 	for(r=0; r<heightOfBoard; r++)
 	{
+		//if((r+1)*heightOfBlock+heightOfBar+widthOfBorder+dy < 0) continue;
 		for(c=0; c<widthOfBoard; c++)
 		{
+			//if((c+1)*widthOfBlock+widthOfBorder+dx < 0) continue;//裁剪优化
+			highlight = 0;
+			if(newCursor > 1)//淡黄色高亮光标
+			{
+				if(r == rm && c == cm) highlight = 1;
+				if(newCursor == 3)
+				{
+					if(r == rm || c == cm) highlight = 1;
+				}
+			}
 			if(mode == 1)//后台
 			{
 				if(isShown[r][c] == 2)
 				{
-					DrawBlock(r, c, board[r][c], 2);
+					DrawBlock(r, c, board[r][c], 2, highlight);
 				}
 				else if(board[r][c] == 0)
 				{
-					DrawBlock(r, c, 0, 1);
+					DrawBlock(r, c, 0, 1, highlight);
 				}
 				else if(board[r][c] == 9)
 				{
-					DrawBlock(r, c, 9, isShown[r][c]);
+					DrawBlock(r, c, 9, isShown[r][c], highlight);
 				}
 				else
 				{
-					DrawBlock(r, c, board[r][c], 1);
+					DrawBlock(r, c, board[r][c], 1, highlight);
 				}
 			}
 			else if(mode == 0)//前台
 			{
 				if(isShown[r][c] == 2)
 				{
-					DrawBlock(r, c, 9, 2);
+					DrawBlock(r, c, 9, 2, highlight);
 				}
 				else if(isShown[r][c] == 0)
 				{
-					DrawBlock(r, c, 0, 0);
+					DrawBlock(r, c, 0, 0, highlight);
 				}
 				else
 				{
-					DrawBlock(r, c, board[r][c], 1);
+					DrawBlock(r, c, board[r][c], 1, highlight);
 				}
 			}
 		}
@@ -837,47 +862,50 @@ void DrawBoard(int mode, int remainder, int t)//绘制总外部窗口
 		xyprintf(widthOfBoard*widthOfBlock/4-widthOfBlock, (heightOfBar-heightOfChar)/2, " %d ", remainder);
 	}
 	//用时
-	if(widthOfBoard > 23)
+	if(showTime == 1)
 	{
-		DrawClock(7*widthOfBlock, heightOfBar/2, 20*heightOfBar/64, time(0));//按真实时间走的钟(doge)
-		setcolor(RED);
-		setfontbkcolor(BLACK);
-		xyprintf(8*widthOfBlock+xOfChar, (heightOfBar-heightOfChar)/2, " %d ", t);
-	}
-	else if(widthOfBoard > 12)
-	{
-		DrawClock((widthOfBoard+6)*widthOfBlock/2, heightOfBar/2, 20*heightOfBar/64, time(0));
-		setcolor(RED);
-		setfontbkcolor(BLACK);
-		xyprintf((widthOfBoard+8)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, " %d ", t);
-	}
-	else if(widthOfBoard > 10)
-	{
-		DrawClock((widthOfBoard+4)*widthOfBlock/2, heightOfBar/2, 20*heightOfBar/64, time(0));
-		setcolor(RED);
-		setfontbkcolor(BLACK);
-		xyprintf((widthOfBoard+6)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, " %d ", t);
-	}
-	else if(widthOfBoard == 10)
-	{
-		DrawClock(7*widthOfBlock, heightOfBar/2, 20*heightOfBar/64, time(0));
-		setcolor(RED);
-		setfontbkcolor(BLACK);
-		xyprintf(8*widthOfBlock, (heightOfBar-heightOfChar)/2, " %d ", t);
-	}
-	else if(widthOfBoard == 9)
-	{
-		DrawClock(6*widthOfBlock+widthOfBorder, heightOfBar/2, 20*heightOfBar/64, time(0));
-		setcolor(RED);
-		setfontbkcolor(BLACK);
-		if(t < 1000) xyprintf(7*widthOfBlock+widthOfBorder, (heightOfBar-heightOfChar)/2, " %d ", t);
-		else xyprintf(7*widthOfBlock+widthOfBorder, (heightOfBar-heightOfChar)/2, "%d ", t);
-	}
-	else if(widthOfBoard > 4)
-	{
-		setcolor(RED);
-		setfontbkcolor(BLACK);
-		xyprintf(widthOfBoard*widthOfBlock*3/4, (heightOfBar-heightOfChar)/2, " %d ", t);
+		if(widthOfBoard > 23)
+		{
+			DrawClock(7*widthOfBlock, heightOfBar/2, 20*heightOfBar/64, time(0));//按真实时间走的钟(doge)
+			setcolor(RED);
+			setfontbkcolor(BLACK);
+			xyprintf(8*widthOfBlock+xOfChar, (heightOfBar-heightOfChar)/2, " %d ", t);
+		}
+		else if(widthOfBoard > 12)
+		{
+			DrawClock((widthOfBoard+6)*widthOfBlock/2, heightOfBar/2, 20*heightOfBar/64, time(0));
+			setcolor(RED);
+			setfontbkcolor(BLACK);
+			xyprintf((widthOfBoard+8)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, " %d ", t);
+		}
+		else if(widthOfBoard > 10)
+		{
+			DrawClock((widthOfBoard+4)*widthOfBlock/2, heightOfBar/2, 20*heightOfBar/64, time(0));
+			setcolor(RED);
+			setfontbkcolor(BLACK);
+			xyprintf((widthOfBoard+6)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, " %d ", t);
+		}
+		else if(widthOfBoard == 10)
+		{
+			DrawClock(7*widthOfBlock, heightOfBar/2, 20*heightOfBar/64, time(0));
+			setcolor(RED);
+			setfontbkcolor(BLACK);
+			xyprintf(8*widthOfBlock, (heightOfBar-heightOfChar)/2, " %d ", t);
+		}
+		else if(widthOfBoard == 9)
+		{
+			DrawClock(6*widthOfBlock+widthOfBorder, heightOfBar/2, 20*heightOfBar/64, time(0));
+			setcolor(RED);
+			setfontbkcolor(BLACK);
+			if(t < 1000) xyprintf(7*widthOfBlock+widthOfBorder, (heightOfBar-heightOfChar)/2, " %d ", t);
+			else xyprintf(7*widthOfBlock+widthOfBorder, (heightOfBar-heightOfChar)/2, "%d ", t);
+		}
+		else if(widthOfBoard > 4)
+		{
+			setcolor(RED);
+			setfontbkcolor(BLACK);
+			xyprintf(widthOfBoard*widthOfBlock*3/4, (heightOfBar-heightOfChar)/2, " %d ", t);
+		}
 	}
 	setbkmode(TRANSPARENT);
 	DrawFace(0);
@@ -907,51 +935,150 @@ void InitWindow()//创建窗口
 	setfont(heightOfChar, 0, "Consolas");
 	setbkmode(TRANSPARENT);//默认设置为无背景字体
 	ege_enable_aa(true);
-	flushmouse();//避免上一局鼠标消息选择起始点
+	//flushmouse();//避免上一局鼠标消息选择起始点
+	dx = 0;
+	dy = 0;//偏移回正
+	GetWindowOperation(NULL, NULL, NULL, numberOfMine, 0);
 }
 
-void GetWindowOperation(char* operation, int* r, int* c)
+void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t)
 {
-	int xm, ym;
+	int xm, ym, xn, yn, clock0, clock1;
+	static int isOpening, isSigning, ro, co, xo, yo;//拖动操作
 	mouse_msg mouseMsg;
 	key_msg keyMsg;
-	while(mousemsg())//使用while代替if避免堆积消息产生延迟
+	if(operation == NULL || r == NULL || c == NULL)//重置键鼠消息
 	{
-		mouseMsg = getmouse();
-		if(mouseMsg.is_left() && mouseMsg.is_down())//鼠标左键按下
-		{
-			mousepos(&xm, &ym);
-			if(IsPosInRectangle(xm, ym, widthOfBorder, heightOfBar+widthOfBorder,
-				widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder))
-			{
-				*operation = '@';
-				*r = (ym-heightOfBar-widthOfBorder)/heightOfBlock;
-				*c = (xm-widthOfBorder)/widthOfBlock;
-				DrawFace(1);
-			}
-			else if(IsPosInRectangle(xm, ym,
-				widthOfBlock*widthOfBoard/2+widthOfBorder-widthOfBlock*3/4, heightOfBar/2-heightOfBlock*3/4,
-				widthOfBlock*widthOfBoard/2+widthOfBorder+widthOfBlock*3/4, heightOfBar/2+heightOfBlock*3/4))
-			{
-				*operation = '%';
-			}
-		}
-		if(mouseMsg.is_right() && mouseMsg.is_down())//鼠标右键按下
-		{
-			mousepos(&xm, &ym);
-			if(IsPosInRectangle(xm, ym, widthOfBorder, heightOfBar+widthOfBorder,
-				widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder))
-			{
-				*operation = '#';
-				*r = (ym-heightOfBar-widthOfBorder)/heightOfBlock;
-				*c = (xm-widthOfBorder)/widthOfBlock;
-				DrawFace(1);
-			}
-		}
+		isOpening = 0;
+		isSigning = 0;
+		flushmouse();
+		flushkey();
 	}
-	/*while(kbmsg())
+	while(mousemsg() || kbmsg())//使用while代替if避免堆积消息产生延迟
 	{
-		keyMsg = getkey();
+		//键鼠混动输入
+		if(mousemsg()) mouseMsg = getmouse();
+		if(kbmsg()) keyMsg = getkey();
+		if(mouseMsg.is_up())
+		{
+			if(mouseMsg.is_left()) isOpening = 0;//鼠标左键抬起
+			if(mouseMsg.is_right()) isSigning = 0;//鼠标右键抬起
+		}
+		if(mouseMsg.is_down())
+		{
+			if(mouseMsg.is_left())//鼠标左键按下
+			{
+				xm = mouseMsg.x;
+				ym = mouseMsg.y;
+				if(keystate(key_control))
+				{
+					clock0 = clock();
+					while(1)
+					{
+						mouseMsg = getmouse();
+						xn = mouseMsg.x;
+						yn = mouseMsg.y;
+						clock1 = clock();
+						if(clock1 - clock0 > refreshCycle)//拖动预览
+						{
+							dx += xn-xm;
+							dy += yn-ym;
+							cleardevice();
+							DrawBoard(0, remainder, t);
+							dx -= xn-xm;
+							dy -= yn-ym;
+							clock0 = clock();
+						}
+						if(mouseMsg.is_left() && mouseMsg.is_up()) break;
+						//delay_ms(refreshCycle);
+					}
+					dx += xn-xm;
+					dy += yn-ym;
+					//if(dx > -widthOfBlock && dx < widthOfBlock) dx = 0;
+					//if(dy > -heightOfBlock && dy < heightOfBlock) dy = 0;
+					cleardevice();//避免重影
+					DrawBoard(0, remainder, t);//避免闪烁
+				}
+				else
+				{
+					if(IsPosInRectangle(xm, ym,
+						widthOfBlock*widthOfBoard/2+widthOfBorder-widthOfBlock*3/4, heightOfBar/2-heightOfBlock*3/4,
+						widthOfBlock*widthOfBoard/2+widthOfBorder+widthOfBlock*3/4, heightOfBar/2+heightOfBlock*3/4))
+					{
+						*operation = '%';
+					}
+					else if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
+						widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder))
+					{
+						*operation = '@';
+						*r = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
+						*c = (xm-dx-widthOfBorder)/widthOfBlock;
+						DrawFace(1);
+						isOpening = 1;
+						ro = *r;
+						co = *c;
+						xo = xm;
+						yo = ym;
+						break;
+					}
+				}
+			}
+			if(mouseMsg.is_right())//鼠标右键按下
+			{
+				xm = mouseMsg.x;
+				ym = mouseMsg.y;
+				if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
+					widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder))
+				{
+					*operation = '#';
+					*r = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
+					*c = (xm-dx-widthOfBorder)/widthOfBlock;
+					DrawFace(1);
+					isSigning = 1;
+					ro = *r;
+					co = *c;
+					xo = xm;
+					yo = ym;
+					break;
+				}
+			}
+		}
+		if(mouseMsg.is_move() && (isOpening == 1 || isSigning == 1))
+		{
+			//mousepos(&xm, &ym);//最新位置
+			xm = mouseMsg.x;
+			ym = mouseMsg.y;//缓冲位置
+			if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
+				widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder))
+			{
+				*r = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
+				*c = (xm-dx-widthOfBorder)/widthOfBlock;
+				//DrawFace(1);
+				if(ro != *r || co != *c)//移动到其他方块
+				{
+					if(IsPosInRectangle(xm, ym, xo-widthOfBlock*3/4, yo-heightOfBlock*3/4, xo+widthOfBlock*3/4, yo+heightOfBlock*3/4))
+					{
+						//移动距离必须超过3/4个方块
+					}
+					else
+					{
+						if(isOpening == 1) *operation = '@';
+						if(isSigning == 1) *operation = '#';
+						DrawFace(1);
+						ro = *r;
+						co = *c;
+						xo = xm;
+						yo = ym;
+						break;
+					}
+				}
+			}
+			else
+			{
+				isOpening = 0;
+				isSigning = 0;
+			}
+		}
 		if(keyMsg.msg == key_msg_down)
 		{
 			if(keyMsg.flags & key_flag_shift && keyMsg.key == '1')
@@ -963,12 +1090,20 @@ void GetWindowOperation(char* operation, int* r, int* c)
 				*operation = '\t';
 			}
 		}
-	}*/
+		if(mouseMsg.is_wheel() && keystate(key_control))
+		{
+			if(mouseMsg.wheel > 0) sideLength += 4;
+			else if(sideLength > 4) sideLength -= 4;
+			initgraph(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2, INIT_RENDERMANUAL);
+			setfont(heightOfChar, 0, "Consolas");
+		}
+	}
 }
 
 int CloseWindow(int isWinning, int remainder, int time)
 {
-	int r, c, newGame;
+	int r, c, newGame = -1;
+	int xm, ym, xn, yn, clock0, clock1;
 	mouse_msg mouseMsg;
 	if(isWinning == 1)//胜利后自动全部标记
 	{
@@ -1001,32 +1136,101 @@ int CloseWindow(int isWinning, int remainder, int time)
 		xyprintf(widthOfBlock, heightOfBar+widthOfBorder, "Game Over!");
 	}
 	delay_ms(1000);
-	setfont(heightOfChar/2, 0, "黑体");
-	setcolor(BLACK);
-	//xyprintf(widthOfBlock+1, heightOfBar+widthOfBorder+heightOfBlock+1, "请按键盘任意键关闭窗口");
-	xyprintf(widthOfBlock+1, heightOfBar+widthOfBorder+heightOfBlock+1, "左键新游戏，右键关闭窗口");
-	setcolor(RED);
-	//xyprintf(widthOfBlock, heightOfBar+widthOfBorder+heightOfBlock, "请按键盘任意键关闭窗口");
-	xyprintf(widthOfBlock, heightOfBar+widthOfBorder+heightOfBlock, "左键新游戏，右键关闭窗口");
-	//xyprintf(widthOfBlock, heightOfBar+heightOfBlock*3/2, "请勿按右上角退出！");
-	//xyprintf(widthOfBlock, heightOfBar+heightOfBlock, "Press any key to continue . . .");
-	setfont(heightOfChar, 0, "Consolas");
-	//getch();
-	//delay_ms(2000);
 	flushmouse();
-	while(1)
+	while(newGame == -1)
 	{
-		mouseMsg = getmouse();
-		if(mouseMsg.is_left() && mouseMsg.is_down())
+		DrawBoard(1, remainder, time);//刷新界面
+		if(isWinning == 1)
 		{
-			newGame = 1;
-			break;//仅处理点击，不处理移动
+			DrawFace(3);
+			setcolor(BLACK);
+			xyprintf(widthOfBlock+2, heightOfBar+widthOfBorder+2, "You Win!");
+			setcolor(YELLOW);
+			xyprintf(widthOfBlock, heightOfBar+widthOfBorder, "You Win!");
 		}
-		if(mouseMsg.is_right() && mouseMsg.is_down())
+		else
 		{
-			newGame = 0;
-			break;
+			DrawFace(2);
+			setcolor(BLACK);
+			xyprintf(widthOfBlock+2, heightOfBar+widthOfBorder+2, "Game Over!");
+			setcolor(RED);
+			xyprintf(widthOfBlock, heightOfBar+widthOfBorder, "Game Over!");
 		}
+		setfont(heightOfChar/2, 0, "黑体");
+		setcolor(BLACK);
+		//xyprintf(widthOfBlock+1, heightOfBar+widthOfBorder+heightOfBlock+1, "请按键盘任意键关闭窗口");
+		xyprintf(widthOfBlock+1, heightOfBar+widthOfBorder+heightOfBlock+1, "左键新游戏，右键关闭窗口");
+		setcolor(RED);
+		//xyprintf(widthOfBlock, heightOfBar+widthOfBorder+heightOfBlock, "请按键盘任意键关闭窗口");
+		xyprintf(widthOfBlock, heightOfBar+widthOfBorder+heightOfBlock, "左键新游戏，右键关闭窗口");
+		//xyprintf(widthOfBlock, heightOfBar+heightOfBlock*3/2, "请勿按右上角退出！");
+		//xyprintf(widthOfBlock, heightOfBar+heightOfBlock, "Press any key to continue . . .");
+		setfont(heightOfChar, 0, "Consolas");
+		//getch();
+		//delay_ms(2000);
+		//break;
+		while(mousemsg())
+		{
+			mouseMsg = getmouse();
+			if(mouseMsg.is_left() && mouseMsg.is_down())
+			{
+				if(keystate(key_control))
+				{
+					xm = mouseMsg.x;
+					ym = mouseMsg.y;
+					clock0 = clock();
+					while(1)
+					{
+						mouseMsg = getmouse();
+						xn = mouseMsg.x;
+						yn = mouseMsg.y;
+						clock1 = clock();
+						if(clock1 - clock0 > refreshCycle)//拖动预览
+						{
+							dx += xn-xm;
+							dy += yn-ym;
+							cleardevice();
+							DrawBoard(1, remainder, time);
+							if(isWinning == 1) DrawFace(3);
+							else DrawFace(2);
+							dx -= xn-xm;
+							dy -= yn-ym;
+							clock0 = clock();
+						}
+						if(mouseMsg.is_left() && mouseMsg.is_up()) break;
+					}
+					dx += xn-xm;
+					dy += yn-ym;
+					if(dx > -widthOfBlock && dx < widthOfBlock) dx = 0;//趋向回正
+					if(dy > -heightOfBlock && dy < heightOfBlock) dy = 0;
+					cleardevice();
+					DrawBoard(1, remainder, time);
+					if(isWinning == 1) DrawFace(3);//保持笑脸
+					else DrawFace(2);
+				}
+				else
+				{
+					newGame = 1;
+					break;//仅处理点击，不处理移动
+				}
+			}
+			if(mouseMsg.is_right() && mouseMsg.is_down())
+			{
+				newGame = 0;
+				break;
+			}
+			if(mouseMsg.is_wheel() && keystate(key_control))
+			{
+				if(mouseMsg.wheel > 0) sideLength += 4;
+				else if(sideLength > 4) sideLength -= 4;
+				initgraph(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2, INIT_RENDERMANUAL);
+				setfont(heightOfChar, 0, "Consolas");//重设字体大小
+				DrawBoard(1, remainder, time);
+				if(isWinning == 1) DrawFace(3);
+				else DrawFace(2);
+			}
+		}
+		delay_ms(refreshCycle);
 	}
 	cleardevice();
 	closegraph();
@@ -1168,4 +1372,13 @@ MineSweeper EGE 5
 ——优化 剩余雷数和用时在从1开始的所有界面宽度下适配
 ——优化 统一延时位置
 ——修复 上一局鼠标消息选择起始点
+MineSweeper EGE 6
+——新增 Ctrl+滚轮调整显示大小
+——新增 Ctrl+左键拖动调整地图位置
+——新增 拖动标记和翻开
+——新增 悬浮高亮
+——优化 微调时钟线条
+——优化 游戏结束时时钟走动
+//——优化 可以不显示用时
+——修复 选择起始点时卡顿
 --------------------------------*/
