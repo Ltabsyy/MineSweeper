@@ -2,10 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>//时间戳作种子生成随机数，用于生成地图和无确定解时随机翻开
-//#include <conio.h>//非阻塞式输入
+#include <conio.h>//非阻塞式输入
 #include <windows.h>//面向Windows输出彩色字符
 #include <math.h>
-#include <graphics.h>//Easy Graphics Engine
+//#include <graphics.h>//Easy Graphics Engine
 /**
  * 扫雷 MineSweeper Run
  * 
@@ -21,14 +21,14 @@
 //内存占用至少为 71*H*W+L*D Byte，默认约3.1MB
 
 // 外部窗口形态
-int sideLength = 32;//外部窗口方块边长
+/*int sideLength = 32;//外部窗口方块边长
 #define heightOfBlock sideLength
 #define widthOfBlock sideLength//锁定纵横比
 #define heightOfBar 2*sideLength
 #define widthOfBorder sideLength/4
 #define xOfChar widthOfBlock*10/32
 #define yOfChar heightOfBlock/32
-#define heightOfChar heightOfBlock
+#define heightOfChar heightOfBlock*/
 
 // 控制栏
 int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2);
@@ -43,6 +43,8 @@ void DrawSetDifficulty(int select);
 int ChoiceSetDifficulty(COORD mousePos, DWORD dwButtonState);
 void DrawSetSummonCheckMode(int select);
 int ChoiceSetSummonCheckMode(COORD mousePos, DWORD dwButtonState);
+void DrawSetChosenBoard(int select);
+int ChoiceSetChosenBoard(COORD mousePos, DWORD dwButtonState);
 void DrawSetOperateMode(int select);
 int ChoiceSetOperateMode(COORD mousePos, DWORD dwButtonState);
 void DrawSetCursor(int select);
@@ -62,18 +64,20 @@ void ShowBoardFast(int yOfMap);
 void PrintSolvingMap(int mode);
 
 // 外部窗口显示
-int dx = 0, dy = 0;//地图偏移
+/*int dx = 0, dy = 0;//地图偏移
+int screenHeight, screenWidth;
 void DrawMine(int r, int c);//绘制地图地雷
 void DrawMineA(int x0, int y0, int r);//绘制地雷图形
 void DrawFlag(int r, int c);//绘制地图旗帜
-void DrawBlock(int r, int c, int board, int isShown);//绘制方块
+void DrawBlock(int r, int c, int board, int isShown, int highlight);//绘制方块
 void DrawLineA(int x0, int y0, int r, int angle);//绘制时钟指针
 void DrawClock(int x0, int y0, int r, int time);//绘制时钟
 void DrawFace(int mode);//绘制笑脸
-void DrawBoard(int mode, int remainder, int t);//绘制总外部窗口
+void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV);//绘制总外部窗口
+void DrawSolution();//在外部窗口绘制方案矩阵
 void InitWindow();
-void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t);
-int CloseWindow(int isWinning, int remainder, int time);
+void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, int solved3BV, int total3BV);
+int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total3BV);*/
 
 // 后台计算
 int Difficulty(int height, int width, int mine);//根据地图信息判断难度
@@ -254,7 +258,7 @@ int summonCheckMode = 2;//0不校验，1非雷，2必空，3可解，4筛选
 int showTime = 1;//显示用时，0不显示，1显示
 int show3BV = 0;//显示3BV和3BV/s
 int backgroundColor = 0x07;//背景颜色，深色模式0x07，浅色模式0xf0
-int operateMode = 3;//操作模式，0@#rc，1wasd23，2鼠标点击，3Window
+int operateMode = 2;//操作模式，0@#rc，1wasd23，2鼠标点击，3Window
 int solveMode = 1;//0简单模式，1游戏模式，2分析模式
 //int lengthOfThinkChain = 19;//未知链长度
 int lengthOfThinkNumberCheck = 15;
@@ -264,7 +268,7 @@ int remainedMineJudgeLocalNC = 1;//剩余雷数判断
 int remainedMineJudgeLocalMC = 0;
 int remainedMineJudgeGlobal = 0;
 int refreshCycle = 50;//刷新周期，默认50ms，一般鼠标8ms，游戏鼠标1ms
-int fastShow = 1;//启用快速显示，仅刷新地图更新部分
+int fastShow = 0;//启用快速显示，仅刷新地图更新部分
 int fastSign = 0;//#数字快速标记周围
 int newCursor = 2;//1><光标，2淡黄色高亮光标，3淡黄色高亮行列
 int visibleCursor = 0;//1显示控制台光标，0隐藏控制台光标
@@ -272,6 +276,10 @@ int keepCursor = 0;//保持光标显示
 int dynamicMemory = 0;//启用动态内存分配
 char cursorLeft[2] = ">";//><光标左
 char cursorRight[2] = "<";//><光标右
+int chosenSolvable = 1;//筛选地图可解性
+int chosen3BVMin[6] = {1, 1, 1, 1, 1, 0};//筛选地图3BV，3BV为2时，仅需1次点击
+int chosen3BVMax[6] = {8, 9, 49, 149, 1239, 2147483647};
+int chosenNumber = 0;//筛选地图指定包含数字
 int heightOfMapShown, widthOfMapShown, rs0, cs0;//控制台地图显示
 int minNumberOfPossibleMine, maxNumberOfPossibleMine;
 int numberOfAbandonedThinkChain, countOfDictionaryOverflow, dictionaryNeeded;//Bench统计
@@ -381,7 +389,7 @@ void AdaptScreenBufferWidth()//自适应屏幕缓冲区宽度
 int main()
 {
 	FILE* file;//文件读写
-	int choiceMode = 0, choiceTemp = 0, choiceSet = 0;//游戏功能的选择
+	int choiceMode = 0, choiceTemp = 0, choiceSet = 0, choiceSubSet = 0;//游戏功能的选择
 	char operation, key;//游戏操作和设置的字符读取，用户按键
 	int temp;//数据暂存
 	int seed, r0, c0, seedMin, seedMax;//地图生成
@@ -417,10 +425,6 @@ int main()
 	int benchShowStep = 1;//-1无帧，0结束帧，1中间帧，2帧暂停，3全调试
 	int benchShowSolution = 1;//Bench在原地图显示方案矩阵
 	int benchShowInformation = 0;//Bench显示置顶信息
-	int chosenSolvable = 1;//筛选地图可解性
-	int chosen3BVMin[6] = {1, 1, 1, 1, 1, 1};//筛选地图3BV，3BV为2时，仅需1次点击
-	int chosen3BVMax[6] = {8, 9, 49, 149, 1239, 2147483647};
-	int chosenNumber = 0;//筛选地图指定包含数字
 	//很好，我已经看不清我定义些啥了(doge)
 	if(debug == 2) printf("<Debug>\nHello! Administrator Ltabsyy or Jws!\n");
 	/*读取缓存*/
@@ -458,12 +462,12 @@ int main()
 		fscanf(file, "benchShowInformation=%d\n", &benchShowInformation);
 		fscanf(file, "cursorLeft=%c\n", &cursorLeft[0]);
 		fscanf(file, "cursorRight=%c\n", &cursorRight[0]);
-		/*fscanf(file, "chosenSolvable=%d\n", &chosenSolvable);
+		fscanf(file, "chosenSolvable=%d\n", &chosenSolvable);
 		fscanf(file, "chosen3BV:[%d,%d][%d,%d][%d,%d][%d,%d][%d,%d][%d,%d]\n",
 			&chosen3BVMin[0], &chosen3BVMax[0], &chosen3BVMin[1], &chosen3BVMax[1],
 			&chosen3BVMin[2], &chosen3BVMax[2], &chosen3BVMin[3], &chosen3BVMax[3],
 			&chosen3BVMin[4], &chosen3BVMax[4], &chosen3BVMin[5], &chosen3BVMax[5]);
-		fscanf(file, "chosenNumber=%d\n", &chosenNumber);*/
+		fscanf(file, "chosenNumber=%d\n", &chosenNumber);
 		fclose(file);
 		if(benchShowStep == 3 && debug != 2) benchShowStep = 2;
 		if(lengthOfThinkMineCheck < lengthOfThinkNumberCheck) lengthOfThinkMineCheck = lengthOfThinkNumberCheck;//保持NC<=MC
@@ -501,12 +505,12 @@ int main()
 			printf("benchShowInformation=%d\n", benchShowInformation);
 			printf("cursorLeft=%c\n", cursorLeft[0]);
 			printf("cursorRight=%c\n", cursorRight[0]);
-			/*printf("chosenSolvable=%d\n", chosenSolvable);
+			printf("chosenSolvable=%d\n", chosenSolvable);
 			printf("chosen3BV:[%d,%d][%d,%d][%d,%d][%d,%d][%d,%d][%d,%d]\n",
 				chosen3BVMin[0], chosen3BVMax[0], chosen3BVMin[1], chosen3BVMax[1],
 				chosen3BVMin[2], chosen3BVMax[2], chosen3BVMin[3], chosen3BVMax[3],
 				chosen3BVMin[4], chosen3BVMax[4], chosen3BVMin[5], chosen3BVMax[5]);
-			printf("chosenNumber=%d\n", chosenNumber);*/
+			printf("chosenNumber=%d\n", chosenNumber);
 		}
 	}
 	if((file = fopen("minesweeper-lastmap.txt", "r")))//读取上一次地图
@@ -618,7 +622,7 @@ int main()
 				}
 			}
 			showCursor(visibleCursor);//避免调整窗口大小恢复控制台光标
-			api_sleep(refreshCycle);
+			Sleep(refreshCycle);
 		}
 		if(choiceMode == 1)//游戏
 		{
@@ -661,7 +665,7 @@ int main()
 				}
 			}
 			/*获取种子和生成位置*/
-			if(operateMode == 3) InitWindow();//创建窗口
+			//if(operateMode == 3) InitWindow();//创建窗口
 			if(lastMap == 0)
 			{
 				ShowBoard(0);
@@ -725,20 +729,20 @@ int main()
 						FreshCursor(r0, c0, 3);
 						//gotoxy(cs0+2*c0, heightOfMapShown+2-heightOfBoard+1+r0);
 						showCursor(visibleCursor);
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					gotoxy(0, heightOfMapShown+5);
 				}
-				else if(operateMode == 3)
+				/*else if(operateMode == 3)
 				{
 					r0 = -1;
 					while(r0 == -1)
 					{
-						DrawBoard(0, numberOfMine, 0);
-						GetWindowOperation(&operation, &r0, &c0, numberOfMine, 0);
+						DrawBoard(0, numberOfMine, 0, -1, -1);
+						GetWindowOperation(&operation, &r0, &c0, numberOfMine, 0, -1, -1);
 						delay_ms(refreshCycle);
 					}
-				}
+				}*/
 				seed = time(0);//当前时间戳作种子生成随机数
 				if(debug == 2)
 				{
@@ -763,11 +767,20 @@ int main()
 					isOpenMine = 1;
 					while(isOpenMine == 1)
 					{
-						bbbv = BBBV(seed, r0, c0, 1);
-						if(bbbv >= chosen3BVMin[difficulty] && bbbv <= chosen3BVMax[difficulty])
+						bbbv = BBBV(seed, r0, c0, 1);//生成地图并计算3BV
+						if(bbbv >= chosen3BVMin[difficulty] && bbbv <= chosen3BVMax[difficulty])//筛选地图3BV
 						{
-							if(chosenSolvable == 0) isOpenMine = 0;
-							else isOpenMine = 1-IsSolvableMap(seed, r0, c0);
+							for(r=0; r<heightOfBoard; r++)//筛选地图指定包含数字
+							{
+								for(c=0; c<widthOfBoard; c++)
+								{
+									if(board[r][c] == chosenNumber) isOpenMine = 0;
+								}
+							}
+							if(isOpenMine == 0 && chosenSolvable == 1)//筛选地图可解性
+							{
+								isOpenMine = 1-IsSolvableMap(seed, r0, c0);
+							}
 						}
 						if(isOpenMine == 1) seed++;
 					}
@@ -785,6 +798,16 @@ int main()
 				ShownModeBak(0);
 			}
 			/*准备开始游戏*/
+			if(operateMode == 3)
+			{
+				for(r=0; r<heightOfBoard; r++)
+				{
+					for(c=0; c<widthOfBoard; c++)
+					{
+						solution[r][c] = 0;
+					}
+				}
+			}
 			r = r0;
 			c = c0;
 			if(lastMap == 0)
@@ -844,7 +867,7 @@ int main()
 					{
 						//gotoxy(0, yOfMapEnd+5);
 						//printf(":(\n标记过多！请重新标记。\n");
-						//if(operateMode == 2 && operation == '#') api_sleep(refreshCycle);//防止鼠标出现右键菜单
+						//if(operateMode == 2 && operation == '#') Sleep(refreshCycle);//防止鼠标出现右键菜单
 						//system("pause");
 						/*for(r=0; r<heightOfBoard; r++)//自动取消所有标记
 						{
@@ -970,10 +993,11 @@ int main()
 				c = co;
 				while(choiceMode == 1)
 				{
-					if(operateMode == 3)
+					/*if(operateMode == 3)
 					{
-						DrawBoard(0, remainder, t1-t0+t2);
-						GetWindowOperation(&operation, &r, &c, remainder, t1-t0+t2);
+						DrawBoard(0, remainder, t1-t0+t2, bbbv-temp, bbbv);
+						DrawSolution();
+						GetWindowOperation(&operation, &r, &c, remainder, t1-t0+t2, bbbv-temp, bbbv);
 						if(operation == '%')//重新生成地图
 						{
 							remainder = numberOfMine;
@@ -987,8 +1011,8 @@ int main()
 							r0 = -1;
 							while(r0 == -1)
 							{
-								DrawBoard(0, numberOfMine, 0);
-								GetWindowOperation(&operation, &r0, &c0, numberOfMine, 0);
+								DrawBoard(0, numberOfMine, 0, -1, -1);
+								GetWindowOperation(&operation, &r0, &c0, numberOfMine, 0, -1, -1);
 							}
 							seed = time(0);
 							t0 = time(0);
@@ -997,7 +1021,7 @@ int main()
 							c = c0;
 							isShown[r][c] = 1;
 						}
-					}
+					}*/
 					if(operateMode == 2)
 					{
 						isReadyRefreshMouseOpenPos = 1;
@@ -1015,7 +1039,7 @@ int main()
 							//gotoxy(1, yOfMapEnd+4);//操作指令位置
 							gotoxy(cs0+2*c, yOfMapEnd-heightOfBoard+1+r);//对应点位置
 							showCursor(visibleCursor);//避免调整窗口大小恢复控制台光标
-							api_sleep(refreshCycle);
+							Sleep(refreshCycle);
 							continue;
 						}
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
@@ -1340,7 +1364,7 @@ int main()
 						}
 						else if(operation == '\t')
 						{
-							api_sleep(refreshCycle);
+							Sleep(refreshCycle);
 							for(r=0; r<heightOfBoard; r++)
 							{
 								for(c=0; c<widthOfBoard; c++)
@@ -1386,12 +1410,14 @@ int main()
 						FreshCursor(r, c, yOfMapEnd-heightOfMapShown+1);
 						if(operation != 0)
 						{
-							api_sleep(refreshCycle);
+							//if(operateMode == 3) delay_ms(0);
+							Sleep(refreshCycle);//保持延迟统一，通过降低按键跟手性减弱轻浮感
 							gotoxy(0, yOfMapEnd+5);
 							break;
 						}
 					}
-					api_sleep(refreshCycle);//每50ms刷新一次
+					//if(operateMode == 3) delay_ms(0);
+					Sleep(refreshCycle);//每50ms刷新一次
 				}
 				ro = r;
 				co = c;
@@ -1548,7 +1574,7 @@ int main()
 				newRecord.difficulty = difficulty;
 				records = AddRecord(records, newRecord);
 				WriteRecords(records);
-				if(operateMode == 3) choiceMode = CloseWindow(1-isOpenMine, remainder, t1-t0+t2);
+				//if(operateMode == 3) choiceMode = CloseWindow(1-isOpenMine, remainder, t1-t0+t2, bbbv-temp, bbbv);
 			}
 		}
 		else if(choiceMode == 2)//地图求解
@@ -1594,9 +1620,19 @@ int main()
 					{
 						choiceSet = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-9
 					}
+					else if(rcd.Event.KeyEvent.wVirtualKeyCode == '0' || rcd.Event.KeyEvent.wVirtualKeyCode == '`')//主键盘或小键盘0
+					{
+						clrscr();
+						DrawControlBar(0);
+						choiceMode = 0;//不保存直接返回主页
+					}
 				}
 				if(choiceSet == 1)//设置游戏难度
 				{
+					if(dynamicMemory == 1)//申请顶级难度内存空间
+					{
+						ReallocMemory(42, 88, dictionaryCapacity, lengthOfThinkMineCheck);
+					}
 					choiceTemp = 3;
 					while(choiceTemp != -1)//设置游戏难度抗双击
 					{
@@ -1606,16 +1642,12 @@ int main()
 							mousePos = rcd.Event.MouseEvent.dwMousePosition;
 							choiceTemp = ChoiceSetDifficulty(mousePos, rcd.Event.MouseEvent.dwButtonState);
 						}
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					clrscr();
 					DrawSetDifficulty(-1);
-					if(dynamicMemory == 1)//申请顶级难度内存空间
-					{
-						ReallocMemory(42, 88, dictionaryCapacity, lengthOfThinkMineCheck);
-					}
-					//choiceTemp = -1;
-					while(choiceTemp == -1)
+					difficulty = -1;
+					while(difficulty == -1)
 					{
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
 						if(rcd.EventType == MOUSE_EVENT)
@@ -1628,28 +1660,25 @@ int main()
 						{
 							if(rcd.Event.KeyEvent.wVirtualKeyCode >= '0' && rcd.Event.KeyEvent.wVirtualKeyCode <= '5')
 							{
-								choiceTemp = rcd.Event.KeyEvent.wVirtualKeyCode-'0'+0;//主键盘0-5
-								difficulty = choiceTemp;
+								difficulty = rcd.Event.KeyEvent.wVirtualKeyCode-'0'+0;//主键盘0-5
 							}
 							else if(rcd.Event.KeyEvent.wVirtualKeyCode == '`')//小键盘0
 							{
-								choiceTemp = 0;
-								difficulty = choiceTemp;
+								difficulty = 0;
 							}
 							else if(rcd.Event.KeyEvent.wVirtualKeyCode >= 'a' && rcd.Event.KeyEvent.wVirtualKeyCode <= 'e')
 							{
-								choiceTemp = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-5
-								difficulty = choiceTemp;
+								difficulty = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-5
 							}
 						}
 						showCursor(visibleCursor);
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					rcd.Event.MouseEvent.dwButtonState = FROM_LEFT_1ST_BUTTON_PRESSED;
 					while(rcd.Event.MouseEvent.dwButtonState != 0)//设置游戏难度返回抗双击
 					{
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					if(difficulty == 0)//默认为10*10-10，比初级更简单(doge)
 					{
@@ -1785,9 +1814,9 @@ int main()
 				}
 				else if(choiceSet == 2)//设置地图生成校验
 				{
-					choiceTemp = -1;
+					choiceSubSet = -1;
 					DrawSetSummonCheckMode(-1);
-					while(choiceMode == 3 && choiceSet == 2 && choiceTemp == -1)
+					while(choiceMode == 3 && choiceSet == 2 && choiceSubSet == -1)
 					{
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
 						if(rcd.EventType == MOUSE_EVENT)
@@ -1798,27 +1827,94 @@ int main()
 							choiceTemp = ChoiceSettingsBar(mousePos, rcd.Event.MouseEvent.dwButtonState);
 							if(choiceTemp != 0) choiceSet = choiceTemp;
 							choiceTemp = ChoiceSetSummonCheckMode(mousePos, rcd.Event.MouseEvent.dwButtonState);
-							if(choiceTemp != -1) summonCheckMode = choiceTemp;
+							if(choiceTemp != -1) choiceSubSet = choiceTemp;
 						}
 						else if(rcd.EventType == KEY_EVENT && rcd.Event.KeyEvent.bKeyDown == 1)
 						{
-							if(rcd.Event.KeyEvent.wVirtualKeyCode >= '0' && rcd.Event.KeyEvent.wVirtualKeyCode <= '4')
+							if(rcd.Event.KeyEvent.wVirtualKeyCode >= '0' && rcd.Event.KeyEvent.wVirtualKeyCode <= '5')
 							{
-								choiceTemp = rcd.Event.KeyEvent.wVirtualKeyCode-'0'+0;//主键盘0-4
-								summonCheckMode = choiceTemp;
+								choiceSubSet = rcd.Event.KeyEvent.wVirtualKeyCode-'0'+0;//主键盘0-5
 							}
 							else if(rcd.Event.KeyEvent.wVirtualKeyCode == '`')//小键盘0
 							{
-								choiceTemp = 0;
-								summonCheckMode = choiceTemp;
+								choiceSubSet = 0;
 							}
-							else if(rcd.Event.KeyEvent.wVirtualKeyCode >= 'a' && rcd.Event.KeyEvent.wVirtualKeyCode <= 'd')
+							else if(rcd.Event.KeyEvent.wVirtualKeyCode >= 'a' && rcd.Event.KeyEvent.wVirtualKeyCode <= 'e')
 							{
-								choiceTemp = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-4
-								summonCheckMode = choiceTemp;
+								choiceSubSet = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-5
 							}
 						}
-						api_sleep(refreshCycle);
+						if(choiceSubSet != -1 && choiceSubSet != 5) summonCheckMode = choiceSubSet;
+						else if(choiceSubSet == 5)//设置筛选
+						{
+							DrawSetChosenBoard(-1);
+							temp = -1;
+							while(choiceMode == 3 && choiceSet == 2 && choiceSubSet == 5 && temp == -1)
+							{
+								ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
+								if(rcd.EventType == MOUSE_EVENT)
+								{
+									mousePos = rcd.Event.MouseEvent.dwMousePosition;
+									choiceTemp = ChoiceControlBar(mousePos, rcd.Event.MouseEvent.dwButtonState);
+									if(choiceTemp != 0) choiceMode = choiceTemp;
+									choiceTemp = ChoiceSettingsBar(mousePos, rcd.Event.MouseEvent.dwButtonState);
+									if(choiceTemp != 0) choiceSet = choiceTemp;
+									choiceTemp = ChoiceSetSummonCheckMode(mousePos, rcd.Event.MouseEvent.dwButtonState);
+									if(choiceTemp != -1) choiceSubSet = choiceTemp;
+									choiceTemp = ChoiceSetChosenBoard(mousePos, rcd.Event.MouseEvent.dwButtonState);
+									if(choiceTemp != -1) temp = choiceTemp;
+								}
+								else if(rcd.EventType == KEY_EVENT && rcd.Event.KeyEvent.bKeyDown == 1)
+								{
+									if(rcd.Event.KeyEvent.wVirtualKeyCode >= '0' && rcd.Event.KeyEvent.wVirtualKeyCode <= '8')
+									{
+										temp = rcd.Event.KeyEvent.wVirtualKeyCode-'0'+0;//主键盘0-8
+									}
+									else if(rcd.Event.KeyEvent.wVirtualKeyCode == '`')//小键盘0
+									{
+										temp = 0;
+									}
+									else if(rcd.Event.KeyEvent.wVirtualKeyCode >= 'a' && rcd.Event.KeyEvent.wVirtualKeyCode <= 'h')
+									{
+										temp = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-8
+									}
+								}
+								Sleep(refreshCycle);
+							}
+							if(temp >= 0 && temp <= 5)
+							{
+								SetConsoleMouseMode(0);
+								showCursor(1);
+								fflush(stdin);
+								printf("[最小值]>");
+								scanf("%d", &chosen3BVMin[temp]);
+								printf("[最大值]>");
+								scanf("%d", &chosen3BVMax[temp]);
+								showCursor(visibleCursor);
+								SetConsoleMouseMode(1);
+							}
+							else if(temp == 6)
+							{
+								if(chosenSolvable == 1) chosenSolvable = 0;
+								else chosenSolvable = 1;
+							}
+							else if(temp == 7)
+							{
+								SetConsoleMouseMode(0);
+								showCursor(1);
+								fflush(stdin);
+								printf("[数字]>");
+								scanf("%d", &chosenNumber);
+								showCursor(visibleCursor);
+								SetConsoleMouseMode(1);
+							}
+							clrscr();
+							DrawControlBar(0);
+							DrawSettingsBar(0);
+							DrawSetSummonCheckMode(-1);
+							choiceSubSet = -1;
+						}
+						Sleep(refreshCycle);
 					}
 					clrscr();
 					DrawControlBar(0);
@@ -1861,9 +1957,9 @@ int main()
 				}
 				else if(choiceSet == 5)//设置默认操作模式
 				{
-					choiceTemp = -1;
+					choiceSubSet = -1;
 					DrawSetOperateMode(-1);
-					while(choiceMode == 3 && choiceSet == 5 && choiceTemp == -1)
+					while(choiceMode == 3 && choiceSet == 5 && choiceSubSet == -1)
 					{
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
 						if(rcd.EventType == MOUSE_EVENT)
@@ -1874,28 +1970,26 @@ int main()
 							choiceTemp = ChoiceSettingsBar(mousePos, rcd.Event.MouseEvent.dwButtonState);
 							if(choiceTemp != 0) choiceSet = choiceTemp;
 							choiceTemp = ChoiceSetOperateMode(mousePos, rcd.Event.MouseEvent.dwButtonState);
-							if(choiceTemp != -1) operateMode = choiceTemp;
+							if(choiceTemp != -1) choiceSubSet = choiceTemp;
 						}
 						else if(rcd.EventType == KEY_EVENT && rcd.Event.KeyEvent.bKeyDown == 1)
 						{
 							if(rcd.Event.KeyEvent.wVirtualKeyCode >= '0' && rcd.Event.KeyEvent.wVirtualKeyCode <= '3')
 							{
-								choiceTemp = rcd.Event.KeyEvent.wVirtualKeyCode-'0'+0;//主键盘0-3
-								operateMode = choiceTemp;
+								choiceSubSet = rcd.Event.KeyEvent.wVirtualKeyCode-'0'+0;//主键盘0-3
 							}
 							else if(rcd.Event.KeyEvent.wVirtualKeyCode == '`')//小键盘0
 							{
-								choiceTemp = 0;
-								operateMode = choiceTemp;
+								choiceSubSet = 0;
 							}
 							else if(rcd.Event.KeyEvent.wVirtualKeyCode >= 'a' && rcd.Event.KeyEvent.wVirtualKeyCode <= 'c')
 							{
-								choiceTemp = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-3
-								operateMode = choiceTemp;
+								choiceSubSet = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-3
 							}
 						}
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
+					operateMode = choiceSubSet;
 					/*if(operateMode == 1) visibleCursor = 1;//仅wasd23显示光标 
 					else visibleCursor = 0;
 					showCursor(visibleCursor);*/
@@ -1915,10 +2009,9 @@ int main()
 				}
 				else if(choiceSet == 7)//设置光标
 				{
-					choiceTemp = 0;
-					temp = 0;
+					choiceSubSet = 0;
 					DrawSetCursor(0);
-					while(choiceMode == 3 && choiceSet == 7 && choiceTemp == 0)
+					while(choiceMode == 3 && choiceSet == 7 && choiceSubSet == 0)
 					{
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
 						if(rcd.EventType == MOUSE_EVENT)
@@ -1929,20 +2022,20 @@ int main()
 							choiceTemp = ChoiceSettingsBar(mousePos, rcd.Event.MouseEvent.dwButtonState);
 							if(choiceTemp != 0) choiceSet = choiceTemp;
 							choiceTemp = ChoiceSetCursor(mousePos, rcd.Event.MouseEvent.dwButtonState);
-							if(choiceTemp != 0) temp = choiceTemp;
+							if(choiceTemp != 0) choiceSubSet = choiceTemp;
 						}
 						else if(rcd.EventType == KEY_EVENT && rcd.Event.KeyEvent.bKeyDown == 1)
 						{
 							if(rcd.Event.KeyEvent.wVirtualKeyCode >= '1' && rcd.Event.KeyEvent.wVirtualKeyCode <= '4')
 							{
-								temp = rcd.Event.KeyEvent.wVirtualKeyCode-'1'+1;//主键盘1-4
+								choiceSubSet = rcd.Event.KeyEvent.wVirtualKeyCode-'1'+1;//主键盘1-4
 							}
 							else if(rcd.Event.KeyEvent.wVirtualKeyCode >= 'a' && rcd.Event.KeyEvent.wVirtualKeyCode <= 'd')
 							{
-								temp = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-4
+								choiceSubSet = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-4
 							}
 						}
-						if(temp == 1)//控制台光标
+						if(choiceSubSet == 1)//控制台光标
 						{
 							if(visibleCursor == 1) visibleCursor = 0;
 							else visibleCursor = 1;
@@ -1951,10 +2044,9 @@ int main()
 							DrawControlBar(0);
 							DrawSettingsBar(0);
 							DrawSetCursor(0);
-							choiceTemp = 0;
-							temp = 0;
+							choiceSubSet = 0;
 						}
-						else if(temp == 2)//自选光标
+						else if(choiceSubSet == 2)//自选光标
 						{
 							if(newCursor < 3) newCursor++;
 							else newCursor = 0;
@@ -1977,10 +2069,9 @@ int main()
 							DrawControlBar(0);
 							DrawSettingsBar(0);
 							DrawSetCursor(0);
-							choiceTemp = 0;
-							temp = 0;
+							choiceSubSet = 0;
 						}
-						else if(temp == 3)//自定义><光标字符
+						else if(choiceSubSet == 3)//自定义><光标字符
 						{
 							SetConsoleMouseMode(0);
 							showCursor(1);
@@ -1993,7 +2084,7 @@ int main()
 							showCursor(visibleCursor);
 							SetConsoleMouseMode(1);
 						}
-						else if(temp == 4)//保持光标显示
+						else if(choiceSubSet == 4)//保持光标显示
 						{
 							if(keepCursor == 0) keepCursor = 1;
 							else keepCursor = 0;
@@ -2001,10 +2092,9 @@ int main()
 							DrawControlBar(0);
 							DrawSettingsBar(0);
 							DrawSetCursor(0);
-							choiceTemp = 0;
-							temp = 0;
+							choiceSubSet = 0;
 						}
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					clrscr();
 					DrawControlBar(0);
@@ -2294,7 +2384,7 @@ int main()
 					choiceSet = 0;
 				}
 				showCursor(visibleCursor);
-				api_sleep(refreshCycle);
+				Sleep(refreshCycle);
 			}
 			if(choiceSet == 9)//返回并保存
 			{
@@ -2329,12 +2419,12 @@ int main()
 				fprintf(file, "benchShowInformation=%d\n", benchShowInformation);
 				fprintf(file, "cursorLeft=%c\n", cursorLeft[0]);
 				fprintf(file, "cursorRight=%c\n", cursorRight[0]);
-				/*fprintf(file, "chosenSolvable=%d\n", chosenSolvable);
+				fprintf(file, "chosenSolvable=%d\n", chosenSolvable);
 				fprintf(file, "chosen3BV:[%d,%d][%d,%d][%d,%d][%d,%d][%d,%d][%d,%d]\n",
 					chosen3BVMin[0], chosen3BVMax[0], chosen3BVMin[1], chosen3BVMax[1],
 					chosen3BVMin[2], chosen3BVMax[2], chosen3BVMin[3], chosen3BVMax[3],
 					chosen3BVMin[4], chosen3BVMax[4], chosen3BVMin[5], chosen3BVMax[5]);
-				fprintf(file, "chosenNumber=%d\n", chosenNumber);*/
+				fprintf(file, "chosenNumber=%d\n", chosenNumber);
 				fclose(file);
 				clrscr();
 				choiceMode = 0;
@@ -2398,7 +2488,10 @@ int main()
 			printf("当前时间戳：%d\n", time(0));
 			printf("[seed] [r0] [c0]\n>");
 			showCursor(1);
-			scanf("%d%d%d", &seed, &r0, &c0);//不能以逗号形式输入？
+			//scanf("%d%d%d", &seed, &r0, &c0);//不能以逗号形式输入？
+			while(scanf("%d", &seed) == 0) getchar();
+			while(scanf("%d", &r0) == 0) getchar();
+			while(scanf("%d", &c0) == 0) getchar();//同时兼容空格形式和逗号形式
 			lastMap = 1;
 			t2 = 0;
 			ro = r0;
@@ -2601,7 +2694,7 @@ void DrawSettingsBar(int select)
 	else if(summonCheckMode == 1) printf("* [(2)设置地图生成校验]  当前:起始点必非雷\n");
 	else if(summonCheckMode == 2) printf("* [(2)设置地图生成校验]  当前:起始点必为空\n");
 	else if(summonCheckMode == 3) printf("* [(2)设置地图生成校验]  当前:地图可解\n");
-	else if(summonCheckMode == 4) printf("* [(2)设置地图生成校验]  当前:地图可速解\n");
+	else if(summonCheckMode == 4) printf("* [(2)设置地图生成校验]  当前:地图经筛选\n");
 	else printf("* [(2)设置地图生成校验]  当前:起始点必为空?\n");
 	
 	if(showTime == 0 && show3BV == 0) printf("* [(3)设置显示用时和3BV] 当前:不显示\n");
@@ -3042,7 +3135,8 @@ void DrawSetSummonCheckMode(int select)
 		   "* [(1)起始点必非雷]\n"
 		   "* [(2)起始点必为空]\n"
 		   "* [(3)地图可解]（生成时间可能较长）\n"
-		   "* [(4)地图可速解]（易生成重复地图）\n"
+		   "* [(4)地图经筛选]（易生成重复地图）\n"
+		   "* [(5)设置筛选]\n"
 		   "*******************************\n");
 	if(select == 0)
 	{
@@ -3067,9 +3161,14 @@ void DrawSetSummonCheckMode(int select)
 	else if(select == 4)
 	{
 		gotoxy(2, 19);
-		ColorStr("[(4)地图可速解]", 0xff-backgroundColor);
+		ColorStr("[(4)地图经筛选]", 0xff-backgroundColor);
 	}
-	gotoxy(0, 21);
+	else if(select == 5)
+	{
+		gotoxy(2, 20);
+		ColorStr("[(5)设置筛选]", 0xff-backgroundColor);
+	}
+	gotoxy(0, 22);
 }
 
 int ChoiceSetSummonCheckMode(COORD mousePos, DWORD dwButtonState)
@@ -3137,6 +3236,18 @@ int ChoiceSetSummonCheckMode(COORD mousePos, DWORD dwButtonState)
 			choiceSummonCheckMode = 4;
 		}
 	}
+	else if(IsPosInRectangle(mousePos.X, mousePos.Y, 2, 20, 14, 20))
+	{
+		if(lastChoice != 5)
+		{
+			DrawSetSummonCheckMode(5);
+			lastChoice = 5;
+		}
+		if(dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED)
+		{
+			choiceSummonCheckMode = 5;
+		}
+	}
 	else if(lastChoice != -1)
 	{
 		DrawSetSummonCheckMode(-1);
@@ -3145,24 +3256,208 @@ int ChoiceSetSummonCheckMode(COORD mousePos, DWORD dwButtonState)
 	return choiceSummonCheckMode;
 }
 
+void DrawSetChosenBoard(int select)
+{
+	gotoxy(0, 22);
+	printf("*******************************\n");//宽31
+	printf("* [(0)设置默认难度3BV]   当前:[%d,%d]\n", chosen3BVMin[0], chosen3BVMax[0]);
+	printf("* [(1)设置初级难度3BV]   当前:[%d,%d]\n", chosen3BVMin[1], chosen3BVMax[1]);
+	printf("* [(2)设置中级难度3BV]   当前:[%d,%d]\n", chosen3BVMin[2], chosen3BVMax[2]);
+	printf("* [(3)设置高级难度3BV]   当前:[%d,%d]\n", chosen3BVMin[3], chosen3BVMax[3]);
+	printf("* [(4)设置顶级难度3BV]   当前:[%d,%d]\n", chosen3BVMin[4], chosen3BVMax[4]);
+	printf("* [(5)设置自定义难度3BV] 当前:[%d,%d]\n", chosen3BVMin[5], chosen3BVMax[5]);
+	if(chosenSolvable == 1) printf("* [(6)忽略地图可解性]    当前:确保\n");
+	else printf("* [(6)确保地图可解性]    当前:忽略\n");
+	printf("* [(7)指定包含数字]      当前:%d\n", chosenNumber);
+	printf("* [(8)退出]\n");
+	printf("*******************************\n");
+	if(select == 0)
+	{
+		gotoxy(2, 23);
+		ColorStr("[(0)设置默认难度3BV]", 0xff-backgroundColor);
+	}
+	else if(select == 1)
+	{
+		gotoxy(2, 24);
+		ColorStr("[(1)设置初级难度3BV]", 0xff-backgroundColor);
+	}
+	else if(select == 2)
+	{
+		gotoxy(2, 25);
+		ColorStr("[(2)设置中级难度3BV]", 0xff-backgroundColor);
+	}
+	else if(select == 3)
+	{
+		gotoxy(2, 26);
+		ColorStr("[(3)设置高级难度3BV]", 0xff-backgroundColor);
+	}
+	else if(select == 4)
+	{
+		gotoxy(2, 27);
+		ColorStr("[(4)设置顶级难度3BV]", 0xff-backgroundColor);
+	}
+	else if(select == 5)
+	{
+		gotoxy(2, 28);
+		ColorStr("[(5)设置自定义难度3BV]", 0xff-backgroundColor);
+	}
+	else if(select == 6)
+	{
+		gotoxy(2, 29);
+		if(chosenSolvable == 1) ColorStr("[(6)忽略地图可解性]", 0xff-backgroundColor);
+		else ColorStr("[(6)确保地图可解性]", 0xff-backgroundColor);
+	}
+	else if(select == 7)
+	{
+		gotoxy(2, 30);
+		ColorStr("[(7)指定包含数字]", 0xff-backgroundColor);
+	}
+	else if(select == 8)
+	{
+		gotoxy(2, 31);
+		ColorStr("[(8)退出]", 0xff-backgroundColor);
+	}
+	gotoxy(0, 33);
+}
+
+int ChoiceSetChosenBoard(COORD mousePos, DWORD dwButtonState)
+{
+	int choiceSetChosenBoard = -1;
+	static int lastChoice = -1;
+	if(IsPosInRectangle(mousePos.X, mousePos.Y, 2, 23, 21, 23))
+	{
+		if(lastChoice != 0)
+		{
+			DrawSetChosenBoard(0);
+			lastChoice = 0;
+		}
+		if(dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED)
+		{
+			choiceSetChosenBoard = 0;
+		}
+	}
+	else if(IsPosInRectangle(mousePos.X, mousePos.Y, 2, 24, 21, 24))
+	{
+		if(lastChoice != 1)
+		{
+			DrawSetChosenBoard(1);
+			lastChoice = 1;
+		}
+		if(dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED)
+		{
+			choiceSetChosenBoard = 1;
+		}
+	}
+	else if(IsPosInRectangle(mousePos.X, mousePos.Y, 2, 25, 21, 25))
+	{
+		if(lastChoice != 2)
+		{
+			DrawSetChosenBoard(2);
+			lastChoice = 2;
+		}
+		if(dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED)
+		{
+			choiceSetChosenBoard = 2;
+		}
+	}
+	else if(IsPosInRectangle(mousePos.X, mousePos.Y, 2, 26, 21, 26))
+	{
+		if(lastChoice != 3)
+		{
+			DrawSetChosenBoard(3);
+			lastChoice = 3;
+		}
+		if(dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED)
+		{
+			choiceSetChosenBoard = 3;
+		}
+	}
+	else if(IsPosInRectangle(mousePos.X, mousePos.Y, 2, 27, 21, 27))
+	{
+		if(lastChoice != 4)
+		{
+			DrawSetChosenBoard(4);
+			lastChoice = 4;
+		}
+		if(dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED)
+		{
+			choiceSetChosenBoard = 4;
+		}
+	}
+	else if(IsPosInRectangle(mousePos.X, mousePos.Y, 2, 28, 21, 28))
+	{
+		if(lastChoice != 5)
+		{
+			DrawSetChosenBoard(5);
+			lastChoice = 5;
+		}
+		if(dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED)
+		{
+			choiceSetChosenBoard = 5;
+		}
+	}
+	else if(IsPosInRectangle(mousePos.X, mousePos.Y, 2, 29, 21, 29))
+	{
+		if(lastChoice != 6)
+		{
+			DrawSetChosenBoard(6);
+			lastChoice = 6;
+		}
+		if(dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED)
+		{
+			choiceSetChosenBoard = 6;
+		}
+	}
+	else if(IsPosInRectangle(mousePos.X, mousePos.Y, 2, 30, 21, 30))
+	{
+		if(lastChoice != 7)
+		{
+			DrawSetChosenBoard(7);
+			lastChoice = 7;
+		}
+		if(dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED)
+		{
+			choiceSetChosenBoard = 7;
+		}
+	}
+	else if(IsPosInRectangle(mousePos.X, mousePos.Y, 2, 31, 21, 31))
+	{
+		if(lastChoice != 8)
+		{
+			DrawSetChosenBoard(8);
+			lastChoice = 8;
+		}
+		if(dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED)
+		{
+			choiceSetChosenBoard = 8;
+		}
+	}
+	else if(lastChoice != -1)
+	{
+		DrawSetChosenBoard(-1);
+		lastChoice = -1;
+	}
+	return choiceSetChosenBoard;
+}
+
 void DrawSetOperateMode(int select)
 {
 	gotoxy(0, 14);
 	printf("**************************************************************\n");
 	printf("* 键盘操作时可根据按键自动切换@#rc/wasd23操作模式！\n");
 	printf("* 键盘操作可按M切换到鼠标操作，鼠标操作可按K切换到键盘操作。\n");
-	printf("* [(0)@#rc操作模式](WindowTest版可能闪退！)\n");
+	printf("* [(0)@#rc操作模式]\n");
 	printf("* 输入[@:翻开/#:标记] [r:行坐标] [c:列坐标]，\n");
 	printf("* 并按回车后执行，如@ 0 0指翻开(0,0)。\n");
-	printf("* [(1)wasd23操作模式](WindowTest版可能闪退！)\n");//(WindowTest版可能闪退！)
+	printf("* [(1)wasd23操作模式]\n");//(WindowTest版可能闪退！)
 	printf("* 通过wasd移动光标，按2翻开，按3标记，\n");
 	printf("* 无小键盘可用hu代替23。\n");
 	printf("* [(2)鼠标点击操作模式]\n");
 	printf("* 可通过鼠标，wasd，方向键移动光标。\n");
 	printf("* 兼容wasd23，但无法使用@#rc和鼠标全选复制地图。\n");
-	printf("* [(3)Window]\n");
-	printf("* 在外部窗口进行游戏，控制台内操作均屏蔽，\n");
-	printf("* 游戏结束后按鼠标右键返回控制台。\n");
+	//printf("* [(3)Window]\n");
+	//printf("* 在外部窗口进行游戏，控制台内操作均屏蔽，\n");
+	//printf("* 游戏结束后按鼠标右键返回控制台。\n");
 	printf("**************************************************************\n");
 	if(select == 0)
 	{
@@ -3182,7 +3477,7 @@ void DrawSetOperateMode(int select)
 	else if(select == 3)
 	{
 		gotoxy(2, 26);
-		ColorStr("[(3)Window]", 0xff-backgroundColor);
+		//ColorStr("[(3)Window]", 0xff-backgroundColor);
 	}
 	gotoxy(0, 27);
 }
@@ -4174,7 +4469,7 @@ void PrintSolvingMap(int mode)//1为枚举可能性
 		printf("\n");
 	}
 }
-
+/*
 void DrawMine(int r, int c)//绘制地图地雷
 {
 	int x = c*widthOfBlock+widthOfBorder+dx;
@@ -4185,10 +4480,10 @@ void DrawMine(int r, int c)//绘制地图地雷
 	ege_fillellipse(x+7.4/32*widthOfBlock, y+7.4/32*heightOfBlock, 0.6*widthOfBlock, 0.6*heightOfBlock);
 	setcolor(BLACK);
 	setlinewidth(sideLength/16);
-	line(x+widthOfBlock*5/32, y+heightOfBlock*17/32, x+widthOfBlock*29/32, y+heightOfBlock*17/32);
-	line(x+widthOfBlock*17/32, y+heightOfBlock*5/32, x+widthOfBlock*17/32, y+heightOfBlock*29/32);
-	line(x+widthOfBlock*9/32, y+heightOfBlock*9/32, x+widthOfBlock*25/32, y+heightOfBlock*25/32);
-	line(x+widthOfBlock*9/32, y+heightOfBlock*25/32, x+widthOfBlock*25/32, y+heightOfBlock*9/32);
+	ege_line(x+widthOfBlock*5/32, y+heightOfBlock*17/32, x+widthOfBlock*29/32, y+heightOfBlock*17/32);
+	ege_line(x+widthOfBlock*17/32, y+heightOfBlock*5/32, x+widthOfBlock*17/32, y+heightOfBlock*29/32);
+	ege_line(x+widthOfBlock*9/32, y+heightOfBlock*9/32, x+widthOfBlock*25/32, y+heightOfBlock*25/32);
+	ege_line(x+widthOfBlock*9/32, y+heightOfBlock*25/32, x+widthOfBlock*25/32, y+heightOfBlock*9/32);
 	setfillcolor(WHITE);
 	ege_fillrect(x+12.0/32*widthOfBlock, y+12.0/32*heightOfBlock, (4.0/32)*widthOfBlock, (4.0/32)*heightOfBlock);
 }
@@ -4200,10 +4495,10 @@ void DrawMineA(int x0, int y0, int r)//绘制地雷图形
 	ege_fillellipse(x0-0.6*r, y0-0.6*r, 0.6*2*r, 0.6*2*r);
 	setcolor(BLACK);
 	setlinewidth(r/8);
-	line(x0-r+r/4, y0, x0+r-r/4, y0);
-	line(x0, y0-r+r/4, x0, y0+r-r/4);
-	line(x0-r/2, y0-r/2, x0+r/2, y0+r/2);
-	line(x0-r/2, y0+r/2, x0+r/2, y0-r/2);
+	ege_line(x0-r+r/4, y0, x0+r-r/4, y0);
+	ege_line(x0, y0-r+r/4, x0, y0+r-r/4);
+	ege_line(x0-r/2, y0-r/2, x0+r/2, y0+r/2);
+	ege_line(x0-r/2, y0+r/2, x0+r/2, y0-r/2);
 	setfillcolor(WHITE);
 	ege_fillrect(x0-r+11.0/16*r, y0-r+11.0/16*r, 4.0/16*r, 4.0/16*r);
 }
@@ -4318,7 +4613,8 @@ void DrawLineA(int x0, int y0, int r, int angle)//绘制时钟指针
 	rad = angle*PI/180;
 	x1 = x0 + r*cos(rad);
 	y1 = y0 + r*sin(rad);
-	line(x0, y0, x1, y1);
+	//line(x0, y0, x1, y1);
+	ege_line(x0, y0, x1, y1);
 }
 
 void DrawClock(int x0, int y0, int r, int time)//绘制时钟
@@ -4333,7 +4629,7 @@ void DrawClock(int x0, int y0, int r, int time)//绘制时钟
 	// 绘制时钟(r=20)
 	setfillcolor(WHITE);
 	ege_fillellipse(x0-r, y0-r, 2*r, 2*r);
-	setlinewidth(r/20);
+	setlinewidth(r/10);
 	setcolor(BLACK);
 	//circle(x0, y0, r);
 	ege_ellipse(x0-r, y0-r, 2*r, 2*r);
@@ -4393,11 +4689,11 @@ void DrawFace(int mode)//绘制笑脸
 	}
 	else if(mode == 2)//失败
 	{
-		line(x+w*15/48, y+h*18/48, x+w*21/48, y+h*24/48);
-		line(x+w*15/48, y+h*24/48, x+w*21/48, y+h*18/48);
+		ege_line(x+w*15/48, y+h*18/48, x+w*21/48, y+h*24/48);
+		ege_line(x+w*15/48, y+h*24/48, x+w*21/48, y+h*18/48);
 		//ege_fillellipse(x+w*15/48, y+h*18/48, w*6/48, h*6/48);//左眼
-		line(x+w*27/48, y+h*18/48, x+w*33/48, y+h*24/48);
-		line(x+w*27/48, y+h*24/48, x+w*33/48, y+h*18/48);
+		ege_line(x+w*27/48, y+h*18/48, x+w*33/48, y+h*24/48);
+		ege_line(x+w*27/48, y+h*24/48, x+w*33/48, y+h*18/48);
 		//ege_fillellipse(x+w*27/48, y+h*18/48, w*6/48, h*6/48);//右眼
 		ege_arc(x+w*19/48, y+h*28/48, w*9/48, h*9/48, 180, 180);//嘴
 	}
@@ -4406,15 +4702,18 @@ void DrawFace(int mode)//绘制笑脸
 		ege_arc(x+w*19/48, y+h*24/48, w*9/48, h*9/48, 0, 180);//嘴
 		ege_fillpie(x+w*12/48, y+h*12/48, w*12/48, h*12/48, 0, 180);//左眼镜
 		ege_fillpie(x+w*24/48, y+h*12/48, w*12/48, h*12/48, 0, 180);//右眼镜
-		line(x+w*6/48, y+h*24/48, x+w*12/48, y+h*18/48);
-		line(x+w*42/48, y+h*24/48, x+w*36/48, y+h*18/48);//镜架
+		ege_line(x+w*6/48, y+h*24/48, x+w*12/48, y+h*18/48);
+		ege_line(x+w*42/48, y+h*24/48, x+w*36/48, y+h*18/48);//镜架
 	}
 }
 
-void DrawBoard(int mode, int remainder, int t)//绘制总外部窗口
+void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘制总外部窗口
 {
 	int r, c;
+	int rc1, cc1, rc2, cc2;
 	int xm, ym, rm = -1, cm = -1, highlight;
+	setfillcolor(LIGHTGRAY);
+	ege_fillrect(0, 0, widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar);//清除旧顶栏减少锯齿感
 	ege_point polyPoints1[5] =
 	{
 		{0+dx, heightOfBar+dy},
@@ -4435,19 +4734,23 @@ void DrawBoard(int mode, int remainder, int t)//绘制总外部窗口
 	ege_fillpoly(5, polyPoints1);
 	setfillcolor(WHITE);
 	ege_fillpoly(5, polyPoints2);
-	mousepos(&xm, &ym);//悬浮高亮
+	//悬浮高亮
+	mousepos(&xm, &ym);
 	if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
 		widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder))
 	{
 		rm = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
 		cm = (xm-dx-widthOfBorder)/widthOfBlock;
 	}
-	for(r=0; r<heightOfBoard; r++)
+	//裁剪优化
+	for(rc1=0; (rc1+1)*heightOfBlock+heightOfBar+widthOfBorder+dy < 0; rc1++);
+	for(cc1=0; (cc1+1)*widthOfBlock+widthOfBorder+dx < 0; cc1++);
+	for(rc2=heightOfBoard-1; (rc2-1)*heightOfBlock+heightOfBar+widthOfBorder+dy > screenHeight; rc2--);
+	for(cc2=widthOfBoard-1; (cc2-1)*widthOfBlock+widthOfBorder+dx > screenWidth; cc2--);
+	for(r=rc1; r<=rc2; r++)
 	{
-		//if((r+1)*heightOfBlock+heightOfBar+widthOfBorder+dy < 0) continue;
-		for(c=0; c<widthOfBoard; c++)
+		for(c=cc1; c<=cc2; c++)
 		{
-			//if((c+1)*widthOfBlock+widthOfBorder+dx < 0) continue;//裁剪优化
 			highlight = 0;
 			if(newCursor > 1)//淡黄色高亮光标
 			{
@@ -4561,24 +4864,89 @@ void DrawBoard(int mode, int remainder, int t)//绘制总外部窗口
 			xyprintf(widthOfBoard*widthOfBlock*3/4, (heightOfBar-heightOfChar)/2, " %d ", t);
 		}
 	}
+	//3BV
+	if(show3BV == 1 && total3BV != -1)
+	{
+		if(widthOfBoard > 51)
+		{
+			setbkmode(TRANSPARENT);
+			setcolor(BLACK);
+			//setfontbkcolor(LIGHTGRAY);
+			xyprintf(12*widthOfBlock+xOfChar, (heightOfBar-heightOfChar)/2, "3BV");
+			xyprintf(19*widthOfBlock+xOfChar, (heightOfBar-heightOfChar)/2, "3BV/s");
+			setbkmode(OPAQUE);
+			setcolor(RED);
+			setfontbkcolor(BLACK);
+			xyprintf(14*widthOfBlock+xOfChar, (heightOfBar-heightOfChar)/2, " %d/%d ", solved3BV, total3BV);
+			xyprintf(22*widthOfBlock+xOfChar, (heightOfBar-heightOfChar)/2, " %.2f ", (float)solved3BV/t);
+		}
+		else if(widthOfBoard > 27)
+		{
+			setbkmode(TRANSPARENT);
+			setcolor(BLACK);
+			//setfontbkcolor(LIGHTGRAY);
+			xyprintf((widthOfBoard+3)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, "3BV");
+			xyprintf((widthOfBoard+17)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, "3BV/s");
+			setbkmode(OPAQUE);
+			setcolor(RED);
+			setfontbkcolor(BLACK);
+			xyprintf((widthOfBoard+7)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, " %d/%d ", solved3BV, total3BV);
+			xyprintf((widthOfBoard+22)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, " %.2f ", (float)solved3BV/t);
+		}
+	}
 	setbkmode(TRANSPARENT);
 	DrawFace(0);
 }
 
+void DrawSolution()
+{
+	int r, c, x, y;
+	for(r=0; r<heightOfBoard; r++)
+	{
+		for(c=0; c<widthOfBoard; c++)
+		{
+			if(solution[r][c] != 0 && isShown[r][c] == 0)
+			{
+				x = c*widthOfBlock+widthOfBorder+dx;
+				y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
+				if(solution[r][c] == 1)
+				{
+					setfillcolor(LIGHTGREEN);
+				}
+				else if(solution[r][c] == 2)
+				{
+					setfillcolor(PINK);
+				}
+				else if(solution[r][c] == 3)
+				{
+					setfillcolor(LIGHTYELLOW);
+				}
+				ege_fillrect(x+widthOfBlock*2/32, y+heightOfBlock*2/32, widthOfBlock*28/32, heightOfBlock*28/32);
+			}
+		}
+	}
+}
+
 void InitWindow()//创建窗口
 {
+	int r, c;
 	DEVMODE dm;
 	dm.dmSize = sizeof(DEVMODE);
 	if(EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm) == 0)//无法获取显示屏分辨率
 	{
-		dm.dmPelsWidth = 1920;
-		dm.dmPelsHeight = 1080;
+		screenWidth = 1920;
+		screenHeight = 1080;
 	}
-	if(dm.dmPelsHeight >= 2160) sideLength = 64;
-	else if(dm.dmPelsHeight >= 1440) sideLength = 40;
+	else
+	{
+		screenWidth = dm.dmPelsWidth;
+		screenHeight = dm.dmPelsHeight;
+	}
+	if(screenHeight >= 2160) sideLength = 64;
+	else if(screenHeight >= 1440) sideLength = 40;
 	else sideLength = 32;
-	while(widthOfBlock*widthOfBoard+widthOfBorder*2 > dm.dmPelsWidth
-		|| heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > dm.dmPelsHeight)
+	while(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth
+		|| heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > screenHeight)
 	{
 		sideLength -= 4;
 	}
@@ -4592,10 +4960,10 @@ void InitWindow()//创建窗口
 	//flushmouse();//避免上一局鼠标消息选择起始点
 	dx = 0;
 	dy = 0;//偏移回正
-	GetWindowOperation(NULL, NULL, NULL, numberOfMine, 0);
+	GetWindowOperation(NULL, NULL, NULL, numberOfMine, 0, -1, -1);
 }
 
-void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t)
+void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, int solved3BV, int total3BV)
 {
 	int xm, ym, xn, yn, clock0, clock1;
 	static int isOpening, isSigning, ro, co, xo, yo;//拖动操作
@@ -4638,7 +5006,7 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t)
 							dx += xn-xm;
 							dy += yn-ym;
 							cleardevice();
-							DrawBoard(0, remainder, t);
+							DrawBoard(0, remainder, t, solved3BV, total3BV);
 							dx -= xn-xm;
 							dy -= yn-ym;
 							clock0 = clock();
@@ -4651,7 +5019,7 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t)
 					//if(dx > -widthOfBlock && dx < widthOfBlock) dx = 0;
 					//if(dy > -heightOfBlock && dy < heightOfBlock) dy = 0;
 					cleardevice();//避免重影
-					DrawBoard(0, remainder, t);//避免闪烁
+					DrawBoard(0, remainder, t, solved3BV, total3BV);//避免闪烁
 				}
 				else
 				{
@@ -4754,7 +5122,7 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t)
 	}
 }
 
-int CloseWindow(int isWinning, int remainder, int time)
+int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total3BV)
 {
 	int r, c, newGame = -1;
 	int xm, ym, xn, yn, clock0, clock1;
@@ -4772,7 +5140,7 @@ int CloseWindow(int isWinning, int remainder, int time)
 			}
 		}
 	}
-	DrawBoard(1, remainder, time);
+	DrawBoard(1, remainder, time, solved3BV, total3BV);
 	if(isWinning == 1)
 	{
 		DrawFace(3);
@@ -4793,7 +5161,7 @@ int CloseWindow(int isWinning, int remainder, int time)
 	flushmouse();
 	while(newGame == -1)
 	{
-		DrawBoard(1, remainder, time);//刷新界面
+		DrawBoard(1, remainder, time, solved3BV, total3BV);//刷新界面
 		if(isWinning == 1)
 		{
 			DrawFace(3);
@@ -4844,7 +5212,7 @@ int CloseWindow(int isWinning, int remainder, int time)
 							dx += xn-xm;
 							dy += yn-ym;
 							cleardevice();
-							DrawBoard(1, remainder, time);
+							DrawBoard(1, remainder, time, solved3BV, total3BV);
 							if(isWinning == 1) DrawFace(3);
 							else DrawFace(2);
 							dx -= xn-xm;
@@ -4858,7 +5226,7 @@ int CloseWindow(int isWinning, int remainder, int time)
 					if(dx > -widthOfBlock && dx < widthOfBlock) dx = 0;//趋向回正
 					if(dy > -heightOfBlock && dy < heightOfBlock) dy = 0;
 					cleardevice();
-					DrawBoard(1, remainder, time);
+					DrawBoard(1, remainder, time, solved3BV, total3BV);
 					if(isWinning == 1) DrawFace(3);//保持笑脸
 					else DrawFace(2);
 				}
@@ -4879,7 +5247,7 @@ int CloseWindow(int isWinning, int remainder, int time)
 				else if(sideLength > 4) sideLength -= 4;
 				initgraph(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2, INIT_RENDERMANUAL);
 				setfont(heightOfChar, 0, "Consolas");//重设字体大小
-				DrawBoard(1, remainder, time);
+				DrawBoard(1, remainder, time, solved3BV, total3BV);
 				if(isWinning == 1) DrawFace(3);
 				else DrawFace(2);
 			}
@@ -4890,7 +5258,7 @@ int CloseWindow(int isWinning, int remainder, int time)
 	closegraph();
 	return newGame;
 }
-
+*/
 int Difficulty(int height, int width, int mine)//根据地图信息判断难度
 {
 	if(height == 10 && width == 10 && mine == 10) return 0;
@@ -8136,7 +8504,7 @@ int GamerLevel(struct Records records)//计算玩家等级并显示称号
 					&& records.minimumTime[3] <= 122//121.34秒内赢高级地图
 					&& records.minimumTime[4] <= 2478)//2477.04秒内赢顶级地图
 				{
-					level = 7;//"ProGamer**"(Ltabsyy: 3 3 31 106 1008)
+					level = 7;//"ProGamer**"(Ltabsyy: 3 3 31 99 963)
 					if(records.minimumTime[0] <= 4//3.20秒内赢默认地图
 						&& records.minimumTime[1] <= 4//3.68秒内赢初级地图
 						&& records.minimumTime[2] <= 23//22.77秒内赢中级地图
@@ -8745,7 +9113,7 @@ void RCScan(char* operation, int* r, int* c, int yOfCommand, struct Record infor
 				//yOfCommand = heightOfMapShown-1+3+2
 			}
 		}
-		//api_sleep(refreshCycle);
+		//Sleep(refreshCycle);
 	}
 }
 
@@ -9061,8 +9429,24 @@ void Bench(int seedMin, int seedMax, int r0, int c0, int showStep, int showSolut
 			if(showStep > 1) ShowBoard(0);
 			else if(showStep == 1)
 			{
-				if(fastShow == 1) ShowBoardFast(3+showInformation);//中间帧快速显示
-				else ShowBoard(0);
+				if(fastShow == 0) ShowBoard(0);
+				else//中间帧快速显示
+				{
+					if(showSolution == 1)//快速显示抹除不确定翻开
+					{
+						for(r=0; r<heightOfBoard; r++)
+						{
+							for(c=0; c<widthOfBoard; c++)
+							{
+								if(solution[r][c] == 3 && isShown[r][c] == 0)
+								{
+									ReShowBoard(r, c, 0, 3+showInformation);
+								}
+							}
+						}
+					}
+					ShowBoardFast(3+showInformation);
+				}
 			}
 			LookMap();
 			if(showStep > 2)
@@ -9308,7 +9692,8 @@ void Bench(int seedMin, int seedMax, int r0, int c0, int showStep, int showSolut
 	}
 	else
 	{
-		printf("胜率：%d%% ", countOfWin*100/(seedMax-seedMin+1));
+		if(seedMax-seedMin+1 == 100) printf("胜率：%d%% ", countOfWin*100/(seedMax-seedMin+1));
+		else printf("胜率：%d%%(%d/%d) ", countOfWin*100/(seedMax-seedMin+1), countOfWin, seedMax-seedMin+1);
 		if(showTime == 1) printf("用时：%d ", t1-t0);
 		if(show3BV == 1) printf("3BV：%d/%d 3BV/s：%.2f", countOfSolved3BV, countOf3BV, (float)countOfSolved3BV/(t1-t0));
 		printf("\n");
@@ -9432,7 +9817,7 @@ void MapSearch(int seedMin, int seedMax, int r0, int c0)//地图搜索模块
 	else if(choice == 3)//3BV汇总统计
 	{
 		int* bbbvCount =(int*) calloc(heightOfBoard*widthOfBoard, sizeof(int));
-		int i = 0;
+		int i, j;
 		for(seed=seedMin; seed<=seedMax; seed++)
 		{
 			bbbv = BBBV(seed, r0, c0, 1);
@@ -9449,7 +9834,7 @@ void MapSearch(int seedMin, int seedMax, int r0, int c0)//地图搜索模块
 			if(i%10 == 0)
 			{
 				temp = 0;
-				for(int j=i; j<=i+9 && j<heightOfBoard*widthOfBoard; j++)
+				for(j=i; j<=i+9 && j<heightOfBoard*widthOfBoard; j++)
 				{
 					temp += bbbvCount[i];
 				}
@@ -10045,9 +10430,9 @@ void Error()//错误
 	for(c=0; c<=10; c++)
 	{
 		printf("\r%3d%% 完成", c*10);
-		api_sleep(200);
+		Sleep(200);
 	}
-	api_sleep(4*200);
+	Sleep(4*200);
 	printf("\n");
 	//getchar();
 	fflush(stdin);//清空输入缓冲区，多字符仅蓝屏一次(doge)
@@ -10499,14 +10884,18 @@ MineSweeper Run 5.2
 ——修复 可解种子搜索效率必然显示控制台光标
 ——修复 键盘不可选择可速解地图
 ——修复 RecordsEditer界面输入字符后不断闪烁
-//——新增 Bench全调试跳转帧
-//——新增 游戏时按%重新生成地图
-//——新增 可速解地图改为筛选地图
+MineSweeper Run 5.3
+——新增 可速解地图改为筛选地图
+——新增 设置界面按0不保存直接返回主页
+——优化 Bench地图数不为100时胜率显示地图数和胜利数
+——优化 子设置代码
+——修复 自定义种子游戏不能以逗号形式输入
+——修复 动态内存分配时设置难度闪退
+——修复 Bench中间帧快速显示不确定翻开滞留
 //——新增 可启用在外部窗口进行游戏
 //——新增 组合雷率计算（根据多块枚举的结果组合进行雷率计算）
 //——优化 现在地图求解可选择从外部文件读取地图，界面支持鼠标点击
 //——优化 重新设计自定义难度设置，以密度设置雷数不再是调试选项
 //——优化 雷率由浮点计算转为整数计算
 //——优化 自制地图编辑支持快速显示
-//——修复 自定义种子游戏不能以逗号形式输入
 --------------------------------*/
