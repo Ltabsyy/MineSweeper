@@ -1043,7 +1043,7 @@ void InitWindow()//创建窗口
 		screenHeight = dm.dmPelsHeight;
 	}
 	if(screenHeight >= 2160) sideLength = 64;
-	else if(screenHeight >= 1440) sideLength = 40;
+	else if(screenHeight >= 1440) sideLength = 44;
 	else sideLength = 32;
 	while(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth
 		|| heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > screenHeight)
@@ -1131,7 +1131,7 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 						*operation = '%';
 					}
 					else if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
-						widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder))
+						widthOfBlock*widthOfBoard+widthOfBorder-1, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder-1))
 					{
 						*operation = '@';
 						*r = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
@@ -1151,7 +1151,7 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 				xm = mouseMsg.x;
 				ym = mouseMsg.y;
 				if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
-					widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder))
+					widthOfBlock*widthOfBoard+widthOfBorder-1, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder-1))
 				{
 					*operation = '#';
 					*r = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
@@ -1172,7 +1172,7 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 			xm = mouseMsg.x;
 			ym = mouseMsg.y;//缓冲位置
 			if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
-				widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder))
+				widthOfBlock*widthOfBoard+widthOfBorder-1, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder-1))
 			{
 				*r = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
 				*c = (xm-dx-widthOfBorder)/widthOfBlock;
@@ -1217,8 +1217,9 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 		{
 			if(mouseMsg.wheel > 0) sideLength += 4;
 			else if(sideLength > 4) sideLength -= 4;
-			initgraph(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2, INIT_RENDERMANUAL);
+			resizewindow(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2);
 			setfont(heightOfChar, 0, "Consolas");
+			DrawBoard(0, remainder, t, solved3BV, total3BV);
 		}
 	}
 }
@@ -1347,7 +1348,7 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 			{
 				if(mouseMsg.wheel > 0) sideLength += 4;
 				else if(sideLength > 4) sideLength -= 4;
-				initgraph(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2, INIT_RENDERMANUAL);
+				resizewindow(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2);
 				setfont(heightOfChar, 0, "Consolas");//重设字体大小
 				DrawBoard(1, remainder, time, solved3BV, total3BV);
 				if(isWinning == 1) DrawFace(3);
@@ -1520,4 +1521,10 @@ MineSweeper EGE 8
 ——优化 笑脸张嘴形态维持时长
 //——优化 实时求解指令改为线框式显示
 ——修复 重新生成地图时卡顿
+MineSweeper EGE 8.1
+——优化 适当调大1440P屏下默认显示大小
+//——优化 避免游戏时选择控制台窗口
+//——优化 与鼠标点击空地切换左右键、自制地图编辑的兼容性
+——修复 边缘点击可能闪退
+——修复 调整显示大小可能闪烁
 --------------------------------*/
