@@ -19,7 +19,7 @@
 #define LimLength 72//最大枚举长度限制
 #define LimDictionary 16777216//最大字典大小
 #define LimName 32//限制自制地图名称长度
-//内存占用至少为 71*H*W+L*D Byte，默认约3.1MB
+//内存占用至少为 75*H*W+L*D Byte，默认约3.1MB
 
 // 外部窗口形态
 int sideLength = 32;//外部窗口方块边长
@@ -258,10 +258,11 @@ int** isMine = 0;//雷
 int** numberOfMineAround = 0;//数字
 int** board = 0;//后台总板，数字0~8雷9
 int** isShown = 0;//显示方式矩阵，0未翻开，1已翻开，2已标记
-int** zeroChain = 0;
+int** zeroChain = 0;//0链
 int** questionMark = 0;//问号矩阵，1交界线，2待翻开，3待标记
 int** isShownBak = 0;//显示方式矩阵备份
 int** isShownBuf = 0;//显示缓冲，上次显示方式矩阵
+int** zeroCache = 0;//0块缓存
 char** mapShown = 0;//键盘输入的地图
 char** map = 0;//获取的地图
 int** numberShown = 0;//获取的数字，非数字为9
@@ -862,7 +863,7 @@ int main()
 			}
 			else
 			{
-				bbbv = BBBV(seed, r0, c0, 1);//地图3BV仅计算一次
+				bbbv = BBBV(seed, r0, c0, 3);//地图3BV仅计算一次
 				isShown[r0][c0] = 1;//翻开第一个0
 			}
 			if(operateMode >= 2) SetConsoleMouseMode(1);//确保win10控制台接收鼠标信息
@@ -988,7 +989,7 @@ int main()
 				//gotoxy(0, yOfMapEnd+1);
 				printf("剩余雷数: %d ", remainder);
 				t1 = time(0);
-				temp = BBBV(seed, r0, c0, 0);
+				temp = BBBV(seed, r0, c0, 2);
 				if(showTime == 1) printf("用时：%d ", t1-t0+t2);
 				if(show3BV == 1) printf("3BV：%d/%d 3BV/s：%.2f ", bbbv-temp, bbbv, (float)(bbbv-temp)/(t1-t0+t2));
 				printf("\n");
@@ -1049,6 +1050,7 @@ int main()
 								for(c=0; c<widthOfBoard; c++)
 								{
 									isShown[r][c] = 0;
+									solution[r][c] = 0;
 								}
 							}
 							r0 = -1;
@@ -1059,11 +1061,49 @@ int main()
 								delay_ms(refreshCycle);
 							}
 							seed = time(0);
-							t0 = time(0);
-							SummonBoard(seed, r0, c0);
+							if(summonCheckMode > 2)//可解地图生成
+							{
+								if(summonCheckMode == 4)
+								{
+									isOpenMine = 1;
+									while(isOpenMine == 1)
+									{
+										bbbv = BBBV(seed, r0, c0, 1);
+										if(bbbv >= chosen3BVMin[difficulty] && bbbv <= chosen3BVMax[difficulty])
+										{
+											for(r=0; r<heightOfBoard; r++)
+											{
+												for(c=0; c<widthOfBoard; c++)
+												{
+													if(board[r][c] == chosenNumber) isOpenMine = 0;
+												}
+											}
+											if(isOpenMine == 0 && chosenSolvable == 1)
+											{
+												isOpenMine = 1-IsSolvableMap(seed, r0, c0);
+											}
+										}
+										if(isOpenMine == 1) seed++;
+									}
+								}
+								else
+								{
+									while(IsSolvableMap(seed, r0, c0) == 0) seed++;
+								}
+								for(r=0; r<heightOfBoard; r++)
+								{
+									for(c=0; c<widthOfBoard; c++)
+									{
+										solution[r][c] = 0;
+									}
+								}
+							}
+							//SummonBoard(seed, r0, c0);
+							bbbv = BBBV(seed, r0, c0, 1);
 							r = r0;
 							c = c0;
 							isShown[r][c] = 1;
+							t0 = time(0);
 						}
 					}
 					if(operateMode == 2)
@@ -4789,26 +4829,28 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘
 	int xm, ym, rm = -1, cm = -1, highlight;
 	setfillcolor(LIGHTGRAY);
 	ege_fillrect(0, 0, widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar);//清除旧顶栏减少锯齿感
-	ege_point polyPoints1[5] =
+	ege_point polyPoints1[6] =
 	{
 		{0+dx, heightOfBar+dy},
 		{widthOfBlock*widthOfBoard+widthOfBorder*2+dx, heightOfBar+dy},
 		{widthOfBlock*widthOfBoard+widthOfBorder+dx, heightOfBar+widthOfBorder+dy},
+		{widthOfBorder+dx, heightOfBar+widthOfBorder+dy},
 		{widthOfBorder+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder+dy},
 		{0+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy}
 	};
-	ege_point polyPoints2[5] =
+	ege_point polyPoints2[6] =
 	{
 		{widthOfBlock*widthOfBoard+widthOfBorder*2+dx, heightOfBar+dy},
 		{widthOfBlock*widthOfBoard+widthOfBorder+dx, heightOfBar+widthOfBorder+dy},
+		{widthOfBlock*widthOfBoard+widthOfBorder+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder+dy},
 		{widthOfBorder+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder+dy},
 		{0+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy},
 		{widthOfBlock*widthOfBoard+widthOfBorder*2+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy}
 	};
 	setfillcolor(GRAY);
-	ege_fillpoly(5, polyPoints1);
+	ege_fillpoly(6, polyPoints1);
 	setfillcolor(WHITE);
-	ege_fillpoly(5, polyPoints2);
+	ege_fillpoly(6, polyPoints2);
 	//悬浮高亮
 	mousepos(&xm, &ym);
 	if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
@@ -5081,11 +5123,9 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 		flushmouse();
 		flushkey();
 	}
-	while(mousemsg() || kbmsg())//使用while代替if避免堆积消息产生延迟
+	while(mousemsg())//使用while代替if避免堆积消息产生延迟
 	{
-		//键鼠混动输入
-		if(mousemsg()) mouseMsg = getmouse();
-		if(kbmsg()) keyMsg = getkey();
+		mouseMsg = getmouse();
 		if(mouseMsg.is_up())
 		{
 			if(mouseMsg.is_left()) isOpening = 0;//鼠标左键抬起
@@ -5206,6 +5246,18 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 				isSigning = 0;
 			}
 		}
+		if(mouseMsg.is_wheel() && keystate(key_control))
+		{
+			if(mouseMsg.wheel > 0) sideLength += 4;
+			else if(sideLength > 4) sideLength -= 4;
+			resizewindow(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2);
+			setfont(heightOfChar, 0, "Consolas");//更新字体大小
+			DrawBoard(0, remainder, t, solved3BV, total3BV);//避免闪烁
+		}
+	}
+	while(kbmsg())//鼠标专门处理，避免无尽滚动，随后处理纯键盘操作输入
+	{
+		keyMsg = getkey();
 		if(keyMsg.msg == key_msg_down)
 		{
 			if(keyMsg.flags & key_flag_shift && keyMsg.key == '1')
@@ -5216,14 +5268,6 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 			{
 				*operation = '\t';
 			}
-		}
-		if(mouseMsg.is_wheel() && keystate(key_control))
-		{
-			if(mouseMsg.wheel > 0) sideLength += 4;
-			else if(sideLength > 4) sideLength -= 4;
-			resizewindow(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2);
-			setfont(heightOfChar, 0, "Consolas");
-			DrawBoard(0, remainder, t, solved3BV, total3BV);
 		}
 	}
 }
@@ -7459,7 +7503,8 @@ int ThinkNumber(int numberOfThought)//选取并思考一个未知链
 {
 	int r, c, r1, c1, i, p;//循环变量
 	int realNumberOfPossibility, remainedMine, remainedNotShown;
-	long long int numberOfPossibility, temp;
+	long long int numberOfPossibility, temp;//不用unsigned以观察溢出
+	int exp2, exp3/*, exp5*/;
 	struct NumberCheckChain ncc;
 	struct NumberCheck* numberCheckTemp;
 	struct NumberCheck newNumberCheck;
@@ -7507,26 +7552,65 @@ int ThinkNumber(int numberOfThought)//选取并思考一个未知链
 			}
 		}
 	}
-	numberOfPossibility = 1;
-	for(i=0; i<ncc.numberOfThought; i++)
-	{
-		numberOfPossibility *= ncc.numberCheck[i].numberOfPossibility;
-	}
 	if(debug == 2)
 	{
-		printf("[Debug]已生成校验表，共%lld种可能性：", numberOfPossibility);
+		printf("[Debug]已生成校验表，共");
+		//输出编号
+		numberOfPossibility = 1;
+		exp2 = 0;
+		exp3 = 0;
+		//exp5 = 0;
+		for(i=0; i<ncc.numberOfThought; i++)
+		{
+			numberOfPossibility *= ncc.numberCheck[i].numberOfPossibility;
+			while(numberOfPossibility % 2 == 0)
+			{
+				numberOfPossibility /= 2;
+				exp2++;
+			}
+			while(numberOfPossibility % 3 == 0)
+			{
+				numberOfPossibility /= 3;
+				exp3++;
+			}
+			/*while(numberOfPossibility % 5 == 0)
+			{
+				numberOfPossibility /= 5;
+				exp5++;
+			}*/
+		}
+		if(exp2 > 0)//输出因数2指数，避免long long int溢出
+		{
+			printf("2");
+			if(exp2 > 1) printf("^%d", exp2);
+			printf("*");
+		}
+		if(exp3 > 0)
+		{
+			printf("3");
+			if(exp3 > 1) printf("^%d", exp3);
+			printf("*");
+		}
+		/*if(exp5 > 0)
+		{
+			printf("5");
+			if(exp5 > 1) printf("^%d", exp5);
+			printf("*");
+		}*/
+		printf("%lld", numberOfPossibility);
+		printf("种可能性：");
 		for(i=0; i<ncc.numberOfThought; i++)
 		{
 			printf("%d ", ncc.numberCheck[i].numberOfPossibility);
 		}
 		printf("\n");
-		printf("t=%d\n", ncc.t);
+		/*printf("t=%d\n", ncc.t);
 		printf("p=");
 		for(i=0; i<ncc.numberOfThought; i++)
 		{
 			printf("%d ", ncc.numberCheck[i].p);
 		}
-		printf("\n");
+		printf("\n");*/
 	}
 	/*枚举验证*/
 	if(remainedMineJudgeLocalMC == 1)
@@ -7645,16 +7729,37 @@ int ThinkNumber(int numberOfThought)//选取并思考一个未知链
 				{
 					//printf("[Debug]找到解：\n");
 					//PrintSolvingMap(1);
-					temp = 0;
-					for(i=0; i<ncc.numberOfThought; i++)
-					{
-						temp *= ncc.numberCheck[i].numberOfPossibility;
-						temp += ncc.numberCheck[i].p;
-					}
 					if(realNumberOfPossibility <= 1024 || realNumberOfPossibility%1024 == 0)//跳跃输出
 					{
 						if(realNumberOfPossibility > 1024) printf("\r");//覆写输出
-						printf("[Debug]已找到第%d种可能性%lld：", realNumberOfPossibility, temp);
+						printf("[Debug]已找到第%d种可能性", realNumberOfPossibility);
+						//输出编号
+						temp = 0;
+						for(i=0; i<ncc.numberOfThought; i++)
+						{
+							//a1b2b3+a2b3+a3=((a1)b2+a2)b3+a3
+							//t <= (max-p)/n -> t*n+p <= max
+							if(temp <= (9223372036854775807-ncc.numberCheck[i].p)/ncc.numberCheck[i].numberOfPossibility)
+							{
+								temp *= ncc.numberCheck[i].numberOfPossibility;
+								temp += ncc.numberCheck[i].p;
+							}
+							else break;
+						}
+						if(i == ncc.numberOfThought) printf("%lld", temp); 
+						else
+						{
+							/*for(c=0; c < ncc.numberOfThought-i; c++)
+							{
+								printf("(");
+							}*/
+							printf("%lld...", temp); 
+							/*for(; i<ncc.numberOfThought; i++)
+							{
+								printf(")*%d+%d", ncc.numberCheck[i].numberOfPossibility, ncc.numberCheck[i].p);
+							}*/
+						}
+						printf("：");
 						for(i=0; i<ncc.numberOfThought; i++)
 						{
 							printf("%d ", ncc.numberCheck[i].p);
@@ -8658,14 +8763,14 @@ int GamerLevel(struct Records records)//计算玩家等级并显示称号
 					&& records.minimumTime[3] <= 122//121.34秒内赢高级地图
 					&& records.minimumTime[4] <= 2478)//2477.04秒内赢顶级地图
 				{
-					level = 7;//"ProGamer**"(Ltabsyy: 1 2 25 80 769)
+					level = 7;//"ProGamer**"
 					if(records.minimumTime[0] <= 4//3.20秒内赢默认地图
 						&& records.minimumTime[1] <= 4//3.68秒内赢初级地图
 						&& records.minimumTime[2] <= 23//22.77秒内赢中级地图
 						&& records.minimumTime[3] <= 86//85.79秒内赢高级地图
 						&& records.minimumTime[4] <= 1752)//1751.27秒内赢顶级地图
 					{
-						level = 8;//"ProGamer***"
+						level = 8;//"ProGamer***"(Ltabsyy: 1 2 19 77 769)
 						//"ProGamer***"完成任意一条件获取
 						if(records.minimumTime[0] <= 3//2.26秒内赢默认地图
 							|| records.minimumTime[1] <= 3//2.60秒内赢初级地图
@@ -10256,38 +10361,147 @@ void Bench(int seedMin, int seedMax, int r0, int c0, int showStep, int showSolut
 
 int BBBV(int seed, int r0, int c0, int mode)//计算地图3BV
 {
-	int bbbv = 0, r, c;
-	ShownModeBak(1);
-	if(mode == 1)//1计算全部3BV，0计算未解3BV
+	int bbbv = 0, r, c, z, temp;
+	int* zeroChainCache;//缓存0链是否被打开
+	static int numberOfZeroChain = 0;
+	if(mode != 2) ShownModeBak(1);
+	if(mode == 1 || mode == 3)//1计算全部3BV，0计算未解3BV，3计算全部3BV并缓存，2根据缓存计算未解3BV
 	{
 		SummonBoard(seed, r0, c0);
 	}
-	/*计算0链数量*/
-	for(r=0; r<heightOfBoard; r++)
+	else if(mode == 0)//防止标记阻碍0链打开
 	{
-		for(c=0; c<widthOfBoard; c++)
+		for(r=0; r<heightOfBoard; r++)
 		{
-			if(board[r][c] == 0 && isShown[r][c] != 1)
+			for(c=0; c<widthOfBoard; c++)
 			{
-				isShown[r][c] = 1;
-				OpenZeroChain(r, c);
-				bbbv++;
+				if(isShown[r][c] == 2)
+				{
+					isShown[r][c] = 0;
+				}
 			}
 		}
 	}
-	/*计算未显示数字数量*/
-	for(r=0; r<heightOfBoard; r++)
+	if(mode == 1 || mode == 0)
 	{
-		for(c=0; c<widthOfBoard; c++)
+		/*计算0链数量*/
+		for(r=0; r<heightOfBoard; r++)
 		{
-			if(board[r][c] != 9 && isShown[r][c] != 1)
+			for(c=0; c<widthOfBoard; c++)
 			{
-				//isShown[r][c] = 1;
-				bbbv++;
+				if(board[r][c] == 0 && isShown[r][c] != 1)
+				{
+					isShown[r][c] = 1;
+					OpenZeroChain(r, c);
+					bbbv++;
+				}
 			}
 		}
 	}
-	ShownModeBak(0);
+	else if(mode == 2)//根据0块缓存计算未解3BV
+	{
+		zeroChainCache =(int*) calloc(numberOfZeroChain, sizeof(int));
+		//快速计算剩余0链和数字
+		for(r=0; r<heightOfBoard; r++)
+		{
+			for(c=0; c<widthOfBoard; c++)
+			{
+				if(board[r][c] == 0)//点到0:未解3BV+1，区分0链
+				{
+					if(zeroChainCache[zeroCache[r][c]-2] == 0)
+					{
+						zeroChainCache[zeroCache[r][c]-2] = 1;
+						if(isShown[r][c] != 1) bbbv++;
+					}
+				}
+				//点到0块缓存数字:不变
+				else if(board[r][c] != 9 && isShown[r][c] != 1 && zeroCache[r][c] == 1)
+				{
+					bbbv++;//点到其他数字:已解3BV+1
+				}
+			}
+		}
+		free(zeroChainCache);
+	}
+	else if(mode == 3)
+	{
+		for(r=0; r<heightOfBoard; r++)
+		{
+			for(c=0; c<widthOfBoard; c++)
+			{
+				zeroCache[r][c] = 1;//一般数字1，0链附近数字0，0链序号2开始
+			}
+		}
+		z = 0;
+		while(1)
+		{
+			temp = 0;
+			//打开一个0链
+			for(r=0; r<heightOfBoard; r++)
+			{
+				for(c=0; c<widthOfBoard; c++)
+				{
+					if(board[r][c] == 0 && isShown[r][c] != 1)
+					{
+						isShown[r][c] = 1;
+						OpenZeroChain(r, c);
+						bbbv++;
+						temp = 1;
+					}
+					if(temp == 1) break;
+				}
+				if(temp == 1) break;
+			}
+			if(temp == 1)
+			{
+				for(r=0; r<heightOfBoard; r++)
+				{
+					for(c=0; c<widthOfBoard; c++)
+					{
+						if(isShown[r][c] == 1 && zeroCache[r][c] == 1)//翻开方块计入0块缓存
+						{
+							if(board[r][c] == 0) zeroCache[r][c] = z+2;//bbbv+1
+							else zeroCache[r][c] = 0;
+						}
+					}
+				}
+				z++;
+			}
+			else break;
+		}
+		//生成0链缓存
+		numberOfZeroChain = bbbv;//当前3BV即为0链数量
+		/*if(debug == 2)
+		{
+			printf("[Debug]已生成0块缓存：\n");
+			for(r=0; r<heightOfBoard; r++)
+			{
+				printf("  ");
+				for(c=0; c<widthOfBoard; c++)
+				{
+					printf("%2d", zeroCache[r][c]);
+				}
+				printf("\n");
+			}
+			system("pause");
+		}*/
+	}
+	if(mode != 2)
+	{
+		/*计算未显示数字数量*/
+		for(r=0; r<heightOfBoard; r++)
+		{
+			for(c=0; c<widthOfBoard; c++)
+			{
+				if(board[r][c] != 9 && isShown[r][c] != 1)
+				{
+					//isShown[r][c] = 1;
+					bbbv++;
+				}
+			}
+		}
+		ShownModeBak(0);
+	}
 	return bbbv;
 }
 
@@ -10505,6 +10719,7 @@ void ReallocMemory(int height, int width, int dic, int length)//全局矩阵内�
 			questionMark =(int**) MatrixMemory((void**)questionMark, lastHeight, lastWidth, sizeof(int), 0);
 			isShownBak =(int**) MatrixMemory((void**)isShownBak, lastHeight, lastWidth, sizeof(int), 0);
 			isShownBuf =(int**) MatrixMemory((void**)isShownBuf, lastHeight, lastWidth, sizeof(int), 0);
+			zeroCache =(int**) MatrixMemory((void**)zeroCache, lastHeight, lastWidth, sizeof(int), 0);
 			mapShown =(char**) MatrixMemory((void**)mapShown, lastHeight+2, 2*lastWidth+5, sizeof(char), 0);
 			map =(char**) MatrixMemory((void**)map, lastHeight, lastWidth, sizeof(char), 0);
 			numberShown =(int**) MatrixMemory((void**)numberShown, lastHeight, lastWidth, sizeof(int), 0);
@@ -10526,6 +10741,7 @@ void ReallocMemory(int height, int width, int dic, int length)//全局矩阵内�
 			questionMark = 0;
 			isShownBak = 0;
 			isShownBuf = 0;
+			zeroCache = 0;
 			mapShown = 0;
 			map = 0;
 			numberShown = 0;
@@ -10550,6 +10766,7 @@ void ReallocMemory(int height, int width, int dic, int length)//全局矩阵内�
 			questionMark =(int**) MatrixMemory((void**)questionMark, height, width, sizeof(int), 1);
 			isShownBak =(int**) MatrixMemory((void**)isShownBak, height, width, sizeof(int), 1);
 			isShownBuf =(int**) MatrixMemory((void**)isShownBuf, height, width, sizeof(int), 1);
+			zeroCache =(int**) MatrixMemory((void**)zeroCache, height, width, sizeof(int), 1);
 			mapShown =(char**) MatrixMemory((void**)mapShown, height+2, 2*width+5, sizeof(char), 1);
 			map =(char**) MatrixMemory((void**)map, height, width, sizeof(char), 1);
 			numberShown =(int**) MatrixMemory((void**)numberShown, height, width, sizeof(int), 1);
@@ -11471,8 +11688,12 @@ MineSweeper Run 5.6
 ——修复 自制地图布雷时雷数可能显示错误
 ——修复 自制地图编辑必然显示控制台光标
 ——修复 自定义或以密度设置雷数的难度可能不能正常筛选和显示打破纪录
+MineSweeper Run 5.7
+——优化 MC调试信息可能性显示
+——优化 通过0块缓存加速未解3BV计算
+——修复 标记0链及附近方块时已解3BV减少
 //——新增 保存有效记录的操作记录
-//——新增 按V播放操作记录
+//——新增 主页按V或拖动文件至程序图标播放操作记录
 //——新增 可启用在外部窗口进行游戏
 //——新增 组合雷率计算（根据多块枚举的结果组合进行雷率计算）
 //——新增 触雷直接重开和超时间纪录且低速直接重开
@@ -11481,4 +11702,5 @@ MineSweeper Run 5.6
 //——优化 雷率由浮点计算转为整数计算
 //——优化 现在默认启用快速显示
 //——优化 缩短默认刷新周期
+//——优化 移除部分不必要的调试
 --------------------------------*/

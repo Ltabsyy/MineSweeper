@@ -178,6 +178,7 @@ int main()
 								for(c=0; c<widthOfBoard; c++)
 								{
 									isShown[r][c] = 0;
+									solution[r][c] = 0;
 								}
 							}
 							r0 = -1;
@@ -188,15 +189,57 @@ int main()
 								delay_ms(refreshCycle);
 							}
 							seed = time(0);
-							t0 = time(0);
+							/*if(summonCheckMode > 2)//可解地图生成
+							{
+								if(summonCheckMode == 4)
+								{
+									isOpenMine = 1;
+									while(isOpenMine == 1)
+									{
+										bbbv = BBBV(seed, r0, c0, 1);
+										if(bbbv >= chosen3BVMin[difficulty] && bbbv <= chosen3BVMax[difficulty])
+										{
+											for(r=0; r<heightOfBoard; r++)
+											{
+												for(c=0; c<widthOfBoard; c++)
+												{
+													if(board[r][c] == chosenNumber) isOpenMine = 0;
+												}
+											}
+											if(isOpenMine == 0 && chosenSolvable == 1)
+											{
+												isOpenMine = 1-IsSolvableMap(seed, r0, c0);
+											}
+										}
+										if(isOpenMine == 1) seed++;
+									}
+								}
+								else
+								{
+									while(IsSolvableMap(seed, r0, c0) == 0) seed++;
+								}
+								for(r=0; r<heightOfBoard; r++)
+								{
+									for(c=0; c<widthOfBoard; c++)
+									{
+										solution[r][c] = 0;
+									}
+								}
+							}*/
 							SummonBoard(seed, r0, c0);
+							//bbbv = BBBV(seed, r0, c0, 1);
 							r = r0;
 							c = c0;
 							isShown[r][c] = 1;
+							t0 = time(0);
 						}
 					}
-					if(operation != 0) break;
-					delay_ms(refreshCycle);
+					if(operation != 0)
+					{
+						delay_ms(0);//连续操作显示
+						break;
+					}
+					else delay_ms(refreshCycle);
 					//delay_fps(1000/refreshCycle);//维持帧率稳定
 					//if(operation != 0) break;
 				}
@@ -785,26 +828,28 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘
 	int xm, ym, rm = -1, cm = -1, highlight;
 	setfillcolor(LIGHTGRAY);
 	ege_fillrect(0, 0, widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar);//清除旧顶栏减少锯齿感
-	ege_point polyPoints1[5] =
+	ege_point polyPoints1[6] =
 	{
 		{0+dx, heightOfBar+dy},
 		{widthOfBlock*widthOfBoard+widthOfBorder*2+dx, heightOfBar+dy},
 		{widthOfBlock*widthOfBoard+widthOfBorder+dx, heightOfBar+widthOfBorder+dy},
+		{widthOfBorder+dx, heightOfBar+widthOfBorder+dy},
 		{widthOfBorder+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder+dy},
 		{0+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy}
 	};
-	ege_point polyPoints2[5] =
+	ege_point polyPoints2[6] =
 	{
 		{widthOfBlock*widthOfBoard+widthOfBorder*2+dx, heightOfBar+dy},
 		{widthOfBlock*widthOfBoard+widthOfBorder+dx, heightOfBar+widthOfBorder+dy},
+		{widthOfBlock*widthOfBoard+widthOfBorder+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder+dy},
 		{widthOfBorder+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder+dy},
 		{0+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy},
 		{widthOfBlock*widthOfBoard+widthOfBorder*2+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy}
 	};
 	setfillcolor(GRAY);
-	ege_fillpoly(5, polyPoints1);
+	ege_fillpoly(6, polyPoints1);
 	setfillcolor(WHITE);
-	ege_fillpoly(5, polyPoints2);
+	ege_fillpoly(6, polyPoints2);
 	//悬浮高亮
 	mousepos(&xm, &ym);
 	if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
@@ -1077,11 +1122,9 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 		flushmouse();
 		flushkey();
 	}
-	while(mousemsg() || kbmsg())//使用while代替if避免堆积消息产生延迟
+	while(mousemsg())//使用while代替if避免堆积消息产生延迟
 	{
-		//键鼠混动输入
-		if(mousemsg()) mouseMsg = getmouse();
-		if(kbmsg()) keyMsg = getkey();
+		mouseMsg = getmouse();
 		if(mouseMsg.is_up())
 		{
 			if(mouseMsg.is_left()) isOpening = 0;//鼠标左键抬起
@@ -1202,6 +1245,18 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 				isSigning = 0;
 			}
 		}
+		if(mouseMsg.is_wheel() && keystate(key_control))
+		{
+			if(mouseMsg.wheel > 0) sideLength += 4;
+			else if(sideLength > 4) sideLength -= 4;
+			resizewindow(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2);
+			setfont(heightOfChar, 0, "Consolas");//更新字体大小
+			DrawBoard(0, remainder, t, solved3BV, total3BV);//避免闪烁
+		}
+	}
+	while(kbmsg())//鼠标专门处理，避免无尽滚动，随后处理纯键盘操作输入
+	{
+		keyMsg = getkey();
 		if(keyMsg.msg == key_msg_down)
 		{
 			if(keyMsg.flags & key_flag_shift && keyMsg.key == '1')
@@ -1212,14 +1267,6 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 			{
 				*operation = '\t';
 			}
-		}
-		if(mouseMsg.is_wheel() && keystate(key_control))
-		{
-			if(mouseMsg.wheel > 0) sideLength += 4;
-			else if(sideLength > 4) sideLength -= 4;
-			resizewindow(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2);
-			setfont(heightOfChar, 0, "Consolas");
-			DrawBoard(0, remainder, t, solved3BV, total3BV);
 		}
 	}
 }
@@ -1527,4 +1574,11 @@ MineSweeper EGE 8.1
 //——优化 与鼠标点击空地切换左右键、自制地图编辑的兼容性
 ——修复 边缘点击可能闪退
 ——修复 调整显示大小可能闪烁
+MineSweeper EGE 8.2
+——优化 操作识别效率
+——优化 边框绘制效率
+——修复 Ctrl+滚轮调整大小可能无尽滚动
+//——修复 点击笑脸按钮重新生成地图后实时求解指令滞留
+//——修复 点击笑脸按钮不能重新生成可解地图
+//——修复 点击笑脸按钮重新生成地图后3BV计算错误
 --------------------------------*/
