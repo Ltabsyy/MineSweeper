@@ -32,6 +32,7 @@ void ShowBoard(int mode);
 // EGE窗口显示
 int dx = 0, dy = 0;//地图偏移
 int screenHeight, screenWidth;
+int mouseR = -1, mouseC = -1;//悬浮高亮
 void DrawMine(int r, int c);//绘制地图地雷
 void DrawMineA(int x0, int y0, int r);//绘制地雷图形
 void DrawFlag(int r, int c);//绘制地图旗帜
@@ -43,6 +44,7 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV);//�
 void DrawSolution();//在外部窗口绘制方案矩阵
 void DrawMouse(int x, int y);//绘制鼠标
 void InitWindow();
+void ResizeWindow(char mode);//调整显示大小
 void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, int solved3BV, int total3BV);
 int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total3BV);
 
@@ -109,8 +111,10 @@ int main()
 			if(heightOfBoard <= 20 && widthOfBoard <= 58) ShowBoard(0);
 			printf("选择坐标[r:行][c:列]\n");
 			InitWindow();//创建窗口
-			r0 = -1;
-			while(r0 == -1)
+			operation = 0;
+			r0 = heightOfBoard/2;
+			c0 = widthOfBoard/2;
+			while(operation == 0)
 			{
 				DrawBoard(0, numberOfMine, 0, -1, -1);
 				GetWindowOperation(&operation, &r0, &c0, numberOfMine, 0, -1, -1);
@@ -825,7 +829,7 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘
 {
 	int r, c;
 	int rc1, cc1, rc2, cc2;
-	int xm, ym, rm = -1, cm = -1, highlight;
+	int highlight;
 	setfillcolor(LIGHTGRAY);
 	ege_fillrect(0, 0, widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar);//清除旧顶栏减少锯齿感
 	ege_point polyPoints1[6] =
@@ -850,19 +854,29 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘
 	ege_fillpoly(6, polyPoints1);
 	setfillcolor(WHITE);
 	ege_fillpoly(6, polyPoints2);
-	//悬浮高亮
-	mousepos(&xm, &ym);
-	if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
-		widthOfBlock*widthOfBoard+widthOfBorder, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder))
-	{
-		rm = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
-		cm = (xm-dx-widthOfBorder)/widthOfBlock;
-	}
 	//裁剪优化
-	for(rc1=0; (rc1+1)*heightOfBlock+heightOfBar+widthOfBorder+dy < 0; rc1++);
-	for(cc1=0; (cc1+1)*widthOfBlock+widthOfBorder+dx < 0; cc1++);
-	for(rc2=heightOfBoard-1; (rc2-1)*heightOfBlock+heightOfBar+widthOfBorder+dy > screenHeight; rc2--);
-	for(cc2=widthOfBoard-1; (cc2-1)*widthOfBlock+widthOfBorder+dx > screenWidth; cc2--);
+	//for(rc1=0; (rc1+1)*heightOfBlock+heightOfBar+widthOfBorder+dy < 0; rc1++);
+	//for(cc1=0; (cc1+1)*widthOfBlock+widthOfBorder+dx < 0; cc1++);
+	//for(rc2=heightOfBoard-1; (rc2-1)*heightOfBlock+heightOfBar+widthOfBorder+dy > screenHeight; rc2--);
+	//for(cc2=widthOfBoard-1; (cc2-1)*widthOfBlock+widthOfBorder+dx > screenWidth; cc2--);
+	//for(x=0; k*x+b < 0; x++); -> if(b >= 0) x = 0; else x = (-b+k-1)/k;
+	if(heightOfBlock+heightOfBar+widthOfBorder+dy >= 0) rc1 = 0;
+	else rc1 = (-(heightOfBlock+heightOfBar+widthOfBorder+dy)+heightOfBlock-1)/heightOfBlock;
+	if(widthOfBlock+widthOfBorder+dx >= 0) cc1 = 0;
+	else cc1 = (-(widthOfBlock+widthOfBorder+dx)+widthOfBlock-1)/widthOfBlock;
+	//for(x=M; k*x+b > 0; x--); -> if(k*M+b <= 0) x = M; else if(b <= 0) x = -b/k; else x = (-b-k+1)/k;
+	if((heightOfBoard-2)*heightOfBlock+heightOfBar+widthOfBorder+dy <= screenHeight) rc2 = heightOfBoard-1;
+	else if(-heightOfBlock+heightOfBar+widthOfBorder+dy <= screenHeight)
+	{
+		rc2 = -(-heightOfBlock+heightOfBar+widthOfBorder+dy-screenHeight)/heightOfBlock;
+	}
+	else rc2 = (-(-heightOfBlock+heightOfBar+widthOfBorder+dy-screenHeight)-heightOfBlock+1)/heightOfBlock;
+	if((widthOfBoard-2)*widthOfBlock+widthOfBorder+dx <= screenWidth) cc2 = widthOfBoard-1;
+	else if(-widthOfBlock+widthOfBorder+dx <= screenWidth)
+	{
+		cc2 = -(-widthOfBlock+widthOfBorder+dx-screenWidth)/widthOfBlock;
+	}
+	else cc2 = (-(-widthOfBlock+widthOfBorder+dx-screenWidth)-widthOfBlock+1)/widthOfBlock;
 	for(r=rc1; r<=rc2; r++)
 	{
 		for(c=cc1; c<=cc2; c++)
@@ -870,10 +884,10 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘
 			highlight = 0;
 			if(newCursor > 1)//淡黄色高亮光标
 			{
-				if(r == rm && c == cm) highlight = 1;
+				if(r == mouseR && c == mouseC) highlight = 1;
 				if(newCursor == 3)
 				{
-					if(r == rm || c == cm) highlight = 1;
+					if(r == mouseR || c == mouseC) highlight = 1;
 				}
 			}
 			if(mode == 1)//后台
@@ -1074,7 +1088,6 @@ void DrawMouse(int x, int y)//绘制鼠标
 
 void InitWindow()//创建窗口
 {
-	int r, c;
 	DEVMODE dm;
 	dm.dmSize = sizeof(DEVMODE);
 	if(EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm) == 0)//无法获取显示屏分辨率
@@ -1109,10 +1122,29 @@ void InitWindow()//创建窗口
 	GetWindowOperation(NULL, NULL, NULL, numberOfMine, 0, -1, -1);
 }
 
+void ResizeWindow(char mode)//调整显示大小
+{
+	//调整方块边长
+	if(mode == '+') sideLength += 4;
+	else if(mode == '-' && sideLength > 4) sideLength -= 4;
+	//调整窗口大小
+	if(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth*2
+		&& heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > screenHeight*2)
+	{
+		resizewindow(screenWidth*2, screenHeight*2);
+	}
+	else
+	{
+		resizewindow(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2);
+	}
+	setfont(heightOfChar, 0, "Consolas");//更新字体大小
+}
+
 void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, int solved3BV, int total3BV)
 {
 	int xm, ym, xn, yn, clock0, clock1;
 	static int isOpening, isSigning, ro, co, xo, yo;//拖动操作
+	int isMouseInBoard = 0;
 	mouse_msg mouseMsg;
 	key_msg keyMsg;
 	if(operation == NULL || r == NULL || c == NULL)//重置键鼠消息
@@ -1125,6 +1157,19 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 	while(mousemsg())//使用while代替if避免堆积消息产生延迟
 	{
 		mouseMsg = getmouse();
+		//鼠标位置分析
+		xm = mouseMsg.x;
+		ym = mouseMsg.y;
+		mouseR = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
+		mouseC = (xm-dx-widthOfBorder)/widthOfBlock;
+		if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
+			widthOfBlock*widthOfBoard+widthOfBorder-1, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder-1))
+		{
+			*r = mouseR;
+			*c = mouseC;
+			isMouseInBoard = 1;
+		}
+		//鼠标操作处理
 		if(mouseMsg.is_up())
 		{
 			if(mouseMsg.is_left()) isOpening = 0;//鼠标左键抬起
@@ -1134,8 +1179,6 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 		{
 			if(mouseMsg.is_left())//鼠标左键按下
 			{
-				xm = mouseMsg.x;
-				ym = mouseMsg.y;
 				if(keystate(key_control))
 				{
 					clock0 = clock();
@@ -1173,12 +1216,9 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 					{
 						*operation = '%';
 					}
-					else if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
-						widthOfBlock*widthOfBoard+widthOfBorder-1, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder-1))
+					else if(isMouseInBoard == 1)
 					{
 						*operation = '@';
-						*r = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
-						*c = (xm-dx-widthOfBorder)/widthOfBlock;
 						DrawFace(1);
 						isOpening = 1;
 						ro = *r;
@@ -1191,14 +1231,9 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 			}
 			if(mouseMsg.is_right())//鼠标右键按下
 			{
-				xm = mouseMsg.x;
-				ym = mouseMsg.y;
-				if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
-					widthOfBlock*widthOfBoard+widthOfBorder-1, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder-1))
+				if(isMouseInBoard == 1)
 				{
 					*operation = '#';
-					*r = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
-					*c = (xm-dx-widthOfBorder)/widthOfBlock;
 					DrawFace(1);
 					isSigning = 1;
 					ro = *r;
@@ -1212,13 +1247,10 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 		if(mouseMsg.is_move() && (isOpening == 1 || isSigning == 1))
 		{
 			//mousepos(&xm, &ym);//最新位置
-			xm = mouseMsg.x;
-			ym = mouseMsg.y;//缓冲位置
-			if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
-				widthOfBlock*widthOfBoard+widthOfBorder-1, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder-1))
+			//xm = mouseMsg.x;
+			//ym = mouseMsg.y;//缓冲位置
+			if(isMouseInBoard == 1)
 			{
-				*r = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
-				*c = (xm-dx-widthOfBorder)/widthOfBlock;
 				//DrawFace(1);
 				if(ro != *r || co != *c)//移动到其他方块
 				{
@@ -1247,10 +1279,8 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 		}
 		if(mouseMsg.is_wheel() && keystate(key_control))
 		{
-			if(mouseMsg.wheel > 0) sideLength += 4;
-			else if(sideLength > 4) sideLength -= 4;
-			resizewindow(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2);
-			setfont(heightOfChar, 0, "Consolas");//更新字体大小
+			if(mouseMsg.wheel > 0) ResizeWindow('+');
+			else ResizeWindow('-');
 			DrawBoard(0, remainder, t, solved3BV, total3BV);//避免闪烁
 		}
 	}
@@ -1344,12 +1374,14 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 		while(mousemsg())
 		{
 			mouseMsg = getmouse();
+			xm = mouseMsg.x;
+			ym = mouseMsg.y;
+			mouseR = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
+			mouseC = (xm-dx-widthOfBorder)/widthOfBlock;
 			if(mouseMsg.is_left() && mouseMsg.is_down())
 			{
 				if(keystate(key_control))
 				{
-					xm = mouseMsg.x;
-					ym = mouseMsg.y;
 					clock0 = clock();
 					while(1)
 					{
@@ -1393,10 +1425,8 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 			}
 			if(mouseMsg.is_wheel() && keystate(key_control))
 			{
-				if(mouseMsg.wheel > 0) sideLength += 4;
-				else if(sideLength > 4) sideLength -= 4;
-				resizewindow(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2);
-				setfont(heightOfChar, 0, "Consolas");//重设字体大小
+				if(mouseMsg.wheel > 0) ResizeWindow('+');
+				else ResizeWindow('-');
 				DrawBoard(1, remainder, time, solved3BV, total3BV);
 				if(isWinning == 1) DrawFace(3);
 				else DrawFace(2);
@@ -1581,4 +1611,8 @@ MineSweeper EGE 8.2
 //——修复 点击笑脸按钮重新生成地图后实时求解指令滞留
 //——修复 点击笑脸按钮不能重新生成可解地图
 //——修复 点击笑脸按钮重新生成地图后3BV计算错误
+MineSweeper EGE 9
+——优化 裁剪优化计算效率
+——优化 限制窗口大小不超过屏幕大小2倍
+——优化 悬浮高亮与操作位置统一性
 --------------------------------*/
