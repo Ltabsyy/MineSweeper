@@ -5519,11 +5519,10 @@ void OpenZeroChain(int r0, int c0)//翻开0连锁翻开
 					}
 				}
 			}
-			/*r = rc1;
-			for(c=cc1; c<=cc2; c++);
-			for(r++; r<=rc2; r++);
-			for(c--; c>=cc1; c--);
-			for(r--; r>rc1; r--);*///0链可能迂回
+			/*for(r=rc1, c=cc1; c<=cc2; c++);
+			for(r++, c--; r<=rc2; r++);
+			for(r--, c--; c>=cc1; c--);
+			for(r--, c++; r>rc1; r--);*///0链可能迂回
 			if(isRising == 1)//调整0链框架
 			{
 				if(rc1 > 0) rc1--;
@@ -10423,11 +10422,11 @@ int BBBV(int seed, int r0, int c0, int mode)//计算地图3BV
 	int* zeroChainCache;//缓存0链是否被打开
 	static int numberOfZeroChain = 0;
 	if(mode != 2) ShownModeBak(1);
-	if(mode == 1)//1计算全部3BV，0计算未解3BV，3计算全部3BV并缓存，2根据缓存计算未解3BV
+	if(mode == 1 || mode == 3)//1计算全部3BV，0计算未解3BV，3计算全部3BV并缓存，2根据缓存计算未解3BV
 	{
 		SummonBoard(seed, r0, c0);
 	}
-	else if(mode == 0 || mode == 3)//防止标记阻碍0链打开
+	else if(mode == 0)//防止标记阻碍0链打开
 	{
 		for(r=0; r<heightOfBoard; r++)
 		{

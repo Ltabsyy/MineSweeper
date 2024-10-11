@@ -5519,11 +5519,10 @@ void OpenZeroChain(int r0, int c0)//翻开0连锁翻开
 					}
 				}
 			}
-			/*r = rc1;
-			for(c=cc1; c<=cc2; c++);
-			for(r++; r<=rc2; r++);
-			for(c--; c>=cc1; c--);
-			for(r--; r>rc1; r--);*///0链可能迂回
+			/*for(r=rc1, c=cc1; c<=cc2; c++);
+			for(r++, c--; r<=rc2; r++);
+			for(r--, c--; c>=cc1; c--);
+			for(r--, c++; r>rc1; r--);*///0链可能迂回
 			if(isRising == 1)//调整0链框架
 			{
 				if(rc1 > 0) rc1--;
