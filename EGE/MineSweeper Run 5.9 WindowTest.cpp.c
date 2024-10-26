@@ -2,11 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>//时间戳作种子生成随机数，用于生成地图和无确定解时随机翻开
-#include <conio.h>//非阻塞式输入
+//#include <conio.h>//非阻塞式输入
 #include <windows.h>//面向Windows输出彩色字符
 #include <math.h>
 //#include <direct.h>//创建文件夹
-//#include <graphics.h>//Easy Graphics Engine
+#include <graphics.h>//Easy Graphics Engine
 /**
  * 扫雷 MineSweeper Run
  * 
@@ -22,14 +22,14 @@
 //内存占用至少为 75*H*W+L*D Byte，默认约3.1MB
 
 // 外部窗口形态
-/*int sideLength = 32;//外部窗口方块边长
+int sideLength = 32;//外部窗口方块边长
 #define heightOfBlock sideLength
 #define widthOfBlock sideLength//锁定纵横比
 #define heightOfBar 2*sideLength
 #define widthOfBorder sideLength/4
 #define xOfChar widthOfBlock*10/32
 #define yOfChar heightOfBlock/32
-#define heightOfChar heightOfBlock*/
+#define heightOfChar heightOfBlock
 
 // 控制栏
 int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2);
@@ -65,7 +65,7 @@ void ShowBoardFast(int yOfMap);
 void PrintSolvingMap(int mode);
 
 // 外部窗口显示
-/*int dx = 0, dy = 0;//地图偏移
+int dx = 0, dy = 0;//地图偏移
 int screenHeight, screenWidth;
 int mouseR = -1, mouseC = -1;//悬浮高亮
 void DrawMine(int r, int c);//绘制地图地雷
@@ -77,11 +77,11 @@ void DrawClock(int x0, int y0, int r, int time);//绘制时钟
 void DrawFace(int mode);//绘制笑脸
 void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV);//绘制总外部窗口
 void DrawSolution();//在外部窗口绘制方案矩阵
-void DrawMouse(int x, int y);//绘制鼠标
+//void DrawMouse(int x, int y);//绘制鼠标
 void InitWindow();
 void ResizeWindow(char mode);//调整显示大小
 void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, int solved3BV, int total3BV);
-int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total3BV);*/
+int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total3BV);
 
 // 后台计算
 int Difficulty(int height, int width, int mine);//根据地图信息判断难度
@@ -290,7 +290,7 @@ int summonCheckMode = 2;//0不校验，1非雷，2必空，3可解，4筛选
 int showTime = 1;//显示用时，0不显示，1显示
 int show3BV = 0;//显示3BV和3BV/s
 int backgroundColor = 0x07;//背景颜色，深色模式0x07，浅色模式0xf0
-int operateMode = 2;//操作模式，0@#rc，1wasd23，2鼠标点击，3Window
+int operateMode = 3;//操作模式，0@#rc，1wasd23，2鼠标点击，3Window
 int solveMode = 1;//0简单模式，1游戏模式，2分析模式
 //int lengthOfThinkChain = 19;//未知链长度
 int lengthOfThinkNumberCheck = 15;
@@ -300,12 +300,12 @@ int remainedMineJudgeLocalNC = 1;//剩余雷数判断
 int remainedMineJudgeLocalMC = 0;
 int remainedMineJudgeGlobal = 0;
 int refreshCycle = 50;//刷新周期，默认50ms，一般鼠标8ms，游戏鼠标1ms
-int fastShow = 0;//启用快速显示，仅刷新地图更新部分
+int fastShow = 1;//启用快速显示，仅刷新地图更新部分
 int fastSign = 0;//#数字快速标记周围
 int newCursor = 2;//1><光标，2淡黄色高亮光标，3淡黄色高亮行列
 int visibleCursor = 0;//1显示控制台光标，0隐藏控制台光标
 int keepCursor = 0;//保持光标显示
-int dynamicMemory = 0;//启用动态内存分配
+int dynamicMemory = 1;//启用动态内存分配
 char cursorLeft[2] = ">";//><光标左
 char cursorRight[2] = "<";//><光标右
 int chosenSolvable = 1;//筛选地图可解性
@@ -666,7 +666,7 @@ int main(/*int argc, char** argv*/)
 				}*/
 			}
 			showCursor(visibleCursor);//避免调整窗口大小恢复控制台光标
-			Sleep(refreshCycle);
+			api_sleep(refreshCycle);
 		}
 		if(choiceMode == 1)//游戏
 		{
@@ -709,7 +709,7 @@ int main(/*int argc, char** argv*/)
 				}
 			}
 			/*获取种子和生成位置*/
-			//if(operateMode == 3) InitWindow();//创建窗口
+			if(operateMode == 3) InitWindow();//创建窗口
 			if(lastMap != 1)
 			{
 				ShowBoard(0);
@@ -773,11 +773,11 @@ int main(/*int argc, char** argv*/)
 						FreshCursor(r0, c0, 3);
 						//gotoxy(cs0+2*c0, heightOfMapShown+2-heightOfBoard+1+r0);
 						showCursor(visibleCursor);
-						Sleep(refreshCycle);
+						api_sleep(refreshCycle);
 					}
 					gotoxy(0, heightOfMapShown+5);
 				}
-				/*else if(operateMode == 3)
+				else if(operateMode == 3)
 				{
 					operation = 0;
 					r0 = heightOfBoard/2;
@@ -788,7 +788,7 @@ int main(/*int argc, char** argv*/)
 						GetWindowOperation(&operation, &r0, &c0, numberOfMine, 0, -1, -1);
 						delay_ms(refreshCycle);
 					}
-				}*/
+				}
 				seed = time(0);//当前时间戳作种子生成随机数
 				if(debug == 2)
 				{
@@ -909,7 +909,7 @@ int main(/*int argc, char** argv*/)
 					{
 						//gotoxy(0, yOfMapEnd+5);
 						//printf(":(\n标记过多！请重新标记。\n");
-						//if(operateMode == 2 && operation == '#') Sleep(refreshCycle);//防止鼠标出现右键菜单
+						//if(operateMode == 2 && operation == '#') api_sleep(refreshCycle);//防止鼠标出现右键菜单
 						//system("pause");
 						/*for(r=0; r<heightOfBoard; r++)//自动取消所有标记
 						{
@@ -1037,7 +1037,7 @@ int main(/*int argc, char** argv*/)
 				c = co;
 				while(choiceMode == 1)
 				{
-					/*if(operateMode == 3)
+					if(operateMode == 3)
 					{
 						DrawBoard(0, remainder, t1-t0+t2, bbbv-temp, bbbv);
 						DrawSolution();
@@ -1053,8 +1053,10 @@ int main(/*int argc, char** argv*/)
 									solution[r][c] = 0;
 								}
 							}
-							r0 = -1;
-							while(r0 == -1)
+							operation = 0;
+							r0 = heightOfBoard/2;
+							c0 = widthOfBoard/2;
+							while(operation == 0)
 							{
 								DrawBoard(0, numberOfMine, 0, -1, -1);
 								GetWindowOperation(&operation, &r0, &c0, numberOfMine, 0, -1, -1);
@@ -1099,13 +1101,13 @@ int main(/*int argc, char** argv*/)
 								}
 							}
 							//SummonBoard(seed, r0, c0);
-							bbbv = BBBV(seed, r0, c0, 1);
+							bbbv = BBBV(seed, r0, c0, 3);
 							r = r0;
 							c = c0;
 							isShown[r][c] = 1;
 							t0 = time(0);
 						}
-					}*/
+					}
 					if(operateMode == 2)
 					{
 						isReadyRefreshMouseOpenPos = 1;
@@ -1123,7 +1125,7 @@ int main(/*int argc, char** argv*/)
 							//gotoxy(1, yOfMapEnd+4);//操作指令位置
 							gotoxy(cs0+2*c, yOfMapEnd-heightOfBoard+1+r);//对应点位置
 							showCursor(visibleCursor);//避免调整窗口大小恢复控制台光标
-							Sleep(refreshCycle);
+							api_sleep(refreshCycle);
 							continue;
 						}
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
@@ -1448,7 +1450,7 @@ int main(/*int argc, char** argv*/)
 						}
 						else if(operation == '\t')
 						{
-							Sleep(refreshCycle);
+							api_sleep(refreshCycle);
 							for(r=0; r<heightOfBoard; r++)
 							{
 								for(c=0; c<widthOfBoard; c++)
@@ -1495,14 +1497,14 @@ int main(/*int argc, char** argv*/)
 						FreshCursor(r, c, yOfMapEnd-heightOfMapShown+1);
 						if(operation != 0)
 						{
-							//if(operateMode == 3) delay_ms(0);
-							//Sleep(refreshCycle);//保持延迟统一，通过降低按键跟手性减弱轻浮感
+							if(operateMode == 3) delay_ms(0);
+							//api_sleep(refreshCycle);//保持延迟统一，通过降低按键跟手性减弱轻浮感
 							gotoxy(0, yOfMapEnd+5);
 							break;
 						}
 					}
-					//if(operateMode == 3) delay_ms(0);
-					Sleep(refreshCycle);//每50ms刷新一次
+					if(operateMode == 3) delay_ms(0);
+					api_sleep(refreshCycle);//每50ms刷新一次
 				}
 				ro = r;
 				co = c;
@@ -1666,7 +1668,7 @@ int main(/*int argc, char** argv*/)
 				WriteRecords(records);
 				//if(IsEffectiveRecord(newRecord)) WriteOperations(operationRecord);
 				//ClearOperations(operationRecord);
-				//if(operateMode == 3) choiceMode = CloseWindow(1-isOpenMine, remainder, t1-t0+t2, bbbv-temp, bbbv);
+				if(operateMode == 3) choiceMode = CloseWindow(1-isOpenMine, remainder, t1-t0+t2, bbbv-temp, bbbv);
 			}
 		}
 		else if(choiceMode == 2)//地图求解
@@ -1728,7 +1730,7 @@ int main(/*int argc, char** argv*/)
 					while(rcd.EventType == MOUSE_EVENT && rcd.Event.MouseEvent.dwButtonState != 0)//设置游戏难度抗双击
 					{
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
-						Sleep(refreshCycle);
+						api_sleep(refreshCycle);
 					}
 					clrscr();
 					DrawSetDifficulty(-1);
@@ -1758,12 +1760,12 @@ int main(/*int argc, char** argv*/)
 							}
 						}
 						showCursor(visibleCursor);
-						Sleep(refreshCycle);
+						api_sleep(refreshCycle);
 					}
 					while(rcd.EventType == MOUSE_EVENT && rcd.Event.MouseEvent.dwButtonState != 0)//设置游戏难度返回抗双击
 					{
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
-						Sleep(refreshCycle);
+						api_sleep(refreshCycle);
 					}
 					if(difficulty == 0)//默认为10*10-10，比初级更简单(doge)
 					{
@@ -1965,7 +1967,7 @@ int main(/*int argc, char** argv*/)
 										temp = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-8
 									}
 								}
-								Sleep(refreshCycle);
+								api_sleep(refreshCycle);
 							}
 							if(temp >= 0 && temp <= 5)
 							{
@@ -2005,7 +2007,7 @@ int main(/*int argc, char** argv*/)
 							DrawSetSummonCheckMode(-1);
 							choiceSubSet = -1;
 						}
-						Sleep(refreshCycle);
+						api_sleep(refreshCycle);
 					}
 					clrscr();
 					DrawControlBar(0);
@@ -2078,7 +2080,7 @@ int main(/*int argc, char** argv*/)
 								choiceSubSet = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-3
 							}
 						}
-						Sleep(refreshCycle);
+						api_sleep(refreshCycle);
 					}
 					if(choiceSubSet != -1) operateMode = choiceSubSet;
 					/*if(operateMode == 1) visibleCursor = 1;//仅wasd23显示光标 
@@ -2185,7 +2187,7 @@ int main(/*int argc, char** argv*/)
 							DrawSetCursor(0);
 							choiceSubSet = 0;
 						}
-						Sleep(refreshCycle);
+						api_sleep(refreshCycle);
 					}
 					clrscr();
 					DrawControlBar(0);
@@ -2483,7 +2485,7 @@ int main(/*int argc, char** argv*/)
 					choiceSet = 0;
 				}
 				showCursor(visibleCursor);
-				Sleep(refreshCycle);
+				api_sleep(refreshCycle);
 			}
 			if(choiceSet == 9)//返回并保存
 			{
@@ -3559,18 +3561,18 @@ void DrawSetOperateMode(int select)
 	printf("**************************************************************\n");
 	printf("* 键盘操作时可根据按键自动切换@#rc/wasd23操作模式！\n");
 	printf("* 键盘操作可按M切换到鼠标操作，鼠标操作可按K切换到键盘操作。\n");
-	printf("* [(0)@#rc操作模式]\n");
+	printf("* [(0)@#rc操作模式](WindowTest版可能闪退！)\n");
 	printf("* 输入[@:翻开/#:标记] [r:行坐标] [c:列坐标]，\n");
 	printf("* 并按回车后执行，如@ 0 0指翻开(0,0)。\n");
-	printf("* [(1)wasd23操作模式]\n");//(WindowTest版可能闪退！)
+	printf("* [(1)wasd23操作模式](WindowTest版可能闪退！)\n");//(WindowTest版可能闪退！)
 	printf("* 通过wasd移动光标，按2翻开，按3标记，\n");
 	printf("* 无小键盘可用hu代替23。\n");
 	printf("* [(2)鼠标点击操作模式]\n");
 	printf("* 可通过鼠标，wasd，方向键移动光标。\n");
 	printf("* 兼容wasd23，但无法使用@#rc和鼠标全选复制地图。\n");
-	//printf("* [(3)Window]\n");
-	//printf("* 在外部窗口进行游戏，控制台内操作均屏蔽，\n");
-	//printf("* 游戏结束后按鼠标右键返回控制台。\n");
+	printf("* [(3)Window]\n");
+	printf("* 在外部窗口进行游戏，控制台内操作均屏蔽，\n");
+	printf("* 游戏结束后按鼠标右键返回控制台。\n");
 	printf("**************************************************************\n");
 	if(select == 0)
 	{
@@ -3590,7 +3592,7 @@ void DrawSetOperateMode(int select)
 	else if(select == 3)
 	{
 		gotoxy(2, 26);
-		//ColorStr("[(3)Window]", 0xff-backgroundColor);
+		ColorStr("[(3)Window]", 0xff-backgroundColor);
 	}
 	gotoxy(0, 27);
 }
@@ -4596,11 +4598,11 @@ void PrintSolvingMap(int mode)//1为枚举可能性
 		printf("\n");
 	}
 }
-/*
+
 void DrawMine(int r, int c)//绘制地图地雷
 {
-	int x = c*widthOfBlock+widthOfBorder+dx;
-	int y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
+	float x = c*widthOfBlock+widthOfBorder+dx;
+	float y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
 	//setcolor(LIGHTRED);
 	//xyprintf(x+xOfChar, y+yOfChar, "@");
 	setfillcolor(BLACK);
@@ -4632,8 +4634,8 @@ void DrawMineA(int x0, int y0, int r)//绘制地雷图形
 
 void DrawFlag(int r, int c)//绘制地图旗帜
 {
-	int x = c*widthOfBlock+widthOfBorder+dx;
-	int y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
+	float x = c*widthOfBlock+widthOfBorder+dx;
+	float y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
 	//setcolor(LIGHTRED);
 	//xyprintf(x+xOfChar, y+yOfChar, "#");
 	setfillcolor(BLACK);
@@ -4646,17 +4648,17 @@ void DrawFlag(int r, int c)//绘制地图旗帜
 	setfillcolor(RED);
 	ege_point polyPoints[3] =
 	{
-		{x+6.0/32*widthOfBlock, y+11.0/32*heightOfBlock},
-		{x+17.0/32*widthOfBlock, y+6.0/32*heightOfBlock},
-		{x+17.0/32*widthOfBlock, y+16.0/32*heightOfBlock}
+		{x+6.0f/32*widthOfBlock, y+11.0f/32*heightOfBlock},
+		{x+17.0f/32*widthOfBlock, y+6.0f/32*heightOfBlock},
+		{x+17.0f/32*widthOfBlock, y+16.0f/32*heightOfBlock}
 	};
 	ege_fillpoly(3, polyPoints);
 }
 
 void DrawBlock(int r, int c, int board, int isShown, int highlight)//绘制方块
 {
-	int x = c*widthOfBlock+widthOfBorder+dx;
-	int y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
+	float x = c*widthOfBlock+widthOfBorder+dx;
+	float y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
 	//绘制边框和底纹
 	if(isShown == 1 || (board == 9 && isShown == 0))
 	{
@@ -4678,7 +4680,7 @@ void DrawBlock(int r, int c, int board, int isShown, int highlight)//绘制方�
 		if(highlight == 1) setfillcolor(LIGHTBLUE);
 		else setfillcolor(LIGHTGRAY);
 		//ege_fillrect(x+widthOfBlock*4/32, y+heightOfBlock*4/32, widthOfBlock*24/32, heightOfBlock*24/32);
-		ege_fillrect(x+widthOfBlock*2/32, y+heightOfBlock*2/32, widthOfBlock*28/32, heightOfBlock*28/32);
+		ege_fillrect(x+widthOfBlock*2.0/32, y+heightOfBlock*2.0/32, widthOfBlock*28/32, heightOfBlock*28/32);
 		//setfontbkcolor(LIGHTGRAY);
 	}
 	//绘制文字或图形
@@ -4689,7 +4691,7 @@ void DrawBlock(int r, int c, int board, int isShown, int highlight)//绘制方�
 		if(board != 9)//错误标记
 		{
 			setfillcolor(LIGHTRED);
-			ege_fillrect(x+widthOfBlock*2/32, y+heightOfBlock*2/32, widthOfBlock*28/32, heightOfBlock*28/32);
+			ege_fillrect(x+widthOfBlock*2.0/32, y+heightOfBlock*2.0/32, widthOfBlock*28/32, heightOfBlock*28/32);
 		}
 		DrawFlag(r, c);
 	}
@@ -4781,10 +4783,10 @@ void DrawClock(int x0, int y0, int r, int time)//绘制时钟
 void DrawFace(int mode)//绘制笑脸
 {
 	static int clickClock = 0;
-	int h = heightOfBlock*3/2;
-	int w = widthOfBlock*3/2;
-	int x = (widthOfBlock*widthOfBoard-w)/2+widthOfBorder;
-	int y = (heightOfBar-h)/2;
+	float h = heightOfBlock*3/2;
+	float w = widthOfBlock*3/2;
+	float x = (widthOfBlock*widthOfBoard-w)/2+widthOfBorder;
+	float y = (heightOfBar-h)/2;
 	//按未翻开方块1.5倍绘制边框和底纹
 	ege_point polyPoints1[3] = {{x, y}, {x+w, y}, {x, y+h}};
 	ege_point polyPoints2[3] = {{x+w, y}, {x, y+h}, {x+w, y+h}};
@@ -4847,21 +4849,21 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘
 	ege_fillrect(0, 0, widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar);//清除旧顶栏减少锯齿感
 	ege_point polyPoints1[6] =
 	{
-		{0+dx, heightOfBar+dy},
-		{widthOfBlock*widthOfBoard+widthOfBorder*2+dx, heightOfBar+dy},
-		{widthOfBlock*widthOfBoard+widthOfBorder+dx, heightOfBar+widthOfBorder+dy},
-		{widthOfBorder+dx, heightOfBar+widthOfBorder+dy},
-		{widthOfBorder+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder+dy},
-		{0+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy}
+		{(float)0+dx, (float)heightOfBar+dy},
+		{(float)widthOfBlock*widthOfBoard+widthOfBorder*2+dx, (float)heightOfBar+dy},
+		{(float)widthOfBlock*widthOfBoard+widthOfBorder+dx, (float)heightOfBar+widthOfBorder+dy},
+		{(float)widthOfBorder+dx, (float)heightOfBar+widthOfBorder+dy},
+		{(float)widthOfBorder+dx, (float)heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder+dy},
+		{(float)0+dx, (float)heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy}
 	};
 	ege_point polyPoints2[6] =
 	{
-		{widthOfBlock*widthOfBoard+widthOfBorder*2+dx, heightOfBar+dy},
-		{widthOfBlock*widthOfBoard+widthOfBorder+dx, heightOfBar+widthOfBorder+dy},
-		{widthOfBlock*widthOfBoard+widthOfBorder+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder+dy},
-		{widthOfBorder+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder+dy},
-		{0+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy},
-		{widthOfBlock*widthOfBoard+widthOfBorder*2+dx, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy}
+		{(float)widthOfBlock*widthOfBoard+widthOfBorder*2+dx, (float)heightOfBar+dy},
+		{(float)widthOfBlock*widthOfBoard+widthOfBorder+dx, (float)heightOfBar+widthOfBorder+dy},
+		{(float)widthOfBlock*widthOfBoard+widthOfBorder+dx, (float)heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder+dy},
+		{(float)widthOfBorder+dx, (float)heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder+dy},
+		{(float)0+dx, (float)heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy},
+		{(float)widthOfBlock*widthOfBoard+widthOfBorder*2+dx, (float)heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2+dy}
 	};
 	setfillcolor(GRAY);
 	ege_fillpoly(6, polyPoints1);
@@ -5072,7 +5074,7 @@ void DrawSolution()
 		}
 	}
 }
-
+/*
 void DrawMouse(int x, int y)//绘制鼠标
 {
 	int x0 = widthOfBorder+dx;
@@ -5098,7 +5100,7 @@ void DrawMouse(int x, int y)//绘制鼠标
 	setlinewidth(2*k);
 	ege_drawpoly(8, polyPoints);
 }
-
+*/
 void InitWindow()//创建窗口
 {
 	DEVMODE dm;
@@ -5137,19 +5139,26 @@ void InitWindow()//创建窗口
 
 void ResizeWindow(char mode)//调整显示大小
 {
+	int windowHeight, windowWidth;
 	//调整方块边长
-	if(mode == '+') sideLength += 4;
-	else if(mode == '-' && sideLength > 4) sideLength -= 4;
+	if(mode == '+')//4-16时每格调整1，16-64时4，64+时16
+	{
+		if(sideLength >= 64) sideLength += 16;
+		else if(sideLength >= 16) sideLength += 4;
+		else sideLength += 1;
+	}
+	else if(mode == '-')
+	{
+		if(sideLength > 64) sideLength -= 16;
+		else if(sideLength > 16) sideLength -= 4;
+		else if(sideLength > 4) sideLength -= 1;
+	}
 	//调整窗口大小
-	if(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth*2
-		&& heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > screenHeight*2)
-	{
-		resizewindow(screenWidth*2, screenHeight*2);
-	}
-	else
-	{
-		resizewindow(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2);
-	}
+	if(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth*3/2) windowWidth = screenWidth*3/2;
+	else windowWidth = widthOfBlock*widthOfBoard+widthOfBorder*2;
+	if(heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2 > screenHeight) windowHeight = screenHeight;
+	else windowHeight = heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2;
+	resizewindow(windowWidth, windowHeight);
 	setfont(heightOfChar, 0, "Consolas");//更新字体大小
 }
 
@@ -5181,6 +5190,11 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 			*r = mouseR;
 			*c = mouseC;
 			isMouseInBoard = 1;
+		}
+		else
+		{
+			mouseR = -1;
+			mouseC = -1;
 		}
 		//鼠标操作处理
 		if(mouseMsg.is_up())
@@ -5267,19 +5281,16 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 				//DrawFace(1);
 				if(ro != *r || co != *c)//移动到其他方块
 				{
-					if(IsPosInRectangle(xm, ym, xo-widthOfBlock*3/4, yo-heightOfBlock*3/4, xo+widthOfBlock*3/4, yo+heightOfBlock*3/4))
-					{
-						//移动距离必须超过3/4个方块
-					}
-					else
+					xn = widthOfBorder+(*c)*widthOfBlock+widthOfBlock/2+dx;
+					yn = heightOfBar+widthOfBorder+(*r)*heightOfBlock+heightOfBlock/2+dy;
+					if(sideLength*sideLength >= 8*((xm-xn)*(xm-xn)+(ym-yn)*(ym-yn))//必须移动到方块中心位置
+						&& sideLength*sideLength <= 4*((xm-xo)*(xm-xo)+(ym-yo)*(ym-yo)))//移动距离必须超过1/2个方块
 					{
 						if(isOpening == 1) *operation = '@';
 						if(isSigning == 1) *operation = '#';
 						DrawFace(1);
 						ro = *r;
 						co = *c;
-						xo = xm;
-						yo = ym;
 						break;
 					}
 				}
@@ -5389,8 +5400,17 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 			mouseMsg = getmouse();
 			xm = mouseMsg.x;
 			ym = mouseMsg.y;
-			mouseR = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
-			mouseC = (xm-dx-widthOfBorder)/widthOfBlock;
+			if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
+				widthOfBlock*widthOfBoard+widthOfBorder-1, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder-1))
+			{
+				mouseR = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
+				mouseC = (xm-dx-widthOfBorder)/widthOfBlock;
+			}
+			else
+			{
+				mouseR = -1;
+				mouseC = -1;
+			}
 			if(mouseMsg.is_left() && mouseMsg.is_down())
 			{
 				if(keystate(key_control))
@@ -5451,7 +5471,7 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 	closegraph();
 	return newGame;
 }
-*/
+
 int Difficulty(int height, int width, int mine)//根据地图信息判断难度
 {
 	if(height == 10 && width == 10 && mine == 10) return 0;
@@ -8536,7 +8556,7 @@ void PrintRecords(struct Records records, int mode)
 	printf("* 难度3高级|时间纪录:%4d | 3BV/s纪录: %.2f\n", records.minimumTime[3], records.fastestSpeed[3]);
 	printf("* 难度4顶级|时间纪录:%4d | 3BV/s纪录: %.2f\n", records.minimumTime[4], records.fastestSpeed[4]);*/
 	printf("* 总时间：%d(%.2f小时) 总翻开数：%d\n", records.totalTime, (float)records.totalTime/3600, records.totalSolved3BV);
-	printf("* 最大翻开数字：%d\n", records.maxOpenNumber);
+	printf("* 最大翻开数字：%d\n", records.maxOpenNumber);//(Ltabsyy: 8)
 	printf("* 玩家等级：Lv.%d(", records.gamerLevel);
 	//显示称号
 	if(records.gamerLevel == 1) printf("Gamer");
@@ -8825,38 +8845,37 @@ int GamerLevel(struct Records records)//计算玩家等级并显示称号
 						&& records.minimumTime[4] <= 1752)//1751.27秒内赢顶级地图
 					{
 						level = 8;//"ProGamer***"(Ltabsyy: 1 2 19 69 769)
-						//"ProGamer***"完成任意一条件获取
 						if(records.minimumTime[0] <= 3//2.26秒内赢默认地图
-							|| records.minimumTime[1] <= 3//2.60秒内赢初级地图
-							|| records.minimumTime[2] <= 17//16.10秒内赢中级地图
-							|| records.minimumTime[3] <= 61//60.67秒内赢高级地图
-							|| records.minimumTime[4] <= 1239)//顶级基准1238.52秒
+							&& records.minimumTime[1] <= 3//2.60秒内赢初级地图
+							&& records.minimumTime[2] <= 17//16.10秒内赢中级地图
+							&& records.minimumTime[3] <= 61//60.67秒内赢高级地图
+							&& records.minimumTime[4] <= 1239)//顶级基准1238.52秒
 						{
 							level = 9;//"Miner"
-						}
-						if(records.minimumTime[0] <= 2//1.60秒内赢默认地图
-							|| records.minimumTime[1] <= 2//1.84秒内赢初级地图
-							|| records.minimumTime[2] <= 12//11.38秒内赢中级地图
-							|| records.minimumTime[3] <= 43//42.89秒内赢高级地图
-							|| records.minimumTime[4] <= 876)//875.90秒内赢顶级地图
-						{
-							level = 10;//"Miner*"
-						}
-						if(records.minimumTime[0] <= 2//1.13秒内赢默认地图
-							|| records.minimumTime[1] <= 2//1.30秒内赢初级地图
-							|| records.minimumTime[2] <= 9//8.05秒内赢中级地图
-							|| records.minimumTime[3] <= 31//30.33秒内赢高级地图
-							|| records.minimumTime[4] <= 620)//619.26秒内赢顶级地图
-						{
-							level = 11;//"Miner**"
-						}
-						if(records.minimumTime[0] <= 1//0.80秒内赢默认地图
-							|| records.minimumTime[1] <= 1//0.92秒内赢初级地图
-							|| records.minimumTime[2] <= 6//5.69秒内赢中级地图
-							|| records.minimumTime[3] <= 22//21.45秒内赢高级地图
-							|| records.minimumTime[4] <= 438)//437.95秒内赢顶级地图
-						{
-							level = 12;//"Miner***"(纪录 0.09 5.80 26.59)
+							if(records.minimumTime[0] <= 2//1.60秒内赢默认地图
+								&& records.minimumTime[1] <= 2//1.84秒内赢初级地图
+								&& records.minimumTime[2] <= 12//11.38秒内赢中级地图
+								&& records.minimumTime[3] <= 43//42.89秒内赢高级地图
+								&& records.minimumTime[4] <= 876)//875.90秒内赢顶级地图
+							{
+								level = 10;//"Miner*"
+								if(records.minimumTime[0] <= 2//1.13秒内赢默认地图
+									&& records.minimumTime[1] <= 2//1.30秒内赢初级地图
+									&& records.minimumTime[2] <= 9//8.05秒内赢中级地图
+									&& records.minimumTime[3] <= 31//30.33秒内赢高级地图
+									&& records.minimumTime[4] <= 620)//619.26秒内赢顶级地图
+								{
+									level = 11;//"Miner**"
+									if(records.minimumTime[0] <= 1//0.80秒内赢默认地图
+										&& records.minimumTime[1] <= 1//0.92秒内赢初级地图
+										&& records.minimumTime[2] <= 6//5.69秒内赢中级地图
+										&& records.minimumTime[3] <= 22//21.45秒内赢高级地图
+										&& records.minimumTime[4] <= 438)//437.95秒内赢顶级地图
+									{
+										level = 12;//"Miner***"(纪录 0.09 5.80 26.59)
+									}
+								}
+							}
 						}
 					}
 				}
@@ -9486,7 +9505,7 @@ void PlayOperations(struct Operations operations)
 	clock0 = clock();
 	for(p=operations.head; p!=NULL; p=p->next)
 	{
-		while(clock()-clock0 < p->mstime) Sleep(1);
+		while(clock()-clock0 < p->mstime) api_sleep(1);
 		operation = p->operation;
 		r = p->r;
 		c = p->c;
@@ -9811,7 +9830,7 @@ void RCScan(char* operation, int* r, int* c, int yOfCommand, struct Record infor
 				//yOfCommand = heightOfMapShown-1+3+2
 			}
 		}
-		//Sleep(refreshCycle);
+		//api_sleep(refreshCycle);
 	}
 }
 
@@ -11298,9 +11317,9 @@ void Error()//错误
 	for(c=0; c<=10; c++)
 	{
 		printf("\r%3d%% 完成", c*10);
-		Sleep(200);
+		api_sleep(200);
 	}
-	Sleep(4*200);
+	api_sleep(4*200);
 	printf("\n");
 	//getchar();
 	fflush(stdin);//清空输入缓冲区，多字符仅蓝屏一次(doge)
@@ -11792,6 +11811,9 @@ MineSweeper Run 5.8
 ——修复 自制地图游戏时3BV计算错误
 ——修复 键盘模式编辑自制地图后直接返回主页
 ——修复 自制地图游戏动态内存分配可能闪退
+MineSweeper Run 5.9
+——优化 现在玩家等级9级及以上更难达到
+——优化 现在默认启用动态内存分配
 //——新增 保存有效记录的操作记录
 //——新增 主页按V或拖动文件至程序图标播放操作记录
 //——新增 可启用在外部窗口进行游戏
