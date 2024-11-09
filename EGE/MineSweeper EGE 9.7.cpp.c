@@ -31,7 +31,7 @@ void ShowBoard(int mode);
 
 // EGE窗口显示
 int dx = 0, dy = 0;//地图偏移
-int screenHeight, screenWidth;
+int screenHeight, screenWidth, xFace;
 int mouseR = -1, mouseC = -1;//悬浮高亮
 void DrawMine(int r, int c);//绘制地图地雷
 void DrawMineA(int x0, int y0, int r);//绘制地雷图形
@@ -79,7 +79,7 @@ int main()
 	int r, c, remainder, isOpenMine, ra, ca;
 	int t0, t1;
 	char operation;
-	int set, temp, difficulty;//设置
+	int temp, difficulty;//设置
 	while(1)//main内循环防止变量重复定义
 	{
 		system("cls");//清屏
@@ -197,33 +197,7 @@ int main()
 							seed = time(0);
 							/*if(summonCheckMode > 2)//可解地图生成
 							{
-								if(summonCheckMode == 4)
-								{
-									isOpenMine = 1;
-									while(isOpenMine == 1)
-									{
-										bbbv = BBBV(seed, r0, c0, 1);
-										if(bbbv >= chosen3BVMin[difficulty] && bbbv <= chosen3BVMax[difficulty])
-										{
-											for(r=0; r<heightOfBoard; r++)
-											{
-												for(c=0; c<widthOfBoard; c++)
-												{
-													if(board[r][c] == chosenNumber) isOpenMine = 0;
-												}
-											}
-											if(isOpenMine == 0 && chosenSolvable == 1)
-											{
-												isOpenMine = 1-IsSolvableMap(seed, r0, c0);
-											}
-										}
-										if(isOpenMine == 1) seed++;
-									}
-								}
-								else
-								{
-									while(IsSolvableMap(seed, r0, c0) == 0) seed++;
-								}
+								seed = SearchSeed(seed, r0, c0, difficulty);
 								for(r=0; r<heightOfBoard; r++)
 								{
 									for(c=0; c<widthOfBoard; c++)
@@ -605,12 +579,12 @@ void DrawMine(int r, int c)//绘制地图地雷
 	ege_fillellipse(x+7.4/32*widthOfBlock, y+7.4/32*heightOfBlock, 0.6*widthOfBlock, 0.6*heightOfBlock);
 	setcolor(BLACK);
 	setlinewidth(sideLength/16);
-	ege_line(x+widthOfBlock*5/32, y+heightOfBlock*17/32, x+widthOfBlock*29/32, y+heightOfBlock*17/32);
-	ege_line(x+widthOfBlock*17/32, y+heightOfBlock*5/32, x+widthOfBlock*17/32, y+heightOfBlock*29/32);
-	ege_line(x+widthOfBlock*9/32, y+heightOfBlock*9/32, x+widthOfBlock*25/32, y+heightOfBlock*25/32);
-	ege_line(x+widthOfBlock*9/32, y+heightOfBlock*25/32, x+widthOfBlock*25/32, y+heightOfBlock*9/32);
+	ege_line(x+5.0/32*widthOfBlock, y+17.0/32*heightOfBlock, x+29.0/32*widthOfBlock, y+17.0/32*heightOfBlock);
+	ege_line(x+17.0/32*widthOfBlock, y+5.0/32*heightOfBlock, x+17.0/32*widthOfBlock, y+29.0/32*heightOfBlock);
+	ege_line(x+9.0/32*widthOfBlock, y+9.0/32*heightOfBlock, x+25.0/32*widthOfBlock, y+25.0/32*heightOfBlock);
+	ege_line(x+9.0/32*widthOfBlock, y+25.0/32*heightOfBlock, x+25.0/32*widthOfBlock, y+9.0/32*heightOfBlock);
 	setfillcolor(WHITE);
-	ege_fillrect(x+12.0/32*widthOfBlock, y+12.0/32*heightOfBlock, (4.0/32)*widthOfBlock, (4.0/32)*heightOfBlock);
+	ege_fillrect(x+12.0/32*widthOfBlock, y+12.0/32*heightOfBlock, 4.0/32*widthOfBlock, 4.0/32*heightOfBlock);
 }
 
 void DrawMineA(int x0, int y0, int r)//绘制地雷图形
@@ -781,7 +755,7 @@ void DrawFace(int mode)//绘制笑脸
 	static int clickClock = 0;
 	float h = heightOfBlock*3/2;
 	float w = widthOfBlock*3/2;
-	float x = (widthOfBlock*widthOfBoard-w)/2+widthOfBorder;
+	float x = xFace;//(widthOfBlock*widthOfBoard-w)/2+widthOfBorder
 	float y = (heightOfBar-h)/2;
 	//按未翻开方块1.5倍绘制边框和底纹
 	ege_point polyPoints1[3] = {{x, y}, {x+w, y}, {x, y+h}};
@@ -841,6 +815,7 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘
 	int r, c;
 	int rc1, cc1, rc2, cc2;
 	int highlight;
+	int xRemainedMine, xRemainedMineNumber, xTime, xTimeNumber, x3BV, x3BVNumber, x3BVps, x3BVpsNumber;
 	setfillcolor(LIGHTGRAY);
 	ege_fillrect(0, 0, widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar);//清除旧顶栏减少锯齿感
 	ege_point polyPoints1[6] =
@@ -941,68 +916,64 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘
 	//剩余雷数
 	if(widthOfBoard > 12)
 	{
-		DrawMineA(2*widthOfBlock, heightOfBar/2, 20*heightOfBar/64*4/3);
-		setcolor(RED);
-		setfontbkcolor(BLACK);
-		xyprintf(3*widthOfBlock+xOfChar, (heightOfBar-heightOfChar)/2, " %d ", remainder);
+		xRemainedMine = 2*widthOfBlock;
+		xRemainedMineNumber = 3*widthOfBlock+xOfChar;
 	}
 	else if(widthOfBoard > 8)
 	{
-		DrawMineA(1*widthOfBlock, heightOfBar/2, 20*heightOfBar/64*4/3);
-		setcolor(RED);
-		setfontbkcolor(BLACK);
-		xyprintf(2*widthOfBlock, (heightOfBar-heightOfChar)/2, " %d ", remainder);
+		xRemainedMine = 1*widthOfBlock;
+		xRemainedMineNumber = 2*widthOfBlock;
 	}
 	else if(widthOfBoard > 4)
 	{
+		xRemainedMineNumber = widthOfBoard*widthOfBlock/4-widthOfBlock;
+	}
+	if(widthOfBoard > 4)
+	{
+		if(widthOfBoard > 8) DrawMineA(xRemainedMine, heightOfBar/2, 20*heightOfBar/64*4/3);
 		setcolor(RED);
 		setfontbkcolor(BLACK);
-		xyprintf(widthOfBoard*widthOfBlock/4-widthOfBlock, (heightOfBar-heightOfChar)/2, " %d ", remainder);
+		xyprintf(xRemainedMineNumber, (heightOfBar-heightOfChar)/2, " %d ", remainder);
 	}
 	//用时
 	if(showTime == 1)
 	{
 		if(widthOfBoard > 23)
 		{
-			DrawClock(7*widthOfBlock, heightOfBar/2, 20*heightOfBar/64, time(0));//按真实时间走的钟(doge)
-			setcolor(RED);
-			setfontbkcolor(BLACK);
-			xyprintf(8*widthOfBlock+xOfChar, (heightOfBar-heightOfChar)/2, " %d ", t);
+			xTime = 7*widthOfBlock;
+			xTimeNumber = 8*widthOfBlock+xOfChar;
 		}
 		else if(widthOfBoard > 12)
 		{
-			DrawClock((widthOfBoard+6)*widthOfBlock/2, heightOfBar/2, 20*heightOfBar/64, time(0));
-			setcolor(RED);
-			setfontbkcolor(BLACK);
-			xyprintf((widthOfBoard+8)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, " %d ", t);
+			xTime = (widthOfBoard+6)*widthOfBlock/2;
+			xTimeNumber = (widthOfBoard+8)*widthOfBlock/2+xOfChar;
 		}
 		else if(widthOfBoard > 10)
 		{
-			DrawClock((widthOfBoard+4)*widthOfBlock/2, heightOfBar/2, 20*heightOfBar/64, time(0));
-			setcolor(RED);
-			setfontbkcolor(BLACK);
-			xyprintf((widthOfBoard+6)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, " %d ", t);
+			xTime = (widthOfBoard+4)*widthOfBlock/2;
+			xTimeNumber = (widthOfBoard+6)*widthOfBlock/2+xOfChar;
 		}
 		else if(widthOfBoard == 10)
 		{
-			DrawClock(7*widthOfBlock, heightOfBar/2, 20*heightOfBar/64, time(0));
-			setcolor(RED);
-			setfontbkcolor(BLACK);
-			xyprintf(8*widthOfBlock, (heightOfBar-heightOfChar)/2, " %d ", t);
+			xTime = 7*widthOfBlock;
+			xTimeNumber = 8*widthOfBlock;
 		}
 		else if(widthOfBoard == 9)
 		{
-			DrawClock(6*widthOfBlock+widthOfBorder, heightOfBar/2, 20*heightOfBar/64, time(0));
-			setcolor(RED);
-			setfontbkcolor(BLACK);
-			if(t < 1000) xyprintf(7*widthOfBlock+widthOfBorder, (heightOfBar-heightOfChar)/2, " %d ", t);
-			else xyprintf(7*widthOfBlock+widthOfBorder, (heightOfBar-heightOfChar)/2, "%d ", t);
+			xTime = 6*widthOfBlock+widthOfBorder;
+			xTimeNumber = 7*widthOfBlock+widthOfBorder;
 		}
 		else if(widthOfBoard > 4)
 		{
+			xTimeNumber = widthOfBoard*widthOfBlock*3/4;
+		}
+		if(widthOfBoard > 4)
+		{
+			if(widthOfBoard > 8) DrawClock(xTime, heightOfBar/2, 20*heightOfBar/64, time(0));//按真实时间走的钟(doge)
 			setcolor(RED);
 			setfontbkcolor(BLACK);
-			xyprintf(widthOfBoard*widthOfBlock*3/4, (heightOfBar-heightOfChar)/2, " %d ", t);
+			if(widthOfBoard == 9 && t >= 1000) xyprintf(xTimeNumber, (heightOfBar-heightOfChar)/2, "%d ", t);
+			else xyprintf(xTimeNumber, (heightOfBar-heightOfChar)/2, " %d ", t);
 		}
 	}
 	//3BV
@@ -1010,29 +981,30 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘
 	{
 		if(widthOfBoard > 53)
 		{
-			setbkmode(TRANSPARENT);
-			setcolor(BLACK);
-			//setfontbkcolor(LIGHTGRAY);
-			xyprintf(12*widthOfBlock+xOfChar, (heightOfBar-heightOfChar)/2, "3BV");
-			xyprintf(20*widthOfBlock+xOfChar, (heightOfBar-heightOfChar)/2, "3BV/s");
-			setbkmode(OPAQUE);
-			setcolor(RED);
-			setfontbkcolor(BLACK);
-			xyprintf(14*widthOfBlock+xOfChar, (heightOfBar-heightOfChar)/2, " %d/%d ", solved3BV, total3BV);
-			xyprintf(23*widthOfBlock+xOfChar, (heightOfBar-heightOfChar)/2, " %.2f ", (float)solved3BV/t);
+			x3BV = 12*widthOfBlock+xOfChar;
+			x3BVps = 20*widthOfBlock+xOfChar;
+			x3BVNumber = 14*widthOfBlock+xOfChar;
+			x3BVpsNumber = 23*widthOfBlock+xOfChar;
 		}
 		else if(widthOfBoard > 27)
+		{
+			x3BV = (widthOfBoard+3)*widthOfBlock/2+xOfChar;
+			x3BVps = (widthOfBoard+17)*widthOfBlock/2+xOfChar;
+			x3BVNumber = (widthOfBoard+7)*widthOfBlock/2+xOfChar;
+			x3BVpsNumber = (widthOfBoard+22)*widthOfBlock/2+xOfChar;
+		}
+		if(widthOfBoard > 27)
 		{
 			setbkmode(TRANSPARENT);
 			setcolor(BLACK);
 			//setfontbkcolor(LIGHTGRAY);
-			xyprintf((widthOfBoard+3)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, "3BV");
-			xyprintf((widthOfBoard+17)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, "3BV/s");
+			xyprintf(x3BV, (heightOfBar-heightOfChar)/2, "3BV");
+			xyprintf(x3BVps, (heightOfBar-heightOfChar)/2, "3BV/s");
 			setbkmode(OPAQUE);
 			setcolor(RED);
 			setfontbkcolor(BLACK);
-			xyprintf((widthOfBoard+7)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, " %d/%d ", solved3BV, total3BV);
-			xyprintf((widthOfBoard+22)*widthOfBlock/2+xOfChar, (heightOfBar-heightOfChar)/2, " %.2f ", (float)solved3BV/t);
+			xyprintf(x3BVNumber, (heightOfBar-heightOfChar)/2, " %d/%d ", solved3BV, total3BV);
+			xyprintf(x3BVpsNumber, (heightOfBar-heightOfChar)/2, " %.2f ", (float)solved3BV/t);
 		}
 	}
 	setbkmode(TRANSPARENT);
@@ -1113,7 +1085,8 @@ void InitWindow()//创建窗口
 	}
 	if(screenHeight >= 2160) sideLength = 64;
 	else if(screenHeight >= 1440) sideLength = 44;
-	else sideLength = 32;
+	else if(screenHeight >= 1080) sideLength = 32;
+	else sideLength = 24;
 	while(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth
 		|| heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > screenHeight)
 	{
@@ -1130,7 +1103,9 @@ void InitWindow()//创建窗口
 	//flushmouse();//避免上一局鼠标消息选择起始点
 	dx = 0;
 	dy = 0;//偏移回正
+	xFace = widthOfBlock*widthOfBoard/2+widthOfBorder-widthOfBlock*3/4;//笑脸横坐标默认值
 	GetWindowOperation(NULL, NULL, NULL, numberOfMine, 0, -1, -1);
+	//showmouse(0);//隐藏鼠标指针
 }
 
 void ResizeWindow(char mode)//调整显示大小
@@ -1156,12 +1131,21 @@ void ResizeWindow(char mode)//调整显示大小
 	else windowHeight = heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2;
 	resizewindow(windowWidth, windowHeight);
 	setfont(heightOfChar, 0, "Consolas");//更新字体大小
+	//计算笑脸横坐标
+	if(widthOfBoard > 53 && widthOfBlock*widthOfBoard/2+widthOfBorder+widthOfBlock*3/4 > screenWidth)//笑脸右界超出屏幕
+	{
+		xFace = 28*widthOfBlock;
+	}
+	else
+	{
+		xFace = widthOfBlock*widthOfBoard/2+widthOfBorder-widthOfBlock*3/4;
+	}
 }
 
 void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, int solved3BV, int total3BV)
 {
-	int xm, ym, xn, yn, clock0, clock1;
-	static int isOpening, isSigning, ro, co, xo, yo;//拖动操作
+	int xm, ym, xn, yn, xo, yo, clock0, clock1;
+	static int isOpening, isSigning, ro, co;//拖动操作
 	int isMouseInBoard = 0;
 	mouse_msg mouseMsg;
 	key_msg keyMsg;
@@ -1233,9 +1217,8 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 				}
 				else
 				{
-					if(IsPosInRectangle(xm, ym,
-						widthOfBlock*widthOfBoard/2+widthOfBorder-widthOfBlock*3/4, heightOfBar/2-heightOfBlock*3/4,
-						widthOfBlock*widthOfBoard/2+widthOfBorder+widthOfBlock*3/4, heightOfBar/2+heightOfBlock*3/4))
+					if(IsPosInRectangle(xm, ym, xFace, heightOfBar/2-heightOfBlock*3/4,
+						xFace+widthOfBlock*3/2, heightOfBar/2+heightOfBlock*3/4))
 					{
 						*operation = '%';
 					}
@@ -1246,8 +1229,6 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 						isOpening = 1;
 						ro = *r;
 						co = *c;
-						xo = xm;
-						yo = ym;
 						break;
 					}
 				}
@@ -1261,8 +1242,6 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 					isSigning = 1;
 					ro = *r;
 					co = *c;
-					xo = xm;
-					yo = ym;
 					break;
 				}
 			}
@@ -1277,10 +1256,14 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 				//DrawFace(1);
 				if(ro != *r || co != *c)//移动到其他方块
 				{
-					xn = widthOfBorder+(*c)*widthOfBlock+widthOfBlock/2+dx;
-					yn = heightOfBar+widthOfBorder+(*r)*heightOfBlock+heightOfBlock/2+dy;
-					if(sideLength*sideLength >= 8*((xm-xn)*(xm-xn)+(ym-yn)*(ym-yn))//必须移动到方块中心位置
-						&& sideLength*sideLength <= 4*((xm-xo)*(xm-xo)+(ym-yo)*(ym-yo)))//移动距离必须超过1/2个方块
+					xn = widthOfBorder+(*c)*widthOfBlock+widthOfBlock/2+dx-xm;
+					yn = heightOfBar+widthOfBorder+(*r)*heightOfBlock+heightOfBlock/2+dy-ym;
+					if(xn < 0) xn *= -1;
+					if(yn < 0) yn *= -1;
+					xo = widthOfBorder+co*widthOfBlock-widthOfBlock/4+dx;
+					yo = heightOfBar+widthOfBorder+ro*heightOfBlock-heightOfBlock/4+dy;
+					if(2*(heightOfBlock*xn+widthOfBlock*yn) <= heightOfBlock*widthOfBlock//必须移动到方块内菱形位置
+						&& !IsPosInRectangle(xm, ym, xo, yo, xo+widthOfBlock*3/2, yo+heightOfBlock*3/2))//移动距离必须超过3/4个方块
 					{
 						if(isOpening == 1) *operation = '@';
 						if(isSigning == 1) *operation = '#';
@@ -1344,7 +1327,7 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 	{
 		DrawFace(3);
 		setcolor(BLACK);//显示阴影
-		xyprintf(widthOfBlock+2, heightOfBar+widthOfBorder+2, "You Win!");
+		xyprintf(widthOfBlock+sideLength/16, heightOfBar+widthOfBorder+sideLength/16, "You Win!");
 		setcolor(YELLOW);
 		xyprintf(widthOfBlock, heightOfBar+widthOfBorder, "You Win!");
 	}
@@ -1352,7 +1335,7 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 	{
 		DrawFace(2);
 		setcolor(BLACK);
-		xyprintf(widthOfBlock+2, heightOfBar+widthOfBorder+2, "Game Over!");
+		xyprintf(widthOfBlock+sideLength/16, heightOfBar+widthOfBorder+sideLength/16, "Game Over!");
 		setcolor(RED);
 		xyprintf(widthOfBlock, heightOfBar+widthOfBorder, "Game Over!");
 	}
@@ -1366,7 +1349,7 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 		{
 			DrawFace(3);
 			setcolor(BLACK);
-			xyprintf(widthOfBlock+2, heightOfBar+widthOfBorder+2, "You Win!");
+			xyprintf(widthOfBlock+sideLength/16, heightOfBar+widthOfBorder+sideLength/16, "You Win!");
 			setcolor(YELLOW);
 			xyprintf(widthOfBlock, heightOfBar+widthOfBorder, "You Win!");
 		}
@@ -1374,14 +1357,14 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 		{
 			DrawFace(2);
 			setcolor(BLACK);
-			xyprintf(widthOfBlock+2, heightOfBar+widthOfBorder+2, "Game Over!");
+			xyprintf(widthOfBlock+sideLength/16, heightOfBar+widthOfBorder+sideLength/16, "Game Over!");
 			setcolor(RED);
 			xyprintf(widthOfBlock, heightOfBar+widthOfBorder, "Game Over!");
 		}
 		setfont(heightOfChar/2, 0, "黑体");
 		setcolor(BLACK);
-		//xyprintf(widthOfBlock+1, heightOfBar+widthOfBorder+heightOfBlock+1, "请按键盘任意键关闭窗口");
-		xyprintf(widthOfBlock+1, heightOfBar+widthOfBorder+heightOfBlock+1, "左键新游戏，右键关闭窗口");
+		//xyprintf(widthOfBlock+sideLength/32, heightOfBar+widthOfBorder+heightOfBlock+sideLength/32, "请按键盘任意键关闭窗口");
+		xyprintf(widthOfBlock+sideLength/32, heightOfBar+widthOfBorder+heightOfBlock+sideLength/32, "左键新游戏，右键关闭窗口");
 		setcolor(RED);
 		//xyprintf(widthOfBlock, heightOfBar+widthOfBorder+heightOfBlock, "请按键盘任意键关闭窗口");
 		xyprintf(widthOfBlock, heightOfBar+widthOfBorder+heightOfBlock, "左键新游戏，右键关闭窗口");
@@ -1655,7 +1638,7 @@ MineSweeper EGE 9.1
 ——优化 进一步限制窗口大小不超过屏幕大小1.5倍
 ——优化 减少代码中的隐式类型转换
 ——优化 显示大小非16整数倍时方块边缘子像素处理
-——优化 连续操作触发逻辑
+——优化 拖动操作识别逻辑
 ——修复 左上边缘异常悬浮高亮
 MineSweeper EGE 9.2
 ——优化 进一步限制窗口高度不超过屏幕高度
@@ -1667,4 +1650,14 @@ MineSweeper EGE 9.3
 //——修复 点击笑脸按钮重新生成地图后已解3BV计算错误
 MineSweeper EGE 9.4
 ——优化 降低拖动操作启动灵敏度
+MineSweeper EGE 9.5
+——新增 720P和768P屏幕支持
+——优化 地雷线条
+——优化 游戏结束文字阴影随显示大小调整
+——优化 拖动操作识别逻辑
+MineSweeper EGE 9.6
+——优化 顶栏绘制代码
+——优化 拖动操作识别逻辑
+MineSweeper EGE 9.7
+——新增 笑脸位置的第二种选择
 --------------------------------*/
