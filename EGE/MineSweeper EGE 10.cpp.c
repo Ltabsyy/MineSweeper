@@ -1090,9 +1090,10 @@ void InitWindow()//创建窗口
 	while(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth
 		|| heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > screenHeight)
 	{
-		sideLength -= 4;
+		if(sideLength > 16) sideLength -= 4;
+		else sideLength -= 1;
 	}
-	if(sideLength == 0) sideLength = 4;
+	if(sideLength < 4) sideLength = 4;
 	setcaption("MineSweeper Window");
 	SetProcessDPIAware();//避免Windows缩放造成模糊
 	initgraph(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2, INIT_RENDERMANUAL);
@@ -1103,7 +1104,15 @@ void InitWindow()//创建窗口
 	//flushmouse();//避免上一局鼠标消息选择起始点
 	dx = 0;
 	dy = 0;//偏移回正
-	xFace = widthOfBlock*widthOfBoard/2+widthOfBorder-widthOfBlock*3/4;//笑脸横坐标默认值
+	//计算笑脸横坐标
+	if(widthOfBoard > 53 && widthOfBlock*widthOfBoard/2+widthOfBorder+widthOfBlock*3/4 > screenWidth)//笑脸右界超出屏幕
+	{
+		xFace = 28*widthOfBlock;
+	}
+	else
+	{
+		xFace = widthOfBlock*widthOfBoard/2+widthOfBorder-widthOfBlock*3/4;
+	}
 	GetWindowOperation(NULL, NULL, NULL, numberOfMine, 0, -1, -1);
 	//showmouse(0);//隐藏鼠标指针
 }
@@ -1660,4 +1669,8 @@ MineSweeper EGE 9.6
 ——优化 拖动操作识别逻辑
 MineSweeper EGE 9.7
 ——新增 笑脸位置的第二种选择
+MineSweeper EGE 10
+——优化 笑脸默认位置也有第二种选择
+——优化 默认显示大小也采用部分非线性
+//——修复 控制台键盘操作模式闪退（使用新版EGE）
 --------------------------------*/
