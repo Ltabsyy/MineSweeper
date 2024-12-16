@@ -10,8 +10,8 @@
  * 
  * https://github.com/Ltabsyy/MineSweeper
  **/
-#define LimHeight 128//最大高度，限制行数
-#define LimWidth 93//最大宽度，限制列数
+#define LimHeight 256//最大高度，限制行数
+#define LimWidth 384//最大宽度，限制列数
 
 // EGE窗口形态
 int sideLength = 32;//外部窗口方块边长
@@ -31,7 +31,8 @@ void ShowBoard(int mode);
 
 // EGE窗口显示
 int dx = 0, dy = 0;//地图偏移
-int screenHeight, screenWidth, xFace;
+int screenHeight, screenWidth;
+int windowHeight, windowWidth, xFace;
 int mouseR = -1, mouseC = -1;//悬浮高亮
 void DrawMine(int r, int c);//绘制地图地雷
 void DrawMineA(int x0, int y0, int r);//绘制地雷图形
@@ -43,6 +44,7 @@ void DrawFace(int mode);//绘制笑脸
 void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV);//绘制总外部窗口
 void DrawSolution();//在外部窗口绘制方案矩阵
 void DrawMouse(int x, int y);//绘制鼠标
+void UpdateWindowSize();//根据当前方块边长更新窗口大小
 void InitWindow();
 void ResizeWindow(char mode);//调整显示大小
 void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, int solved3BV, int total3BV);
@@ -742,7 +744,7 @@ void DrawClock(int x0, int y0, int r, int time)//绘制时钟
 	DrawLineA(x0, y0, r*3/4, 270+minute*6);
 	//时针
 	setlinewidth(r/10);
-	DrawLineA(x0, y0, r/2, 270+hour%12*30);
+	DrawLineA(x0, y0, r/2, 270+hour%12*30+minute/12*6);//每12分钟跳一格
 	//转轴
 	setfillcolor(RED);
 	ege_fillellipse(x0-r/10, y0-r/10, r/5, r/5);
@@ -817,7 +819,7 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘
 	int highlight;
 	int xRemainedMine, xRemainedMineNumber, xTime, xTimeNumber, x3BV, x3BVNumber, x3BVps, x3BVpsNumber;
 	setfillcolor(LIGHTGRAY);
-	ege_fillrect(0, 0, widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar);//清除旧顶栏减少锯齿感
+	ege_fillrect(0, 0, windowWidth, heightOfBar);//清除旧顶栏减少锯齿感
 	ege_point polyPoints1[6] =
 	{
 		{(float)0+dx, (float)heightOfBar+dy},
@@ -919,22 +921,15 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘
 		xRemainedMine = 2*widthOfBlock;
 		xRemainedMineNumber = 3*widthOfBlock+xOfChar;
 	}
-	else if(widthOfBoard > 8)
+	else
 	{
 		xRemainedMine = 1*widthOfBlock;
 		xRemainedMineNumber = 2*widthOfBlock;
 	}
-	else if(widthOfBoard > 4)
-	{
-		xRemainedMineNumber = widthOfBoard*widthOfBlock/4-widthOfBlock;
-	}
-	if(widthOfBoard > 4)
-	{
-		if(widthOfBoard > 8) DrawMineA(xRemainedMine, heightOfBar/2, 20*heightOfBar/64*4/3);
-		setcolor(RED);
-		setfontbkcolor(BLACK);
-		xyprintf(xRemainedMineNumber, (heightOfBar-heightOfChar)/2, " %d ", remainder);
-	}
+	DrawMineA(xRemainedMine, heightOfBar/2, 20*heightOfBar/64*4/3);
+	setcolor(RED);
+	setfontbkcolor(BLACK);
+	xyprintf(xRemainedMineNumber, (heightOfBar-heightOfChar)/2, " %d ", remainder);
 	//用时
 	if(showTime == 1)
 	{
@@ -953,28 +948,15 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘
 			xTime = (widthOfBoard+4)*widthOfBlock/2;
 			xTimeNumber = (widthOfBoard+6)*widthOfBlock/2+xOfChar;
 		}
-		else if(widthOfBoard == 10)
+		else
 		{
 			xTime = 7*widthOfBlock;
 			xTimeNumber = 8*widthOfBlock;
 		}
-		else if(widthOfBoard == 9)
-		{
-			xTime = 6*widthOfBlock+widthOfBorder;
-			xTimeNumber = 7*widthOfBlock+widthOfBorder;
-		}
-		else if(widthOfBoard > 4)
-		{
-			xTimeNumber = widthOfBoard*widthOfBlock*3/4;
-		}
-		if(widthOfBoard > 4)
-		{
-			if(widthOfBoard > 8) DrawClock(xTime, heightOfBar/2, 20*heightOfBar/64, time(0));//按真实时间走的钟(doge)
-			setcolor(RED);
-			setfontbkcolor(BLACK);
-			if(widthOfBoard == 9 && t >= 1000) xyprintf(xTimeNumber, (heightOfBar-heightOfChar)/2, "%d ", t);
-			else xyprintf(xTimeNumber, (heightOfBar-heightOfChar)/2, " %d ", t);
-		}
+		DrawClock(xTime, heightOfBar/2, 20*heightOfBar/64, time(0));//按真实时间走的钟(doge)
+		setcolor(RED);
+		setfontbkcolor(BLACK);
+		xyprintf(xTimeNumber, (heightOfBar-heightOfChar)/2, " %d ", t);
 	}
 	//3BV
 	if(show3BV == 1 && total3BV != -1)
@@ -1069,6 +1051,36 @@ void DrawMouse(int x, int y)//绘制鼠标
 	ege_drawpoly(8, polyPoints);
 }
 
+void UpdateWindowSize()//根据当前方块边长更新窗口大小
+{
+	//限制不超过屏幕大小1.5*1
+	if(widthOfBoard < 10)
+	{
+		if(widthOfBlock*10+widthOfBorder*2 > screenWidth*3/2) windowWidth = screenWidth*3/2;
+		else windowWidth = widthOfBlock*10+widthOfBorder*2;
+	}
+	else
+	{
+		if(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth*3/2) windowWidth = screenWidth*3/2;
+		else windowWidth = widthOfBlock*widthOfBoard+widthOfBorder*2;
+	}
+	if(heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2 > screenHeight) windowHeight = screenHeight;
+	else windowHeight = heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2;
+	//计算笑脸横坐标
+	if(widthOfBoard > 53 && widthOfBlock*widthOfBoard/2+widthOfBorder+widthOfBlock*3/4 > screenWidth)//笑脸右界超出屏幕
+	{
+		xFace = 28*widthOfBlock;
+	}
+	else if(widthOfBoard < 10)
+	{
+		xFace = widthOfBlock*5+widthOfBorder-widthOfBlock*3/4;
+	}
+	else
+	{
+		xFace = widthOfBlock*widthOfBoard/2+widthOfBorder-widthOfBlock*3/4;
+	}
+}
+
 void InitWindow()//创建窗口
 {
 	DEVMODE dm;
@@ -1094,32 +1106,25 @@ void InitWindow()//创建窗口
 		else sideLength -= 1;
 	}
 	if(sideLength < 4) sideLength = 4;
+	UpdateWindowSize();//保存窗口大小
 	setcaption("MineSweeper Window");
 	SetProcessDPIAware();//避免Windows缩放造成模糊
-	initgraph(widthOfBlock*widthOfBoard+widthOfBorder*2, heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2, INIT_RENDERMANUAL);
+	initgraph(windowWidth, windowHeight, INIT_RENDERMANUAL);
 	setbkcolor(LIGHTGRAY);
 	setfont(heightOfChar, 0, "Consolas");
 	setbkmode(TRANSPARENT);//默认设置为无背景字体
 	ege_enable_aa(true);
 	//flushmouse();//避免上一局鼠标消息选择起始点
-	dx = 0;
+	if(widthOfBoard < 10) dx = widthOfBlock*(10-widthOfBoard)/2;
+	else dx = 0;
 	dy = 0;//偏移回正
-	//计算笑脸横坐标
-	if(widthOfBoard > 53 && widthOfBlock*widthOfBoard/2+widthOfBorder+widthOfBlock*3/4 > screenWidth)//笑脸右界超出屏幕
-	{
-		xFace = 28*widthOfBlock;
-	}
-	else
-	{
-		xFace = widthOfBlock*widthOfBoard/2+widthOfBorder-widthOfBlock*3/4;
-	}
 	GetWindowOperation(NULL, NULL, NULL, numberOfMine, 0, -1, -1);
 	//showmouse(0);//隐藏鼠标指针
 }
 
 void ResizeWindow(char mode)//调整显示大小
 {
-	int windowHeight, windowWidth;
+	int oldSideLength = sideLength;
 	//调整方块边长
 	if(mode == '+')//4-16时每格调整1，16-64时4，64+时16
 	{
@@ -1134,21 +1139,12 @@ void ResizeWindow(char mode)//调整显示大小
 		else if(sideLength > 4) sideLength -= 1;
 	}
 	//调整窗口大小
-	if(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth*3/2) windowWidth = screenWidth*3/2;
-	else windowWidth = widthOfBlock*widthOfBoard+widthOfBorder*2;
-	if(heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2 > screenHeight) windowHeight = screenHeight;
-	else windowHeight = heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2;
+	UpdateWindowSize();
 	resizewindow(windowWidth, windowHeight);
 	setfont(heightOfChar, 0, "Consolas");//更新字体大小
-	//计算笑脸横坐标
-	if(widthOfBoard > 53 && widthOfBlock*widthOfBoard/2+widthOfBorder+widthOfBlock*3/4 > screenWidth)//笑脸右界超出屏幕
-	{
-		xFace = 28*widthOfBlock;
-	}
-	else
-	{
-		xFace = widthOfBlock*widthOfBoard/2+widthOfBorder-widthOfBlock*3/4;
-	}
+	//调整地图偏移
+	dx = dx*sideLength/oldSideLength;//维持左上角不变
+	dy = dy*sideLength/oldSideLength;
 }
 
 void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, int solved3BV, int total3BV)
@@ -1191,6 +1187,10 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 			if(mouseMsg.is_left()) isOpening = 0;//鼠标左键抬起
 			if(mouseMsg.is_right()) isSigning = 0;//鼠标右键抬起
 		}
+		if(isOpening == 1 && keystate(key_control))
+		{
+			isOpening = 0;//Ctrl截止拖动翻开
+		}
 		if(mouseMsg.is_down())
 		{
 			if(mouseMsg.is_left())//鼠标左键按下
@@ -1219,8 +1219,8 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 					}
 					dx += xn-xm;
 					dy += yn-ym;
-					//if(dx > -widthOfBlock && dx < widthOfBlock) dx = 0;
-					//if(dy > -heightOfBlock && dy < heightOfBlock) dy = 0;
+					if(dx > -widthOfBlock/8 && dx < widthOfBlock/8) dx = 0;//弱趋向回正
+					if(dy > -heightOfBlock/8 && dy < heightOfBlock/8) dy = 0;
 					cleardevice();//避免重影
 					DrawBoard(0, remainder, t, solved3BV, total3BV);//避免闪烁
 				}
@@ -1293,6 +1293,7 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 		{
 			if(mouseMsg.wheel > 0) ResizeWindow('+');
 			else ResizeWindow('-');
+			cleardevice();//地图偏移时避免重影
 			DrawBoard(0, remainder, t, solved3BV, total3BV);//避免闪烁
 		}
 	}
@@ -1448,6 +1449,7 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 			{
 				if(mouseMsg.wheel > 0) ResizeWindow('+');
 				else ResizeWindow('-');
+				cleardevice();
 				DrawBoard(1, remainder, time, solved3BV, total3BV);
 				if(isWinning == 1) DrawFace(3);
 				else DrawFace(2);
@@ -1462,19 +1464,17 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 
 int IsAroundZeroChain(int r0, int c0)
 {
-	int r, c;
-	for(r=r0-1; r<=r0+1; r++)
+	if(zeroChain[r0][c0] == 1
+		|| (r0 > 0 && zeroChain[r0-1][c0] == 1)//四边的命中率高于四角，优先判断
+		|| (c0 > 0 && zeroChain[r0][c0-1] == 1)
+		|| (c0+1 < widthOfBoard && zeroChain[r0][c0+1] == 1)
+		|| (r0+1 < heightOfBoard && zeroChain[r0+1][c0] == 1)
+		|| (r0 > 0 && c0 > 0 && zeroChain[r0-1][c0-1] == 1)
+		|| (r0 > 0 && c0+1 < widthOfBoard && zeroChain[r0-1][c0+1] == 1)
+		|| (r0+1 < heightOfBoard && c0 > 0 && zeroChain[r0+1][c0-1] == 1)
+		|| (r0+1 < heightOfBoard && c0+1 < widthOfBoard && zeroChain[r0+1][c0+1] == 1))
 	{
-		for(c=c0-1; c<=c0+1; c++)
-		{
-			if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)//确认在范围内
-			{
-				if(zeroChain[r][c] == 1)
-				{
-					return 1;
-				}
-			}
-		}
+		return 1;//以单向边界检查代替四向边界检查
 	}
 	return 0;
 }
@@ -1673,4 +1673,19 @@ MineSweeper EGE 10
 ——优化 笑脸默认位置也有第二种选择
 ——优化 默认显示大小也采用部分非线性
 //——修复 控制台键盘操作模式闪退（使用新版EGE）
+MineSweeper EGE 10.1
+——新增 非终局地图位置调整的弱趋向回正
+——新增 调整显示大小时维持左上角不变
+——优化 按下Ctrl时截止当前拖动翻开操作
+——修复 地图偏移时调整显示大小可能出现重影
+//——修复 第一次打开时控制台无光标
+MineSweeper EGE 10.2
+——新增 独立窗口大小以显示更多信息
+——优化 提高时钟时针精度
+//——修复 胜利后剩余雷数总是为0
+//——新增 拖动标记根据起始操作统一标记/取消标记
+//——新增 根据位数自动调整图标位置
+//——优化 分立地图和窗口绘制代码
+//——优化 编译体积（加链接参数-Wl,--gc-sections）
+//——优化 根据位偏移统一图标位置设计语言
 --------------------------------*/
