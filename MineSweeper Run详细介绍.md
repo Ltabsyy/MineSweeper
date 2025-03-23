@@ -326,6 +326,6 @@ GitHub仓库（持续维护更新）
 
 https://github.com/Ltabsyy/MineSweeper
 
-百度网盘（此程序大小不超过200KB，可放心下载）
+百度网盘（此程序大小不超过1MB，可放心下载）
 
 https://pan.baidu.com/s/1q1OGgY_HpIPAkGEX6LPvxg?pwd=avjy
