@@ -1,3 +1,4 @@
+//#define _WIN32_WINNT 0x0600//使用SetProcessDPIAware()
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -26,8 +27,8 @@ int sideLength = 32;//外部窗口方块边长
 // 地图生成和显示
 int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2);
 void SummonBoard(int seed, int r0, int c0);
-int Place(int n);
-void ShowBoard(int mode);
+/*int Place(int n);
+void ShowBoard(int mode);*/
 
 // EGE窗口显示
 int dx = 0, dy = 0;//地图偏移
@@ -45,7 +46,7 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV);//�
 void DrawSolution();//在外部窗口绘制方案矩阵
 void DrawMouse(int x, int y);//绘制鼠标
 void UpdateWindowSize();//根据当前方块边长更新窗口大小
-void InitWindow();
+void InitWindow(int mode);
 void ResizeWindow(char mode);//调整显示大小
 void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, int solved3BV, int total3BV);
 int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total3BV);
@@ -110,9 +111,9 @@ int main()
 				}
 			}
 			/*初始化*/
-			if(heightOfBoard <= 20 && widthOfBoard <= 58) ShowBoard(0);
+			//if(heightOfBoard <= 20 && widthOfBoard <= 58) ShowBoard(0);
 			printf("选择坐标[r:行][c:列]\n");
-			InitWindow();//创建窗口
+			InitWindow(0);//创建窗口
 			operation = 0;
 			r0 = heightOfBoard/2;
 			c0 = widthOfBoard/2;
@@ -149,7 +150,7 @@ int main()
 					else if(board[r][c] == 9)//寄
 					{
 						system("cls");
-						ShowBoard(1);
+						//ShowBoard(1);
 						printf(":(\nGame Over!\n");
 						isOpenMine = 1;
 						break;
@@ -158,13 +159,13 @@ int main()
 				if(NumberOfNotShown() == remainder)//未翻开的都是雷则胜利
 				{
 					system("cls");
-					ShowBoard(1);
+					//ShowBoard(1);
 					printf(":)\nYou Win!\n");
 					break;
 				}
 				/*显示*/
 				system("cls");
-				if(heightOfBoard <= 20 && widthOfBoard <= 58) ShowBoard(0);
+				//if(heightOfBoard <= 20 && widthOfBoard <= 58) ShowBoard(0);
 				printf("剩余雷数: %d 用时: %d\n", remainder, t1-t0);//打印剩余雷数
 				/*输入*/
 				operation = 0;
@@ -210,9 +211,11 @@ int main()
 							}*/
 							SummonBoard(seed, r0, c0);
 							//bbbv = BBBV(seed, r0, c0, 3);
+							//temp = bbbv;
 							r = r0;
 							c = c0;
 							isShown[r][c] = 1;
+							//isHelped = 0;
 							t0 = time(0);
 						}
 					}
@@ -468,7 +471,7 @@ void SummonBoard(int seed, int r0, int c0)//生成后台总板
 		break;
 	}	
 }
-
+/*
 int Place(int n)//计算某数所占位数
 {
 	int i = 0;
@@ -570,7 +573,7 @@ void ShowBoard(int mode)
 		printf("\n");
 	}
 }
-
+*/
 void DrawMine(int r, int c)//绘制地图地雷
 {
 	float x = c*widthOfBlock+widthOfBorder+dx;
@@ -1081,39 +1084,49 @@ void UpdateWindowSize()//根据当前方块边长更新窗口大小
 	}
 }
 
-void InitWindow()//创建窗口
+void InitWindow(int mode)//创建窗口
 {
-	DEVMODE dm;
-	dm.dmSize = sizeof(DEVMODE);
-	if(EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm) == 0)//无法获取显示屏分辨率
+	static int fastInit = 0;
+	if(mode == 1)//传入参数准备执行快速初始化
 	{
-		screenWidth = 1920;
-		screenHeight = 1080;
+		fastInit = 1;
+		return;
 	}
-	else
+	if(fastInit == 0)
 	{
-		screenWidth = dm.dmPelsWidth;
-		screenHeight = dm.dmPelsHeight;
+		DEVMODE dm;
+		dm.dmSize = sizeof(DEVMODE);
+		if(EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm) == 0)//无法获取显示屏分辨率
+		{
+			screenWidth = 1920;
+			screenHeight = 1080;
+		}
+		else
+		{
+			screenWidth = dm.dmPelsWidth;
+			screenHeight = dm.dmPelsHeight;
+		}
+		if(screenHeight >= 2160) sideLength = 64;
+		else if(screenHeight >= 1440) sideLength = 44;
+		else if(screenHeight >= 1080) sideLength = 32;
+		else sideLength = 24;
+		while(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth
+			  || heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > screenHeight)
+		{
+			if(sideLength > 16) sideLength -= 4;
+			else sideLength -= 1;
+		}
+		if(sideLength < 4) sideLength = 4;
+		UpdateWindowSize();//保存窗口大小
+		setcaption("MineSweeper Window");
+		SetProcessDPIAware();//避免Windows缩放造成模糊
+		initgraph(windowWidth, windowHeight, INIT_RENDERMANUAL);
+		setbkcolor(LIGHTGRAY);
+		setfont(heightOfChar, 0, "Consolas");
+		setbkmode(TRANSPARENT);//默认设置为无背景字体
+		ege_enable_aa(true);
 	}
-	if(screenHeight >= 2160) sideLength = 64;
-	else if(screenHeight >= 1440) sideLength = 44;
-	else if(screenHeight >= 1080) sideLength = 32;
-	else sideLength = 24;
-	while(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth
-		|| heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > screenHeight)
-	{
-		if(sideLength > 16) sideLength -= 4;
-		else sideLength -= 1;
-	}
-	if(sideLength < 4) sideLength = 4;
-	UpdateWindowSize();//保存窗口大小
-	setcaption("MineSweeper Window");
-	SetProcessDPIAware();//避免Windows缩放造成模糊
-	initgraph(windowWidth, windowHeight, INIT_RENDERMANUAL);
-	setbkcolor(LIGHTGRAY);
-	setfont(heightOfChar, 0, "Consolas");
-	setbkmode(TRANSPARENT);//默认设置为无背景字体
-	ege_enable_aa(true);
+	fastInit = 0;
 	//flushmouse();//避免上一局鼠标消息选择起始点
 	if(widthOfBoard < 10) dx = widthOfBlock*(10-widthOfBoard)/2;
 	else dx = 0;
@@ -1160,6 +1173,7 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 		isSigning = 0;
 		flushmouse();
 		flushkey();
+		return;
 	}
 	while(mousemsg())//使用while代替if避免堆积消息产生延迟
 	{
@@ -1167,6 +1181,11 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 		//鼠标位置分析
 		xm = mouseMsg.x;
 		ym = mouseMsg.y;
+		//if(total3BV != -1)
+		//{
+			//AddOperation(&operationRecord, clock()-gameClock0, 'm',
+				//(ym-dy-heightOfBar-widthOfBorder)*64/sideLength, (xm-dx-widthOfBorder)*64/sideLength);//坐标拟合到64边长
+		//}
 		mouseR = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
 		mouseC = (xm-dx-widthOfBorder)/widthOfBlock;
 		if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
@@ -1458,7 +1477,8 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 		delay_ms(refreshCycle);
 	}
 	cleardevice();
-	closegraph();
+	if(newGame == 1) InitWindow(1);
+	else closegraph();
 	return newGame;
 }
 
@@ -1683,9 +1703,18 @@ MineSweeper EGE 10.2
 ——新增 独立窗口大小以显示更多信息
 ——优化 提高时钟时针精度
 //——修复 胜利后剩余雷数总是为0
+MineSweeper EGE 10.3
+——新增 窗口快速初始化
+//——优化 对旧系统的兼容性
+——修复 初始化窗口瞬间点击可能闪退
+//——修复 使用实时求解指令后点击笑脸按钮重新生成地图不显示打破纪录
+//——修复 点击笑脸按钮可能不能重新生成地图
+//——修复 点击笑脸按钮重新生成地图时控制台3BV/s可能不能正确覆写
+MineSweeper EGE 10.4
 //——新增 拖动标记根据起始操作统一标记/取消标记
 //——新增 根据位数自动调整图标位置
 //——优化 分立地图和窗口绘制代码
 //——优化 编译体积（加链接参数-Wl,--gc-sections）
 //——优化 根据位偏移统一图标位置设计语言
+//——修复 按下Alt时抬起Ctrl会进入Ctrl锁死状态
 --------------------------------*/

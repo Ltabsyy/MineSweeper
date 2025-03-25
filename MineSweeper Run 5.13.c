@@ -1,16 +1,16 @@
 //#define _CRT_SECURE_NO_WARNINGS//vs专属1(doge)
-//#define _WIN32_WINNT 0xa00//32bit使用SetProcessDPIAware()
+//#define _WIN32_WINNT 0x0600//使用SetProcessDPIAware()
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>//时间戳作种子生成随机数，用于生成地图和无确定解时随机翻开
-//#include <conio.h>//非阻塞式输入
+#include <conio.h>//非阻塞式输入
 //#define kbhit _kbhit//vs专属2
 //#define getch _getch
 #include <windows.h>//面向Windows输出彩色字符
 #include <math.h>
 //#include <direct.h>//创建文件夹
 //#define SHOW_CONSOLE//vs专属3
-#include <graphics.h>//Easy Graphics Engine
+//#include <graphics.h>//Easy Graphics Engine
 /**
  * 扫雷 MineSweeper Run
  * 
@@ -26,14 +26,14 @@
 //内存占用至多约为 75*H*W+L*D Byte，默认约1.3MB
 
 // 外部窗口形态
-int sideLength = 32;//外部窗口方块边长
+/*int sideLength = 32;//外部窗口方块边长
 #define heightOfBlock sideLength
 #define widthOfBlock sideLength//锁定纵横比
 #define heightOfBar 2*sideLength
 #define widthOfBorder sideLength/4
 #define xOfChar widthOfBlock*10/32
 #define yOfChar heightOfBlock/32
-#define heightOfChar heightOfBlock
+#define heightOfChar heightOfBlock*/
 
 // 控制栏
 int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2);
@@ -69,7 +69,7 @@ void ShowBoardFast(int yOfMap);
 void PrintSolvingMap(int mode);
 
 // 外部窗口显示
-int dx = 0, dy = 0;//地图偏移
+/*int dx = 0, dy = 0;//地图偏移
 int screenHeight, screenWidth;
 int windowHeight, windowWidth, xFace;
 int mouseR = -1, mouseC = -1;//悬浮高亮
@@ -82,18 +82,18 @@ void DrawClock(int x0, int y0, int r, int time);//绘制时钟
 void DrawFace(int mode);//绘制笑脸
 void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV);//绘制总外部窗口
 void DrawSolution();//在外部窗口绘制方案矩阵
-//void DrawMouse(int x, int y);//绘制鼠标
+void DrawMouse(int x, int y);//绘制鼠标
 void UpdateWindowSize();//根据当前方块边长更新窗口大小
-void InitWindow();
+void InitWindow(int mode);
 void ResizeWindow(char mode);//调整显示大小
 void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, int solved3BV, int total3BV);
-int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total3BV);
+int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total3BV);*/
 
 // 后台计算
 int Difficulty(int height, int width, int mine);//根据地图信息判断难度
 int IsAroundZeroChain(int r0, int c0);
 void OpenZeroChain(int r0, int c0);//翻开0连锁翻开
-int RealRemainder();//真实的剩余雷数，非显示的剩余雷数
+int RemainedMineWin();//判断真实的剩余雷数为0，非显示的剩余雷数
 int NumberOfNotShown();//%的数量
 int NumberOfSign();//#的数量
 int NumberOfNotShownAround(int r0, int c0);//某坐标附近%的数量
@@ -104,6 +104,7 @@ int WASDMove(int* r, int* c, WORD wVirtualKeyCode);
 void LookMap();//从实时游戏获取地图
 void TranslateMap(int rs0, int cs0);//从键盘输入获取地图
 void Solve(int showAnswer);//生成方案矩阵并修改显示方式矩阵，1显示1解，2不确定翻开
+int NumberTeamType(int number1, int number2, int numberOfMine1, int numberOfMine2, int numberOfNotShown1, int numberOfNotShown2);
 int Think();
 int ThinkSelect();
 int DeepThink();
@@ -111,6 +112,7 @@ int ThinkMine(int numberOfThought);
 void SummonMineRateForNotShown();
 int NumberOfNumberAround(int r0, int c0);
 void ShownModeBak(int mode);//备份显示方式矩阵，1备份，0恢复
+int IsSolvableIsland();
 int IsSolvableMap(int seed, int r0, int c0);
 void ShowSolution(int yOfMap);//在原地图显示方案矩阵
 
@@ -171,6 +173,7 @@ struct Record
 	//计算数据
 	float speed;
 	int difficulty;
+	float stnb;
 };
 struct Records
 {
@@ -180,6 +183,9 @@ struct Records
 	//计算数据
 	int minimumTime[5];//难度0-4时间纪录
 	float fastestSpeed[5];//3BV/s纪录
+	float highestStnb[5];//STNB纪录
+	int count[6];//局数
+	int countEffective[6];//有效局数，5实际无用
 	int totalTime;//所有记录总时间
 	int totalSolved3BV;//总翻开数
 	int maxOpenNumber;//最大翻开数字
@@ -191,6 +197,7 @@ struct Records ReadRecords();
 void WriteRecords(struct Records records);
 struct Records AddRecord(struct Records records, struct Record newRecord);
 struct Records DeleteRecord(struct Records records, int deleteNumber);
+struct Records DeleteRecords(struct Records records, int mode);
 int MaxOpenNumber(struct Records records);
 int GamerLevel(struct Records records);
 
@@ -237,10 +244,13 @@ struct Operations
 	int heightOfBoard, widthOfBoard;
 	int summonCheckMode;
 	int seed, r0, c0;
+	int time;//终局时整数时间，避免毫秒时间显示偏差
+	int isWin;//胜局时显示3BV全解
 	//int sideLength;
 	struct Operation* head;//头节点，顺序存储便于回放
 	struct Operation* tail;//尾节点，避免插入时搜索尾部
-};
+}operationRecord;
+int gameClock0;
 void AddOperation(struct Operations* operations, int mstime, char operation, int r, int c);
 struct Operations AddOperations(int seed, int r0, int c0);
 void ClearOperations(struct Operations operations);
@@ -254,6 +264,7 @@ void QuestionMark(char operation, int ro, int co);//问号模块
 void Solution();//地图求解模块
 void Bench(int seedMin, int seedMax, int r0, int c0, int showStep, int showSolution, int showInformation);//Bench模块
 int BBBV(int seed, int r0, int c0, int mode);//Bechtel'sBoardBenchmarkValue，计算地图3BV
+double STNB(int h, int w, int n, int time, int solved3BV, int total3BV);//尸体牛逼，计算发挥水平STNB
 int SearchSeed(int seedMin, int r0, int c0, int difficulty);//可解和筛选种子搜索模块
 void MapSearch(int seedMin, int seedMax, int r0, int c0);//地图搜索模块
 void** MatrixMemory(void** matrix, int rm, int cm, int sizeOfElements, int mode);//矩阵内存操作
@@ -297,7 +308,7 @@ int summonCheckMode = 2;//0不校验，1非雷，2必空，3可解，4筛选
 int showTime = 1;//显示用时，0不显示，1显示
 int show3BV = 0;//显示3BV和3BV/s
 int backgroundColor = 0x07;//背景颜色，深色模式0x07，浅色模式0xf0
-int operateMode = 3;//操作模式，0@#rc，1wasd23，2鼠标点击，3Window
+int operateMode = 2;//操作模式，0@#rc，1wasd23，2鼠标点击，3Window
 int solveMode = 1;//0简单模式，1游戏模式，2分析模式
 //int lengthOfThinkChain = 19;//未知链长度
 int lengthOfThinkNumberCheck = 15;
@@ -319,6 +330,7 @@ int chosenSolvable = 1;//筛选地图可解性
 int chosen3BVMin[6] = {1, 1, 1, 1, 1, 0};//筛选地图3BV，3BV为2时，仅需1次点击
 int chosen3BVMax[6] = {8, 9, 49, 149, 1239, 2147483647};
 int chosenNumber = 0;//筛选地图指定包含数字
+int islandPrediction = 0;//可解地图判断基于岛上可解的预判加速
 int heightOfMapShown, widthOfMapShown, rs0, cs0;//控制台地图显示
 int minNumberOfPossibleMine, maxNumberOfPossibleMine;
 int numberOfAbandonedThinkChain, countOfDictionaryOverflow, dictionaryNeeded;//Bench统计
@@ -436,7 +448,7 @@ int main(/*int argc, char** argv*/)
 	int r, c;//通用坐标
 	int remainder, isOpenMine;//游戏胜利判断
 	int ra, ca;//连锁反应判断
-	int t0, t1, t2/*, clock0*/;//显示用时
+	int t0, t1, t2;//显示用时
 	int yOfMapEnd;//输出定位
 	int ro, co;//上一个操作坐标
 	int bbbv;//地图3BV
@@ -444,7 +456,6 @@ int main(/*int argc, char** argv*/)
 	float density;//雷密度，实际没有必要定义(doge)
 	struct Records records;//历史记录
 	struct Record newRecord;
-	//struct Operations operationRecord;
 	// 控制台鼠标操作
 	HANDLE hdin = GetStdHandle(STD_INPUT_HANDLE);
 	COORD mousePos = {0, 0};//鼠标坐标
@@ -510,6 +521,7 @@ int main(/*int argc, char** argv*/)
 			&chosen3BVMin[2], &chosen3BVMax[2], &chosen3BVMin[3], &chosen3BVMax[3],
 			&chosen3BVMin[4], &chosen3BVMax[4], &chosen3BVMin[5], &chosen3BVMax[5]);
 		fscanf(file, "chosenNumber=%d\n", &chosenNumber);
+		fscanf(file, "islandPrediction=%d\n", &islandPrediction);
 		fclose(file);
 		if(benchShowStep == 3 && debug != 2) benchShowStep = 2;
 		if(lengthOfThinkMineCheck < lengthOfThinkNumberCheck) lengthOfThinkMineCheck = lengthOfThinkNumberCheck;//保持NC<=MC
@@ -553,6 +565,7 @@ int main(/*int argc, char** argv*/)
 				chosen3BVMin[2], chosen3BVMax[2], chosen3BVMin[3], chosen3BVMax[3],
 				chosen3BVMin[4], chosen3BVMax[4], chosen3BVMin[5], chosen3BVMax[5]);
 			printf("chosenNumber=%d\n", chosenNumber);
+			printf("islandPrediction=%d\n", islandPrediction);
 		}
 	}
 	if((file = fopen("minesweeper-lastmap.txt", "r")))//读取上一次地图
@@ -658,7 +671,7 @@ int main(/*int argc, char** argv*/)
 				}*/
 			}
 			showCursor(visibleCursor);//避免调整窗口大小恢复控制台光标
-			api_sleep(refreshCycle);
+			Sleep(refreshCycle);
 		}
 		if(choiceMode == 1)//游戏
 		{
@@ -702,7 +715,7 @@ int main(/*int argc, char** argv*/)
 				}
 			}
 			/*获取种子和生成位置*/
-			if(operateMode == 3) InitWindow();//创建窗口
+			//if(operateMode == 3) InitWindow(0);//创建窗口
 			if(lastMap != 1)
 			{
 				ShowBoard(0);
@@ -766,11 +779,11 @@ int main(/*int argc, char** argv*/)
 						FreshCursor(r0, c0, 3);
 						//gotoxy(cs0+2*c0, heightOfMapShown+2-heightOfBoard+1+r0);
 						showCursor(visibleCursor);
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					gotoxy(0, heightOfMapShown+5);
 				}
-				else if(operateMode == 3)
+				/*else if(operateMode == 3)
 				{
 					operation = 0;
 					r0 = heightOfBoard/2;
@@ -784,7 +797,7 @@ int main(/*int argc, char** argv*/)
 						FreshCursor(r0, c0, 3);
 						delay_ms(refreshCycle);
 					}
-				}
+				}*/
 				seed = time(0);//当前时间戳作种子生成随机数
 				if(debug == 2)
 				{
@@ -841,7 +854,7 @@ int main(/*int argc, char** argv*/)
 			t0 = time(0);
 			clrscr();
 			DrawControlBar(0);
-			//clock0 = clock();
+			//gameClock0 = clock();
 			/*游戏循环*/
 			while(choiceMode == 1)
 			{
@@ -871,14 +884,14 @@ int main(/*int argc, char** argv*/)
 						break;
 					}
 				}
-				if(RealRemainder() == 0//正确标记所有雷则胜利
+				if(RemainedMineWin()//正确标记所有雷则胜利
 					|| NumberOfNotShown() == remainder)//未翻开的都是雷则胜利
 				{
 					if(NumberOfSign() > numberOfMine)//标记量不能超过雷数
 					{
 						//gotoxy(0, yOfMapEnd+5);
 						//printf(":(\n标记过多！请重新标记。\n");
-						//if(operateMode == 2 && operation == '#') api_sleep(refreshCycle);//防止鼠标出现右键菜单
+						//if(operateMode == 2 && operation == '#') Sleep(refreshCycle);//防止鼠标出现右键菜单
 						//system("pause");
 						/*for(r=0; r<heightOfBoard; r++)//自动取消所有标记
 						{
@@ -938,7 +951,6 @@ int main(/*int argc, char** argv*/)
 					printf("Map:%d*%d-%d\n", heightOfBoard, widthOfBoard, numberOfMine);
 					printf("seed=%d,%d,%d\n", seed, r0, c0);
 					ShowBoard(1);
-					printf("RealRemainder=%d \n", RealRemainder());
 					printf("NumberOfNotShown=%d \n", NumberOfNotShown());
 					printf("\n");
 					yOfMapEnd += heightOfMapShown+6;
@@ -1005,7 +1017,7 @@ int main(/*int argc, char** argv*/)
 				c = co;
 				while(choiceMode == 1)
 				{
-					if(operateMode == 3)
+					/*if(operateMode == 3)
 					{
 						DrawBoard(0, remainder, t1-t0+t2, bbbv-temp, bbbv);
 						DrawSolution();
@@ -1042,14 +1054,16 @@ int main(/*int argc, char** argv*/)
 									}
 								}
 							}
-							//SummonBoard(seed, r0, c0);
+							SummonBoard(seed, r0, c0);
 							bbbv = BBBV(seed, r0, c0, 3);
+							temp = bbbv;
 							r = r0;
 							c = c0;
 							isShown[r][c] = 1;
+							isHelped = 0;
 							t0 = time(0);
 						}
-					}
+					}*/
 					if(operateMode == 2)
 					{
 						isReadyRefreshMouseOpenPos = 1;
@@ -1067,7 +1081,7 @@ int main(/*int argc, char** argv*/)
 							//gotoxy(1, yOfMapEnd+4);//操作指令位置
 							gotoxy(cs0+2*c, yOfMapEnd-heightOfBoard+1+r);//对应点位置
 							showCursor(visibleCursor);//避免调整窗口大小恢复控制台光标
-							api_sleep(refreshCycle);
+							Sleep(refreshCycle);
 							continue;
 						}
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
@@ -1250,9 +1264,9 @@ int main(/*int argc, char** argv*/)
 							mouseSignPos.Y = 0;
 						}
 					}
-					if(operateMode < 2 && kbhit_console())//按键
+					if(operateMode < 2 && kbhit())//按键
 					{
-						key = getch_console();//接收字符但不显示
+						key = getch();//接收字符但不显示
 						if(key == '`')//清空已输入操作
 						{
 							operation = 0;
@@ -1392,7 +1406,7 @@ int main(/*int argc, char** argv*/)
 						}
 						else if(operation == '\t')
 						{
-							api_sleep(refreshCycle);
+							Sleep(refreshCycle);
 							for(r=0; r<heightOfBoard; r++)
 							{
 								for(c=0; c<widthOfBoard; c++)
@@ -1428,7 +1442,7 @@ int main(/*int argc, char** argv*/)
 					if(showTime == 1) printf("用时：%d ", t1-t0+t2);
 					if(show3BV == 1) printf("3BV：%d/%d 3BV/s：%.2f ", bbbv-temp, bbbv, (float)(bbbv-temp)/(t1-t0+t2));
 					//printf("\n");
-					//AddOperation(&operationRecord, clock()-clock0, operation, r, c);
+					//AddOperation(&operationRecord, clock()-gameClock0, operation, r, c);
 					if(operateMode > 0)
 					{
 						//显示操作对应指令
@@ -1439,14 +1453,14 @@ int main(/*int argc, char** argv*/)
 						FreshCursor(r, c, yOfMapEnd-heightOfMapShown+1);
 						if(operation != 0)
 						{
-							if(operateMode == 3) delay_ms(0);
-							//api_sleep(refreshCycle);//保持延迟统一，通过降低按键跟手性减弱轻浮感
+							//if(operateMode == 3) delay_ms(0);
+							//Sleep(refreshCycle);//保持延迟统一，通过降低按键跟手性减弱轻浮感
 							gotoxy(0, yOfMapEnd+5);
 							break;
 						}
 					}
-					if(operateMode == 3) delay_ms(0);
-					api_sleep(refreshCycle);//每50ms刷新一次
+					//if(operateMode == 3) delay_ms(0);
+					Sleep(refreshCycle);//每50ms刷新一次
 				}
 				ro = r;
 				co = c;
@@ -1608,9 +1622,11 @@ int main(/*int argc, char** argv*/)
 				newRecord.difficulty = difficulty;
 				records = AddRecord(records, newRecord);
 				WriteRecords(records);
-				//if(IsEffectiveRecord(newRecord)) WriteOperations(operationRecord);
-				//ClearOperations(operationRecord);
-				if(operateMode == 3) choiceMode = CloseWindow(1-isOpenMine, remainder, t1-t0+t2, bbbv-temp, bbbv);
+				/*operationRecord.time = newRecord.time;
+				operationRecord.isWin = 1-isOpenMine;
+				if(IsEffectiveRecord(newRecord)) WriteOperations(operationRecord);
+				ClearOperations(operationRecord);*/
+				//if(operateMode == 3) choiceMode = CloseWindow(1-isOpenMine, remainder, t1-t0+t2, bbbv-temp, bbbv);
 			}
 		}
 		else if(choiceMode == 2)//地图求解
@@ -1669,7 +1685,7 @@ int main(/*int argc, char** argv*/)
 					while(rcd.EventType == MOUSE_EVENT && rcd.Event.MouseEvent.dwButtonState != 0)//设置游戏难度抗双击
 					{
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					clrscr();
 					DrawSetDifficulty(-1);
@@ -1699,12 +1715,12 @@ int main(/*int argc, char** argv*/)
 							}
 						}
 						showCursor(visibleCursor);
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					while(rcd.EventType == MOUSE_EVENT && rcd.Event.MouseEvent.dwButtonState != 0)//设置游戏难度返回抗双击
 					{
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					if(difficulty == 0)//默认为10*10-10，比初级更简单(doge)
 					{
@@ -1903,7 +1919,7 @@ int main(/*int argc, char** argv*/)
 										temp = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-8
 									}
 								}
-								api_sleep(refreshCycle);
+								Sleep(refreshCycle);
 							}
 							if(temp >= 0 && temp <= 5)
 							{
@@ -1943,7 +1959,7 @@ int main(/*int argc, char** argv*/)
 							DrawSetSummonCheckMode(-1);
 							choiceSubSet = -1;
 						}
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					clrscr();
 					DrawControlBar(0);
@@ -2016,7 +2032,7 @@ int main(/*int argc, char** argv*/)
 								choiceSubSet = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-3
 							}
 						}
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					if(choiceSubSet != -1) operateMode = choiceSubSet;
 					/*if(operateMode == 1) visibleCursor = 1;//仅wasd23显示光标 
@@ -2123,7 +2139,7 @@ int main(/*int argc, char** argv*/)
 							DrawSetCursor(0);
 							choiceSubSet = 0;
 						}
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					clrscr();
 					DrawControlBar(0);
@@ -2173,7 +2189,9 @@ int main(/*int argc, char** argv*/)
 						printf("(2)设置枚举限制     当前:NC%dMC%d\n", lengthOfThinkNumberCheck, lengthOfThinkMineCheck);
 						printf("(3)设置字典大小     当前:%d\n", dictionaryCapacity);
 						printf("(4)设置剩余雷数判断 当前:%d%d%d\n", remainedMineJudgeLocalNC, remainedMineJudgeLocalMC, remainedMineJudgeGlobal);
-						printf("(5)退出\n");
+						if(islandPrediction == 0) printf("(5)启用可解地图岛预判加速\n");
+						else printf("(5)关闭可解地图岛预判加速\n");
+						printf("(6)退出\n");
 						printf("*******************************\n");
 						printf(">");
 						scanf("%d", &temp);
@@ -2248,6 +2266,11 @@ int main(/*int argc, char** argv*/)
 								if(remainedMineJudgeGlobal == 0) remainedMineJudgeGlobal = 1;
 								else remainedMineJudgeGlobal = 0;
 							}
+						}
+						else if(temp == 5)//可解地图岛预判加速
+						{
+							if(islandPrediction == 0) islandPrediction = 1;
+							else islandPrediction = 0;
 						}
 					}
 					else if(operation == '3')//以密度设置雷数
@@ -2394,7 +2417,7 @@ int main(/*int argc, char** argv*/)
 					choiceSet = 0;
 				}
 				showCursor(visibleCursor);
-				api_sleep(refreshCycle);
+				Sleep(refreshCycle);
 			}
 			if(choiceSet == 9)//返回并保存
 			{
@@ -2435,6 +2458,7 @@ int main(/*int argc, char** argv*/)
 					chosen3BVMin[2], chosen3BVMax[2], chosen3BVMin[3], chosen3BVMax[3],
 					chosen3BVMin[4], chosen3BVMax[4], chosen3BVMin[5], chosen3BVMax[5]);
 				fprintf(file, "chosenNumber=%d\n", chosenNumber);
+				fprintf(file, "islandPrediction=%d\n", islandPrediction);
 				fclose(file);
 				clrscr();
 				choiceMode = 0;
@@ -3478,9 +3502,9 @@ void DrawSetOperateMode(int select)
 	printf("* [(2)鼠标点击操作模式]\n");
 	printf("* 可通过鼠标，wasd，方向键移动光标。\n");
 	printf("* 兼容wasd23，但无法使用@#rc和鼠标全选复制地图。\n");
-	printf("* [(3)Window操作模式]\n");
-	printf("* 在独立图形界面窗口进行游戏，控制台内操作均屏蔽，\n");
-	printf("* 游戏结束后按鼠标右键返回控制台。\n");
+	//printf("* [(3)Window操作模式]\n");
+	//printf("* 在独立图形界面窗口进行游戏，控制台内操作均屏蔽，\n");
+	//printf("* 游戏结束后按鼠标右键返回控制台。\n");
 	printf("**************************************************************\n");
 	if(select == 0)
 	{
@@ -3500,7 +3524,7 @@ void DrawSetOperateMode(int select)
 	else if(select == 3)
 	{
 		gotoxy(2, 26);
-		ColorStr("[(3)Window操作模式]", 0xff-backgroundColor);
+		//ColorStr("[(3)Window操作模式]", 0xff-backgroundColor);
 	}
 	gotoxy(0, 27);
 }
@@ -4506,7 +4530,7 @@ void PrintSolvingMap(int mode)//1为枚举可能性
 		printf("\n");
 	}
 }
-
+/*
 void DrawMine(int r, int c)//绘制地图地雷
 {
 	float x = c*widthOfBlock+widthOfBorder+dx;
@@ -4960,7 +4984,7 @@ void DrawSolution()
 		}
 	}
 }
-/*
+
 void DrawMouse(int x, int y)//绘制鼠标
 {
 	int x0 = widthOfBorder+dx;
@@ -4986,7 +5010,7 @@ void DrawMouse(int x, int y)//绘制鼠标
 	setlinewidth(2*k);
 	ege_drawpoly(8, polyPoints);
 }
-*/
+
 void UpdateWindowSize()//根据当前方块边长更新窗口大小
 {
 	//限制不超过屏幕大小1.5*1
@@ -5017,39 +5041,49 @@ void UpdateWindowSize()//根据当前方块边长更新窗口大小
 	}
 }
 
-void InitWindow()//创建窗口
+void InitWindow(int mode)//创建窗口
 {
-	DEVMODE dm;
-	dm.dmSize = sizeof(DEVMODE);
-	if(EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm) == 0)//无法获取显示屏分辨率
+	static int fastInit = 0;
+	if(mode == 1)//传入参数准备执行快速初始化
 	{
-		screenWidth = 1920;
-		screenHeight = 1080;
+		fastInit = 1;
+		return;
 	}
-	else
+	if(fastInit == 0)
 	{
-		screenWidth = dm.dmPelsWidth;
-		screenHeight = dm.dmPelsHeight;
+		DEVMODE dm;
+		dm.dmSize = sizeof(DEVMODE);
+		if(EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm) == 0)//无法获取显示屏分辨率
+		{
+			screenWidth = 1920;
+			screenHeight = 1080;
+		}
+		else
+		{
+			screenWidth = dm.dmPelsWidth;
+			screenHeight = dm.dmPelsHeight;
+		}
+		if(screenHeight >= 2160) sideLength = 64;
+		else if(screenHeight >= 1440) sideLength = 44;
+		else if(screenHeight >= 1080) sideLength = 32;
+		else sideLength = 24;
+		while(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth
+			  || heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > screenHeight)
+		{
+			if(sideLength > 16) sideLength -= 4;
+			else sideLength -= 1;
+		}
+		if(sideLength < 4) sideLength = 4;
+		UpdateWindowSize();//保存窗口大小
+		setcaption("MineSweeper Window");
+		SetProcessDPIAware();//避免Windows缩放造成模糊
+		initgraph(windowWidth, windowHeight, INIT_RENDERMANUAL);
+		setbkcolor(LIGHTGRAY);
+		setfont(heightOfChar, 0, "Consolas");
+		setbkmode(TRANSPARENT);//默认设置为无背景字体
+		ege_enable_aa(true);
 	}
-	if(screenHeight >= 2160) sideLength = 64;
-	else if(screenHeight >= 1440) sideLength = 44;
-	else if(screenHeight >= 1080) sideLength = 32;
-	else sideLength = 24;
-	while(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth
-		|| heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > screenHeight)
-	{
-		if(sideLength > 16) sideLength -= 4;
-		else sideLength -= 1;
-	}
-	if(sideLength < 4) sideLength = 4;
-	UpdateWindowSize();//保存窗口大小
-	setcaption("MineSweeper Window");
-	SetProcessDPIAware();//避免Windows缩放造成模糊
-	initgraph(windowWidth, windowHeight, INIT_RENDERMANUAL);
-	setbkcolor(LIGHTGRAY);
-	setfont(heightOfChar, 0, "Consolas");
-	setbkmode(TRANSPARENT);//默认设置为无背景字体
-	ege_enable_aa(true);
+	fastInit = 0;
 	//flushmouse();//避免上一局鼠标消息选择起始点
 	if(widthOfBoard < 10) dx = widthOfBlock*(10-widthOfBoard)/2;
 	else dx = 0;
@@ -5096,6 +5130,7 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 		isSigning = 0;
 		flushmouse();
 		flushkey();
+		return;
 	}
 	while(mousemsg())//使用while代替if避免堆积消息产生延迟
 	{
@@ -5103,6 +5138,11 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 		//鼠标位置分析
 		xm = mouseMsg.x;
 		ym = mouseMsg.y;
+		//if(total3BV != -1)
+		//{
+			//AddOperation(&operationRecord, clock()-gameClock0, 'm',
+				//(ym-dy-heightOfBar-widthOfBorder)*64/sideLength, (xm-dx-widthOfBorder)*64/sideLength);//坐标拟合到64边长
+		//}
 		mouseR = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
 		mouseC = (xm-dx-widthOfBorder)/widthOfBlock;
 		if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
@@ -5394,10 +5434,11 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 		delay_ms(refreshCycle);
 	}
 	cleardevice();
-	closegraph();
+	if(newGame == 1) InitWindow(1);
+	else closegraph();
 	return newGame;
 }
-
+*/
 int Difficulty(int height, int width, int mine)//根据地图信息判断难度
 {
 	if(height == 10 && width == 10 && mine == 10) return 0;
@@ -5517,20 +5558,20 @@ void OpenZeroChain(int r0, int c0)//翻开0连锁翻开
 	}
 }
 
-int RealRemainder()//真实的剩余雷数
+int RemainedMineWin()//判断真实的剩余雷数为0
 {
-	int r, c, remainder = 0;
+	int r, c;
 	for(r=0; r<heightOfBoard; r++)
 	{
 		for(c=0; c<widthOfBoard; c++)
 		{
 			if(isMine[r][c] == 1 && isShown[r][c] == 0)
 			{
-				remainder++;
+				return 0;
 			}
 		}
 	}
-	return remainder;
+	return 1;
 }
 
 int NumberOfNotShown()//未翻开或标记的数量(%)
@@ -5581,37 +5622,6 @@ int NumberOfNotShownAround(int r0, int c0)
 			}
 		}
 	}
-	/*for(r=r0-1; r<=r0+1; r++)
-	{
-		if(r>=0 && r<heightOfBoard)//前置行边界检查
-		{
-			for(c=c0-1; c<=c0+1; c++)
-			{
-				if(c>=0 && c<widthOfBoard)//确认在范围内
-				{
-					if(isShown[r][c] == 0)
-					{
-						n++;
-					}
-				}
-			}
-		}
-	}*/
-	/*if(r0 > 0)
-	{
-		if(c0 > 0 && isShown[r0-1][c0-1] == 0) n++;
-		if(isShown[r0-1][c0] == 0) n++;
-		if(c0+1 < widthOfBoard && isShown[r0-1][c0+1] == 0) n++;
-	}
-	if(c0 > 0 && isShown[r0][c0-1] == 0) n++;
-	if(isShown[r0][c0] == 0) n++;
-	if(c0+1 < widthOfBoard && isShown[r0][c0+1] == 0) n++;
-	if(r0+1 < heightOfBoard)
-	{
-		if(c0 > 0 && isShown[r0+1][c0-1] == 0) n++;
-		if(isShown[r0+1][c0] == 0) n++;
-		if(c0+1 < widthOfBoard && isShown[r0+1][c0+1] == 0) n++;
-	}*/
 	return n;
 }
 
@@ -5631,37 +5641,6 @@ int NumberOfSignAround(int r0, int c0)
 			}
 		}
 	}
-	/*for(r=r0-1; r<=r0+1; r++)
-	{
-		if(r>=0 && r<heightOfBoard)//前置行边界检查
-		{
-			for(c=c0-1; c<=c0+1; c++)
-			{
-				if(c>=0 && c<widthOfBoard)//确认在范围内
-				{
-					if(isShown[r][c] == 2)
-					{
-						n++;
-					}
-				}
-			}
-		}
-	}*/
-	/*if(r0 > 0)
-	{
-		if(c0 > 0 && isShown[r0-1][c0-1] == 2) n++;
-		if(isShown[r0-1][c0] == 2) n++;
-		if(c0+1 < widthOfBoard && isShown[r0-1][c0+1] == 2) n++;
-	}
-	if(c0 > 0 && isShown[r0][c0-1] == 2) n++;
-	if(isShown[r0][c0] == 2) n++;
-	if(c0+1 < widthOfBoard && isShown[r0][c0+1] == 2) n++;
-	if(r0+1 < heightOfBoard)
-	{
-		if(c0 > 0 && isShown[r0+1][c0-1] == 2) n++;
-		if(isShown[r0+1][c0] == 2) n++;
-		if(c0+1 < widthOfBoard && isShown[r0+1][c0+1] == 2) n++;
-	}*/
 	return n;
 }
 
@@ -5851,6 +5830,7 @@ void Solve(int showAnswer)//程序核心部分(doge)
 {
 	int r, c, ra, ca, isThinking;
 	int isSolving = 1, isFound = 0, isFoundOpen = 0, isSigned = 0;
+	int numberOfNotShownAround, numberOfSignAround;
 	float minMineRateNotZero;
 	/*重置*/
 	for(r=0; r<heightOfBoard; r++)
@@ -5876,55 +5856,60 @@ void Solve(int showAnswer)//程序核心部分(doge)
 		{
 			for(c=0; c<widthOfBoard; c++)
 			{
-				if(isShown[r][c] == 1 && numberShown[r][c] != 0 && NumberOfNotShownAround(r, c) != 0)//寻找数字
+				if(isShown[r][c] == 1 && numberShown[r][c] != 0)//寻找数字
 				{
-					if(numberShown[r][c] == NumberOfNotShownAround(r, c) + NumberOfSignAround(r, c))
+					numberOfNotShownAround = NumberOfNotShownAround(r, c);//暂存以避免重复计算
+					if(numberOfNotShownAround != 0)
 					{
-						/*策略一
-						当某块的数字与未知方块的个数相同时，那么未知方块都是雷*/
-						if(debug == 2) printf("[Debug]找到1类点(%d,%d)->#", r, c);
-						//标记周围未知方块
-						for(ra=r-1; ra<=r+1; ra++)
+						numberOfSignAround = NumberOfSignAround(r, c);
+						if(numberShown[r][c] == numberOfNotShownAround + numberOfSignAround)
 						{
-							for(ca=c-1; ca<=c+1; ca++)
+							/*策略一
+							当某块的数字与未知方块的个数相同时，那么未知方块都是雷*/
+							if(debug == 2) printf("[Debug]找到1类点(%d,%d)->#", r, c);
+							//标记周围未知方块
+							for(ra=r-1; ra<=r+1; ra++)
 							{
-								if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
+								for(ca=c-1; ca<=c+1; ca++)
 								{
-									if(isShown[ra][ca] == 0)
+									if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
 									{
-										solution[ra][ca] = 2;
-										if(debug == 2) printf("(%d,%d)", ra, ca);
+										if(isShown[ra][ca] == 0)
+										{
+											solution[ra][ca] = 2;
+											if(debug == 2) printf("(%d,%d)", ra, ca);
+										}
 									}
 								}
 							}
+							if(debug == 2) printf("\n");
+							isSolving = 1;
+							//if(diffResult < 1) diffResult = 1;
 						}
-						if(debug == 2) printf("\n");
-						isSolving = 1;
-						//if(diffResult < 1) diffResult = 1;
-					}
-					if(numberShown[r][c] == NumberOfSignAround(r, c))
-					{
-						/*策略二
-						当某块的数字与周围旗子的个数相同时，那么未知方块都不是雷*/
-						if(debug == 2) printf("[Debug]找到2类点(%d,%d)->@", r, c);
-						//翻开周围未知方块
-						for(ra=r-1; ra<=r+1; ra++)
+						else if(numberShown[r][c] == numberOfSignAround)
 						{
-							for(ca=c-1; ca<=c+1; ca++)
+							/*策略二
+							当某块的数字与周围旗子的个数相同时，那么未知方块都不是雷*/
+							if(debug == 2) printf("[Debug]找到2类点(%d,%d)->@", r, c);
+							//翻开周围未知方块
+							for(ra=r-1; ra<=r+1; ra++)
 							{
-								if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
+								for(ca=c-1; ca<=c+1; ca++)
 								{
-									if(isShown[ra][ca] == 0)
+									if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
 									{
-										solution[ra][ca] = 1;
-										if(debug == 2) printf("(%d,%d)", ra, ca);
+										if(isShown[ra][ca] == 0)
+										{
+											solution[ra][ca] = 1;
+											if(debug == 2) printf("(%d,%d)", ra, ca);
+										}
 									}
 								}
 							}
+							if(debug == 2) printf("\n");
+							isSolving = 1;
+							//if(diffResult < 1) diffResult = 1;
 						}
-						if(debug == 2) printf("\n");
-						isSolving = 1;
-						//if(diffResult < 1) diffResult = 1;
 					}
 				}
 			}
@@ -6303,6 +6288,61 @@ void Solve(int showAnswer)//程序核心部分(doge)
 	}*/
 }
 
+int NumberTeamType(int number1, int number2, int numberOfMine1, int numberOfMine2, int numberOfNotShown1, int numberOfNotShown2)//数对分类显示调试信息
+{
+	if(numberOfNotShown2 == 0)//数对之二独占区全已知，1234类数对
+	{
+		if(number1 == number2)//相等数对，12类数对
+		{
+			if(numberOfMine1 == numberOfMine2)//已知雷数相等
+			{
+				return 1;
+			}
+			if(numberOfMine2 - numberOfMine1 == numberOfNotShown1)//已知雷数之差等于数对之一独占区未知量
+			{
+				return 2;
+			}
+		}
+		else//不相等数对，34类数对
+		{
+			if(number2 - number1 == numberOfMine2 - numberOfMine1)//数差等于已知雷数差
+			{
+				return 3;
+			}
+			if(number1 - number2 == numberOfMine1 - numberOfMine2 + numberOfNotShown1)//数差等于已知雷数差加数对之一独占区未知量
+			{
+				return 4;
+			}
+		}
+	}
+	else//数对之二独占区不全已知，5678类数对
+	{
+		if(number1 == number2)//相等数对，56类数对
+		{
+			if(numberOfMine1 - numberOfMine2 == numberOfNotShown2)//数对之一和数对之二独占区已知雷数之差等于数对之二独占区未知量
+			{
+				return 5;
+			}
+			if(numberOfMine2 - numberOfMine1 == numberOfNotShown1)//数对之二和数对之一独占区已知雷数之差等于数对之一独占区未知量
+			{
+				return 6;
+			}
+		}
+		else//不相等数对，78类数对，实际是所有数对的通式(doge)
+		{
+			if(number2 - number1 == numberOfMine2 - numberOfMine1 + numberOfNotShown2)//数对之二与数对之一之差等于已知雷数差加数对之二独占区未知量
+			{
+				return 7;
+			}
+			if(number1 - number2 == numberOfMine1 - numberOfMine2 + numberOfNotShown1)//数对之一与数对之二之差等于已知雷数差加数对之一独占区未知量
+			{
+				return 8;
+			}
+		}
+	}
+	//return 0;
+}
+
 int Think()
 {
 	int r, c, r1, c1, r2, c2;//循环变量
@@ -6438,205 +6478,62 @@ int Think()
 											}
 											printf("\n");
 										}
-									}
-									if(numberShown[r2][c2] - numberShown[r1][c1] != numberOfMine2 - numberOfMine1 + numberOfNotShown2
-										&& numberShown[r1][c1] - numberShown[r2][c2] != numberOfMine1 - numberOfMine2 + numberOfNotShown1)
-									{
-										continue;
 									}*/
-									if(numberOfNotShown1 == 0) continue;
-									if(numberOfNotShown2 == 0)//数对之二独占区全已知，1234类数对
+									if(numberOfNotShown1 != 0)
 									{
-										if(numberShown[r1][c1] == numberShown[r2][c2])//相等数对，12类数对
+										if(numberShown[r2][c2] - numberShown[r1][c1] == numberOfMine2 - numberOfMine1 + numberOfNotShown2)//数对之二与数对之一之差等于已知雷数差加数对之二独占区未知量
 										{
-											if(numberOfMine1 == numberOfMine2)//已知雷数相等
+											if(debug == 2)
 											{
-												if(debug == 2) printf("[Debug]找到1类数对(%d,%d)(%d,%d)->@", r1, c1, r2, c2);
-												//翻开数对之一独占区未知方块
-												for(r=r1-1; r<=r1+1; r++)
+												printf("[Debug]找到");
+												printf("%d", NumberTeamType(numberShown[r1][c1], numberShown[r2][c2], numberOfMine1, numberOfMine2, numberOfNotShown1, numberOfNotShown2));
+												printf("类数对(%d,%d)(%d,%d)->@", r1, c1, r2, c2);
+											}
+											//翻开数对之一独占区未知方块
+											for(r=r1-1; r<=r1+1; r++)
+											{
+												for(c=c1-1; c<=c1+1; c++)
 												{
-													for(c=c1-1; c<=c1+1; c++)
+													if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)//确认在范围内
 													{
-														if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)//确认在范围内
+														if(numberTeam[r][c] == 1 && isThought[r][c] == 1)
 														{
-															if(numberTeam[r][c] == 1 && isThought[r][c] == 1)
-															{
-																solution[r][c] = 1;
-																if(debug == 2) printf("(%d,%d)", r, c);
-																//return 1;
-																isFound = 1;
-															}
+															solution[r][c] = 1;
+															if(debug == 2) printf("(%d,%d)", r, c);
+															isFound = 1;
 														}
 													}
 												}
-												if(debug == 2) printf("\n");
 											}
-											if(numberOfMine2 - numberOfMine1 == numberOfNotShown1)//已知雷数之差等于数对之一独占区未知量
-											{
-												if(debug == 2) printf("[Debug]找到2类数对(%d,%d)(%d,%d)->#", r1, c1, r2, c2);
-												//标记数对之一独占区未知方块
-												for(r=r1-1; r<=r1+1; r++)
-												{
-													for(c=c1-1; c<=c1+1; c++)
-													{
-														if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)//确认在范围内
-														{
-															if(numberTeam[r][c] == 1 && isThought[r][c] == 1)
-															{
-																solution[r][c] = 2;
-																if(debug == 2) printf("(%d,%d)", r, c);
-																//return 1;
-																isFound = 1;
-															}
-														}
-													}
-												}
-												if(debug == 2) printf("\n");
-											}
+											if(debug == 2) printf("\n");
+											//return 1;
 										}
-										else//不相等数对，34类数对
+										if(numberShown[r1][c1] - numberShown[r2][c2] == numberOfMine1 - numberOfMine2 + numberOfNotShown1)//数对之一与数对之二之差等于已知雷数差加数对之一独占区未知量
 										{
-											if(numberShown[r2][c2] - numberShown[r1][c1] == numberOfMine2 - numberOfMine1)//数差等于已知雷数差
+											if(debug == 2)
 											{
-												if(debug == 2) printf("[Debug]找到3类数对(%d,%d)(%d,%d)->@", r1, c1, r2, c2);
-												//翻开数对之一独占区未知方块
-												for(r=r1-1; r<=r1+1; r++)
+												printf("[Debug]找到");
+												printf("%d", NumberTeamType(numberShown[r1][c1], numberShown[r2][c2], numberOfMine1, numberOfMine2, numberOfNotShown1, numberOfNotShown2));
+												printf("类数对(%d,%d)(%d,%d)->#", r1, c1, r2, c2);
+											}
+											//标记数对之一独占区未知方块
+											for(r=r1-1; r<=r1+1; r++)
+											{
+												for(c=c1-1; c<=c1+1; c++)
 												{
-													for(c=c1-1; c<=c1+1; c++)
+													if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)//确认在范围内
 													{
-														if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)//确认在范围内
+														if(numberTeam[r][c] == 1 && isThought[r][c] == 1)
 														{
-															if(numberTeam[r][c] == 1 && isThought[r][c] == 1)
-															{
-																solution[r][c] = 1;
-																if(debug == 2) printf("(%d,%d)", r, c);
-																//return 1;
-																isFound = 1;
-															}
+															solution[r][c] = 2;
+															if(debug == 2) printf("(%d,%d)", r, c);
+															isFound = 1;
 														}
 													}
 												}
-												if(debug == 2) printf("\n");
 											}
-											if(numberShown[r1][c1] - numberShown[r2][c2] == numberOfMine1 - numberOfMine2 + numberOfNotShown1)//数差等于已知雷数差加数对之一独占区未知量
-											{
-												if(debug == 2) printf("[Debug]找到4类数对(%d,%d)(%d,%d)->#", r1, c1, r2, c2);
-												//标记数对之一独占区未知方块
-												for(r=r1-1; r<=r1+1; r++)
-												{
-													for(c=c1-1; c<=c1+1; c++)
-													{
-														if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)//确认在范围内
-														{
-															if(numberTeam[r][c] == 1 && isThought[r][c] == 1)
-															{
-																solution[r][c] = 2;
-																if(debug == 2) printf("(%d,%d)", r, c);
-																//return 1;
-																isFound = 1;
-															}
-														}
-													}
-												}
-												if(debug == 2) printf("\n");
-											}
-										}
-									}
-									else//数对之二独占区不全已知，5678类数对
-									{
-										if(numberShown[r1][c1] == numberShown[r2][c2])//相等数对，56类数对
-										{
-											if(numberOfMine1 - numberOfMine2 == numberOfNotShown2)//数对之一和数对之二独占区已知雷数之差等于数对之二独占区未知量
-											{
-												if(debug == 2) printf("[Debug]找到5类数对(%d,%d)(%d,%d)->@", r1, c1, r2, c2);
-												//翻开数对之一独占区未知方块
-												for(r=r1-1; r<=r1+1; r++)
-												{
-													for(c=c1-1; c<=c1+1; c++)
-													{
-														if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)//确认在范围内
-														{
-															if(numberTeam[r][c] == 1 && isThought[r][c] == 1)
-															{
-																solution[r][c] = 1;
-																if(debug == 2) printf("(%d,%d)", r, c);
-																//return 1;
-																isFound = 1;
-															}
-														}
-													}
-												}
-												if(debug == 2) printf("\n");
-											}
-											if(numberOfMine2 - numberOfMine1 == numberOfNotShown1)//数对之二和数对之一独占区已知雷数之差等于数对之一独占区未知量
-											{
-												if(debug == 2) printf("[Debug]找到6类数对(%d,%d)(%d,%d)->#", r1, c1, r2, c2);
-												//标记数对之一独占区未知方块
-												for(r=r1-1; r<=r1+1; r++)
-												{
-													for(c=c1-1; c<=c1+1; c++)
-													{
-														if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)//确认在范围内
-														{
-															if(numberTeam[r][c] == 1 && isThought[r][c] == 1)
-															{
-																solution[r][c] = 2;
-																if(debug == 2) printf("(%d,%d)", r, c);
-																//return 1;
-																isFound = 1;
-															}
-														}
-													}
-												}
-												if(debug == 2) printf("\n");
-											}
-										}
-										else//不相等数对，78类数对，实际是所有数对的通式(doge)
-										{
-											if(numberShown[r2][c2] - numberShown[r1][c1] == numberOfMine2 - numberOfMine1 + numberOfNotShown2)//数对之二与数对之一之差等于已知雷数差加数对之二独占区未知量
-											{
-												if(debug == 2) printf("[Debug]找到7类数对(%d,%d)(%d,%d)->@", r1, c1, r2, c2);
-												//翻开数对之一独占区未知方块
-												for(r=r1-1; r<=r1+1; r++)
-												{
-													for(c=c1-1; c<=c1+1; c++)
-													{
-														if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)//确认在范围内
-														{
-															if(numberTeam[r][c] == 1 && isThought[r][c] == 1)
-															{
-																solution[r][c] = 1;
-																if(debug == 2) printf("(%d,%d)", r, c);
-																//return 1;
-																isFound = 1;
-															}
-														}
-													}
-												}
-												if(debug == 2) printf("\n");
-											}
-											if(numberShown[r1][c1] - numberShown[r2][c2] == numberOfMine1 - numberOfMine2 + numberOfNotShown1)//数对之一与数对之二之差等于已知雷数差加数对之一独占区未知量
-											{
-												if(debug == 2) printf("[Debug]找到8类数对(%d,%d)(%d,%d)->#", r1, c1, r2, c2);
-												//标记数对之一独占区未知方块
-												for(r=r1-1; r<=r1+1; r++)
-												{
-													for(c=c1-1; c<=c1+1; c++)
-													{
-														if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)//确认在范围内
-														{
-															if(numberTeam[r][c] == 1 && isThought[r][c] == 1)
-															{
-																solution[r][c] = 2;
-																if(debug == 2) printf("(%d,%d)", r, c);
-																//return 1;
-																isFound = 1;
-															}
-														}
-													}
-												}
-												if(debug == 2) printf("\n");
-											}
+											if(debug == 2) printf("\n");
+											//return 1;
 										}
 									}
 								}
@@ -7281,11 +7178,78 @@ void ShownModeBak(int mode)//1备份，0恢复
 	}
 }
 
+int IsSolvableIsland()//判断当前地图岛上可解性
+{
+	int r, c, temp, isOpenMine = 0;
+	for(r=0; r<heightOfBoard; r++)
+	{
+		for(c=0; c<widthOfBoard; c++)
+		{
+			solution[r][c] = 0;
+			if(board[r][c] == 0 && isShown[r][c] == 0)
+			{
+				isShown[r][c] = 1;//翻开全图0链
+				OpenZeroChain(r, c);
+			}
+		}
+	}
+	while(1)
+	{
+		for(r=0; r<heightOfBoard; r++)
+		{
+			for(c=0; c<widthOfBoard; c++)
+			{
+				if(solution[r][c] == 3)
+				{
+					//isShown[r][c] = 1;//不排除雷率解
+					isOpenMine = 1;//不确定解必炸，排除雷率解
+				}
+				else if(solution[r][c] == 1)
+				{
+					if(board[r][c] == 0)
+					{
+						OpenZeroChain(r, c);
+					}
+					else if(board[r][c] == 9)
+					{
+						isOpenMine = 1;
+					}
+				}
+			}
+		}
+		if(isOpenMine == 1) break;
+		if(RemainedMineWin()) break;
+		LookMap();
+		temp = debug;
+		debug = 0;//不显示求解信息
+		Solve(0);
+		debug = temp;
+	}
+	for(r=0; r<heightOfBoard; r++)
+	{
+		for(c=0; c<widthOfBoard; c++)
+		{
+			isShown[r][c] = 0;
+		}
+	}
+	if(isOpenMine == 1)
+	{
+		if(debug == 1 || debug == 2) printf("[Debug]该地图岛上不可解\n");
+		return 0;
+	}
+	else
+	{
+		if(debug == 1 || debug == 2) printf("[Debug]该地图岛上可解\n");
+		return 1;
+	}
+}
+
 int IsSolvableMap(int seed, int r0, int c0)
 {
 	int r, c, temp, isOpenMine = 0;
 	ShownModeBak(1);
 	SummonBoard(seed, r0, c0);
+	if(islandPrediction == 1 && IsSolvableIsland() == 0) return 0;//预判加速
 	isShown[r0][c0] = 1;
 	for(r=0; r<heightOfBoard; r++)
 	{
@@ -7321,7 +7285,7 @@ int IsSolvableMap(int seed, int r0, int c0)
 			}
 		}
 		if(isOpenMine == 1) break;
-		if(RealRemainder() == 0) break;
+		if(RemainedMineWin()) break;
 		LookMap();
 		temp = debug;
 		debug = 0;//不显示求解信息
@@ -8549,13 +8513,17 @@ void PrintRecords(struct Records records, int mode)
 	printf("* 已读取记录%d条\n", numberOfRecords);
 	for(i=0; i<5; i++)
 	{
-		printf("* %d难度时间纪录:%4d | 3BV/s纪录: %.2f\n", i, records.minimumTime[i], records.fastestSpeed[i]);
+		printf("* ");
+		if(i == 0) printf("默认");
+		else if(i == 1) printf("初级");
+		else if(i == 2) printf("中级");
+		else if(i == 3) printf("高级");
+		else if(i == 4) printf("顶级");
+		printf("时间纪录:%4d | 3BV/s纪录:%5.2f", records.minimumTime[i], records.fastestSpeed[i]);//最大9999秒，99.99速
+		//printf(" | STNB纪录:%7.2f", records.highestStnb[i]);//最大9999.99
+		//printf(" | 局数:%6d | 胜利局数:%5d", records.count[i], records.countEffective[i]);//确保100万局和10万局内显示
+		printf("\n");
 	}
-	/*printf("* 难度0默认|时间纪录:%4d | 3BV/s纪录: %.2f\n", records.minimumTime[0], records.fastestSpeed[0]);
-	printf("* 难度1初级|时间纪录:%4d | 3BV/s纪录: %.2f\n", records.minimumTime[1], records.fastestSpeed[1]);
-	printf("* 难度2中级|时间纪录:%4d | 3BV/s纪录: %.2f\n", records.minimumTime[2], records.fastestSpeed[2]);
-	printf("* 难度3高级|时间纪录:%4d | 3BV/s纪录: %.2f\n", records.minimumTime[3], records.fastestSpeed[3]);
-	printf("* 难度4顶级|时间纪录:%4d | 3BV/s纪录: %.2f\n", records.minimumTime[4], records.fastestSpeed[4]);*/
 	printf("* 总时间：%d(%.2f小时) 总翻开数：%d\n", records.totalTime, (float)records.totalTime/3600, records.totalSolved3BV);
 	printf("* 最大翻开数字：%d\n", records.maxOpenNumber);//(Ltabsyy: 8)
 	printf("* 玩家等级：Lv.%d(", records.gamerLevel);
@@ -8589,6 +8557,9 @@ struct Records ReadRecords()
 	{
 		records.minimumTime[i] = -1;
 		records.fastestSpeed[i] = 0;
+		records.highestStnb[i] = 0;
+		records.count[i] = 0;
+		records.countEffective[i] = 0;
 	}
 	records.totalTime = 0;
 	records.totalSolved3BV = 0;
@@ -8611,6 +8582,9 @@ struct Records ReadRecords()
 			record[i].speed =(float) record[i].solved3BV / record[i].time;
 			//计算难度
 			record[i].difficulty = Difficulty(record[i].heightOfBoard, record[i].widthOfBoard, record[i].numberOfMine);
+			//计算发挥水平
+			record[i].stnb = STNB(record[i].heightOfBoard, record[i].widthOfBoard, record[i].numberOfMine,
+								  record[i].time, record[i].solved3BV, record[i].total3BV);
 			//读入一个纪录
 			/*if(IsEffectiveRecord(record[i]))
 			{
@@ -8620,6 +8594,7 @@ struct Records ReadRecords()
 			//计算总时间和总翻开数
 			records.totalTime += record[i].time;
 			records.totalSolved3BV += record[i].solved3BV;
+			records.count[record[i].difficulty]++;
 		}
 		fclose(file);
 		records.numberOfRecords = numberOfRecords;
@@ -8637,6 +8612,11 @@ struct Records ReadRecords()
 				{
 					records.fastestSpeed[record[i].difficulty] = record[i].speed;
 				}
+				if(record[i].stnb > records.highestStnb[record[i].difficulty])
+				{
+					records.highestStnb[record[i].difficulty] = record[i].stnb;
+				}
+				records.countEffective[record[i].difficulty]++;
 			}
 		}
 		//计算玩家等级
@@ -8733,6 +8713,71 @@ struct Records DeleteRecord(struct Records records, int deleteNumber)
 		free(records.record);
 		records.record = record;
 		records.numberOfRecords--;
+	}
+	return records;
+}
+
+struct Records DeleteRecords(struct Records records, int mode)
+{
+	int i, j, numberOfRecords;
+	int* deleteList;//删除表
+	struct Record* record;
+	if(mode == 0 || mode == 1)
+	{
+		//标记待删除记录
+		deleteList =(int*) calloc(records.numberOfRecords, sizeof(int));
+		if(mode == 0)//删除无效记录
+		{
+			for(i=0; i<records.numberOfRecords; i++)
+			{
+				if(IsEffectiveRecord(records.record[i]) == 0)
+				{
+					deleteList[i] = 1;
+				}
+			}
+		}
+		else if(mode == 1)//仅保留纪录
+		{
+			for(i=0; i<records.numberOfRecords; i++)
+			{
+				if(IsEffectiveRecord(records.record[i]) == 0//无效记录
+					|| (records.record[i].time != records.minimumTime[records.record[i].difficulty]
+						&& records.record[i].speed != records.fastestSpeed[records.record[i].difficulty]))//不是纪录
+				{
+					deleteList[i] = 1;
+				}
+			}
+		}
+		//转移records数据
+		numberOfRecords = 0;
+		for(i=0; i<records.numberOfRecords; i++)
+		{
+			if(deleteList[i] == 0) numberOfRecords++;//一般玩家大部分记录无效，故从0计算保留数
+		}
+		record =(struct Record*) calloc(numberOfRecords, sizeof(struct Record));
+		j = 0;
+		for(i=0; i<records.numberOfRecords; i++)
+		{
+			if(deleteList[i] == 0)
+			{
+				record[j] = records.record[i];
+				j++;
+			}
+		}
+		free(deleteList);
+		free(records.record);
+		records.record = record;
+		records.numberOfRecords = numberOfRecords;
+	}
+	else if(mode == 2)//删除全部记录
+	{
+		records.numberOfRecords = 0;
+		for(i=0; i<5; i++)
+		{
+			records.minimumTime[i] = -1;
+			records.fastestSpeed[i] = 0;
+		}
+		free(records.record);
 	}
 	return records;
 }
@@ -8849,14 +8894,14 @@ int GamerLevel(struct Records records)//计算玩家等级并显示称号
 						&& records.minimumTime[3] <= 86//85.79秒内赢高级地图
 						&& records.minimumTime[4] <= 1752)//1751.27秒内赢顶级地图
 					{
-						level = 8;//"ProGamer***"(Ltabsyy: 1 2 17 62 634)
+						level = 8;//"ProGamer***"
 						if(records.minimumTime[0] <= 3//2.26秒内赢默认地图
 							&& records.minimumTime[1] <= 3//2.60秒内赢初级地图
 							&& records.minimumTime[2] <= 17//16.10秒内赢中级地图
 							&& records.minimumTime[3] <= 61//60.67秒内赢高级地图
 							&& records.minimumTime[4] <= 1239)//顶级基准1238.52秒
 						{
-							level = 9;//"Miner"
+							level = 9;//"Miner"(Ltabsyy: 1 2 17 59 634)
 							if(records.minimumTime[0] <= 2//1.60秒内赢默认地图
 								&& records.minimumTime[1] <= 2//1.84秒内赢初级地图
 								&& records.minimumTime[2] <= 12//11.38秒内赢中级地图
@@ -8893,6 +8938,11 @@ int GamerLevel(struct Records records)//计算玩家等级并显示称号
 void PrintMap(struct Map map, int showNumber)
 {
 	int r, c, ra, ca, i, j, n;
+	struct Record temp;
+	//备份难度
+	temp.numberOfMine = numberOfMine;
+	temp.heightOfBoard = heightOfBoard;
+	temp.widthOfBoard = widthOfBoard;
 	printf("name:%s", map.name);
 	printf("author:%s", map.author);
 	printf("Map:%d*%d-%d \n", map.height, map.width, map.numberOfMine);//雷数减少时覆写尾部
@@ -8906,7 +8956,7 @@ void PrintMap(struct Map map, int showNumber)
 			{
 				map.board[r][c] = 9;
 			}
-			else if(showNumber == 1)
+			else// if(showNumber == 1)
 			{
 				for(ra=r-1; ra<=r+1; ra++)
 				{
@@ -8924,7 +8974,38 @@ void PrintMap(struct Map map, int showNumber)
 			}
 		}
 	}
-	//集成输出避免多地图内存频繁分配
+	//调用3BV和岛可解性计算
+	numberOfMine = map.numberOfMine;
+	heightOfBoard = map.height;
+	widthOfBoard = map.width;
+	for(r=0; r<heightOfBoard; r++)
+	{
+		for(c=0; c<widthOfBoard; c++)
+		{
+			isMine[r][c] = map.isMine[r][c];
+			board[r][c] = map.board[r][c];
+		}
+	}
+	if(show3BV == 1)
+	{
+		printf("3BV=%d \n", BBBV(-1, 0, 0, 0));
+		printf("IsSolvableIsland=%d\n", IsSolvableIsland());
+	}
+	if(showNumber == 0)
+	{
+		for(r=0; r<heightOfBoard; r++)
+		{
+			for(c=0; c<widthOfBoard; c++)
+			{
+				if(map.board[r][c] != 0 && map.board[r][c] != 9)
+				{
+					map.board[r][c] = 0;
+				}
+			}
+		}
+	}
+	//ShowBoard(1);
+	//集成输出以处理无数字显示
 	for(i=Place(map.width-1); i>0; i--)//列坐标
 	{
 		for(j=0; j<Place(map.height-1)+1; j++)
@@ -8978,6 +9059,10 @@ void PrintMap(struct Map map, int showNumber)
 		}
 		printf("\n");
 	}
+	//恢复难度
+	numberOfMine = temp.numberOfMine;
+	heightOfBoard = temp.heightOfBoard;
+	widthOfBoard = temp.widthOfBoard;
 }
 
 void PrintMaps(struct Maps maps)
@@ -9164,6 +9249,14 @@ struct Map EditMap(struct Map map)
 	INPUT_RECORD rcd;
 	DWORD rcdnum;
 	int isReadyRefreshMouseOperatedPos = 0;
+	struct Record temp;
+	//备份难度
+	temp.numberOfMine = numberOfMine;
+	temp.heightOfBoard = heightOfBoard;
+	temp.widthOfBoard = widthOfBoard;
+	numberOfMine = map.numberOfMine;
+	heightOfBoard = map.height;
+	widthOfBoard = map.width;
 	if(fastShow == 1) boardBuf =(int**) MatrixMemory((void**)boardBuf, map.height, map.width, sizeof(int), 1);
 	if(operateMode >= 2) SetConsoleMouseMode(1);
 	clrscr();
@@ -9181,8 +9274,11 @@ struct Map EditMap(struct Map map)
 	}
 	while(1)
 	{
-		gotoxy(0, 0);
-		if(fastShow == 0) PrintMap(map, showNumber);
+		if(fastShow == 0)
+		{
+			gotoxy(0, 0);
+			PrintMap(map, showNumber);
+		}
 		else//快速显示
 		{
 			//雷区转为后台总板
@@ -9195,7 +9291,7 @@ struct Map EditMap(struct Map map)
 					{
 						map.board[r][c] = 9;
 					}
-					else if(showNumber == 1)
+					else// if(showNumber == 1)
 					{
 						for(ra=r-1; ra<=r+1; ra++)
 						{
@@ -9215,14 +9311,41 @@ struct Map EditMap(struct Map map)
 			}
 			//仅输出雷数和地图
 			gotoxy(0, 2);
-			printf("Map:%d*%d-%d ", map.height, map.width, map.numberOfMine);//雷数减少时覆写尾部
+			printf("Map:%d*%d-%d \n", map.height, map.width, map.numberOfMine);//雷数减少时覆写尾部
+			numberOfMine = map.numberOfMine;
+			for(r=0; r<heightOfBoard; r++)
+			{
+				for(c=0; c<widthOfBoard; c++)
+				{
+					isMine[r][c] = map.isMine[r][c];
+					board[r][c] = map.board[r][c];
+				}
+			}
+			if(show3BV == 1)
+			{
+				printf("3BV=%d \n", BBBV(-1, 0, 0, 0));
+				printf("IsSolvableIsland=%d\n", IsSolvableIsland());
+			}
+			if(showNumber == 0)
+			{
+				for(r=0; r<heightOfBoard; r++)
+				{
+					for(c=0; c<widthOfBoard; c++)
+					{
+						if(map.board[r][c] != 0 && map.board[r][c] != 9)
+						{
+							map.board[r][c] = 0;
+						}
+					}
+				}
+			}
 			for(r=0; r<map.height; r++)
 			{
 				for(c=0; c<map.width; c++)
 				{
 					if(map.board[r][c] != boardBuf[r][c])
 					{
-						gotoxy(cs0+2*c, 3+rs0+r);//yOfMap=3
+						gotoxy(cs0+2*c, 3+2*show3BV+rs0+r);//yOfMap=3
 						if(map.board[r][c] == 0)
 						{
 							PrintCell(0, 1, backgroundColor/16*16);
@@ -9244,7 +9367,7 @@ struct Map EditMap(struct Map map)
 				}
 			}
 			//定位到地图尾部
-			gotoxy(0, 3+rs0+map.height);
+			gotoxy(0, 3+2*show3BV+rs0+map.height);
 		}
 		if(operateMode > 1)
 		{
@@ -9256,9 +9379,9 @@ struct Map EditMap(struct Map map)
 				if(rcd.EventType == MOUSE_EVENT)
 				{
 					mousePos = rcd.Event.MouseEvent.dwMousePosition;
-					if(IsPosInRectangle((mousePos.X-cs0)/2, mousePos.Y-rs0-3, 0, 0, map.width-1, map.height-1))
+					if(IsPosInRectangle((mousePos.X-cs0)/2, mousePos.Y-rs0-3-2*show3BV, 0, 0, map.width-1, map.height-1))
 					{
-						r = mousePos.Y-rs0-3;
+						r = mousePos.Y-rs0-3-2*show3BV;
 						c = (mousePos.X-cs0)/2;
 						printf("\r>* %d %d  ", r, c);
 						if(rcd.Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED)
@@ -9296,6 +9419,8 @@ struct Map EditMap(struct Map map)
 					mouseOperatedPos.X = 0;
 					mouseOperatedPos.Y = 0;
 				}
+				showCursor(visibleCursor);
+				//Sleep(refreshCycle);//此处无需延时，因为ReadConsoleInput()阻塞
 			}
 		}
 		else
@@ -9327,6 +9452,10 @@ struct Map EditMap(struct Map map)
 	else fflush(stdin);
 	showCursor(1);
 	if(fastShow == 1) boardBuf =(int**) MatrixMemory((void**)boardBuf, map.height, map.width, sizeof(int), 0);
+	//恢复难度
+	numberOfMine = temp.numberOfMine;
+	heightOfBoard = temp.heightOfBoard;
+	widthOfBoard = temp.widthOfBoard;
 	return map;
 }
 /*
@@ -9347,13 +9476,21 @@ void AddOperation(struct Operations* operations, int mstime, char operation, int
 		//如果上一次操作为?且最近三次坐标相同，则不保存上一次
 		//1 @ 0 0, (2 ? 0 0), 3 ? 0 0, 4 ? 1 1
 		if(operations->tail->operation == '?'
-			&& operations->tail->r == r && operations->tail->c == c
-			&& operations->tail->prev->r == r && operations->tail->prev->c == c)
+		   && operations->tail->r == r && operations->tail->c == c
+		   && operations->tail->prev != NULL
+		   && operations->tail->prev->r == r && operations->tail->prev->c == c)
 		{
 			operations->tail->prev->next = newNode;
 			newNode->prev = operations->tail->prev;
 			free(operations->tail);
 			operations->tail = newNode;
+		}
+		//如果上一次操作和新操作均为鼠标坐标且时间相同，则不保存这一次
+		//如果上一次操作和新操作均为鼠标坐标且相同，则不保存这一次
+		else if(operation == 'm' && operations->tail->operation == 'm'
+				&& (operations->tail->mstime == mstime || (operations->tail->r == r && operations->tail->c == c)))
+		{
+			free(newNode);
 		}
 		else
 		{
@@ -9373,6 +9510,8 @@ struct Operations AddOperations(int seed, int r0, int c0)
 	operations.seed = seed;
 	operations.r0 = r0;
 	operations.c0 = c0;
+	operations.time = 0;
+	operations.isWin = 2;
 	operations.head =(struct Operation*) malloc(sizeof(struct Operation));
 	operations.head->mstime = 0;
 	operations.head->operation = '@';
@@ -9402,12 +9541,14 @@ void WriteOperations(struct Operations operations)
 	struct Operation* p;
 	mkdir("minesweeper-operations");//创建文件夹
 	sprintf(fileName, "minesweeper-operations\\minesweeper-operations_%dx%d-%d_%.3f_%d.txt",
-		operations.heightOfBoard, operations.widthOfBoard, operations.numberOfMine,
-		(float)(operations.tail->mstime-operations.head->mstime)/1000, operations.seed);
+			operations.heightOfBoard, operations.widthOfBoard, operations.numberOfMine,
+			(float)(operations.tail->mstime-operations.head->mstime)/1000, operations.seed);
 	file = fopen(fileName, "w");
 	fprintf(file, "Map:%d*%d-%d\n", operations.heightOfBoard, operations.widthOfBoard, operations.numberOfMine);
 	fprintf(file, "seed=%d,%d,%d\n", operations.seed, operations.r0, operations.c0);
 	fprintf(file, "summonCheckMode=%d\n", operations.summonCheckMode);
+	fprintf(file, "time=%d\n", operations.time);
+	fprintf(file, "isWin=%d\n", operations.isWin);
 	//fprintf(file, "sideLength=16\n");
 	for(p=operations.head; p!=NULL; p=p->next)
 	{
@@ -9459,6 +9600,8 @@ struct Operations ReadOperations(char* fileName)
 		fscanf(file, "Map:%d*%d-%d\n", &(operations.heightOfBoard), &(operations.widthOfBoard), &(operations.numberOfMine));
 		fscanf(file, "seed=%d,%d,%d\n", &(operations.seed), &(operations.r0), &(operations.c0));
 		fscanf(file, "summonCheckMode=%d\n", &(operations.summonCheckMode));
+		fscanf(file, "time=%d\n", &(operations.time));
+		fscanf(file, "isWin=%d\n", &(operations.isWin));
 		//fscanf(file, "sideLength=16\n");
 		while(fscanf(file, "\n%d %c %d %d", &mstime, &operation, &r, &c) != EOF)
 		{
@@ -9487,6 +9630,8 @@ void PlayOperations(struct Operations operations)
 	//const int sideLength = 16;
 	int clock0, r, c, ra, ca, remainder, unsolved3BV, total3BV;
 	char operation;
+	int hasMouse = 0;
+	int xm, ym;
 	struct Record temp;
 	struct Operation* p;
 	temp.numberOfMine = numberOfMine;
@@ -9499,20 +9644,46 @@ void PlayOperations(struct Operations operations)
 	widthOfBoard = operations.widthOfBoard;
 	summonCheckMode = operations.summonCheckMode;
 	//keepCursor = 1;
+	ReallocMemory(heightOfBoard, widthOfBoard, dictionaryCapacity, lengthOfThinkMineCheck);
+	AdaptScreenBufferWidth();
 	SummonBoard(operations.seed, operations.r0, operations.c0);
 	total3BV = BBBV(operations.seed, operations.r0, operations.c0, 1);
 	unsolved3BV = total3BV;
 	remainder = numberOfMine;
+	if(fastShow == 1)
+	{
+		for(r=0; r<heightOfBoard; r++)
+		{
+			for(c=0; c<widthOfBoard; c++)
+			{
+				isShownBuf[r][c] = 0;//初始化显示缓冲为全未翻开
+			}
+		}
+		gotoxy(0, 3);
+		ShowBoard(0);
+	}
 	if(operateMode == 3)
 	{
 		InitWindow();
-		DrawBoard(0, remainder, 0, 0, total3BV);
-		delay_ms(0);
+		for(p=operations.head; p!=NULL; p=p->next)
+		{
+			if(p->operation == 'm')
+			{
+				hasMouse = 1;
+				break;
+			}
+		}
+		for(operation = 0; operation == 0; )
+		{
+			DrawBoard(0, remainder, 0, 0, total3BV);
+			GetWindowOperation(&operation, &r, &c, remainder, 0, 0, total3BV);
+			delay_ms(refreshCycle);
+		}
 	}
 	clock0 = clock();
 	for(p=operations.head; p!=NULL; p=p->next)
 	{
-		while(clock()-clock0 < p->mstime) api_sleep(1);
+		while(clock()-clock0 < p->mstime) Sleep(1);
 		operation = p->operation;
 		r = p->r;
 		c = p->c;
@@ -9597,16 +9768,42 @@ void PlayOperations(struct Operations operations)
 				}
 			}
 		}
-		gotoxy(0, 3);
-		ShowBoard(0);
+		if(fastShow == 1)
+		{
+			ShowBoardFast(3);
+		}
+		else
+		{
+			gotoxy(0, 3);
+			ShowBoard(0);
+		}
+		gotoxy(0, heightOfMapShown+3);
 		printf("剩余雷数: %d ", remainder);
 		if(showTime == 1) printf("用时：%d ", (p->mstime-operations.head->mstime)/1000);
 		if(show3BV == 1) printf("3BV：%d/%d 3BV/s：%.2f ", total3BV-unsolved3BV, total3BV, (float)(total3BV-unsolved3BV)/(p->mstime-operations.head->mstime)*1000);
 		if(operateMode == 3)
 		{
+			if(operation != 'm')//悬浮高亮
+			{
+				mouseR = r;
+				mouseC = c;
+			}
 			DrawBoard(0, remainder, (p->mstime-operations.head->mstime)/1000, total3BV-unsolved3BV, total3BV);
-			if(operation == 'm') DrawMouse(c, r);
-			else DrawMouse(widthOfBlock/2+c*widthOfBlock, heightOfBlock/2+r*heightOfBlock);
+			if(operation == '@' || operation == '#') DrawFace(1);
+			if(hasMouse == 1)//鼠标显示
+			{
+				if(operation == 'm')
+				{
+					xm = c*sideLength/64;
+					ym = r*sideLength/64;//坐标拟合到64边长
+				}
+			}
+			else
+			{
+				xm = widthOfBlock/2+c*widthOfBlock;
+				ym = heightOfBlock/2+r*heightOfBlock;
+			}
+			DrawMouse(xm, ym);
 			delay_ms(0);
 		}
 		if(operation == 'm')
@@ -9619,20 +9816,57 @@ void PlayOperations(struct Operations operations)
 			//SetCursorPos((cs0+2*c)*sideLength/2+sideLength/4+87, (rs0+r)*sideLength+sideLength/2+110);
 		}
 	}
-	gotoxy(0, 3);
-	ShowBoard(1);
+	clrscr();
+	DrawControlBar(0);
+	if(operations.isWin == 0)//败局
+	{
+		ShowBoard(1);
+		printf(":(\nGame Over!\n");
+		printf("剩余雷数: %d ", remainder);
+		if(showTime == 1) printf("用时：%d ", operations.time);
+		if(show3BV == 1) printf("3BV：%d/%d 3BV/s：%.2f ", total3BV-unsolved3BV, total3BV, (float)(total3BV-unsolved3BV)/operations.time);
+	}
+	else if(operations.isWin == 1)//胜局
+	{
+		ShowBoard(1);
+		printf(":)\nYou Win!\n");
+		unsolved3BV = 0;
+		if(showTime == 1) printf("用时：%d ", operations.time);
+		if(show3BV == 1) printf("3BV：%d 3BV/s：%.2f ", total3BV, (float)total3BV/operations.time);
+	}
+	else//未完成局
+	{
+		ShowBoard(0);
+		printf("剩余雷数: %d ", remainder);
+		if(showTime == 1) printf("用时：%d ", operations.time);
+		if(show3BV == 1) printf("3BV：%d/%d 3BV/s：%.2f ", total3BV-unsolved3BV, total3BV, (float)(total3BV-unsolved3BV)/operations.time);
+	}
 	if(operateMode == 3)
 	{
-		DrawBoard(1, remainder, (operations.tail->mstime-operations.head->mstime)/1000, total3BV-unsolved3BV, total3BV);
-		delay_ms(0);
-		getch();
-		closegraph();
+		if(operations.isWin != 2)
+		{
+			CloseWindow(operations.isWin, remainder, operations.time, total3BV-unsolved3BV, total3BV);
+		}
+		else
+		{
+			DrawBoard(0, remainder, operations.time, total3BV-unsolved3BV, total3BV);
+			setfont(heightOfChar/2, 0, "黑体");
+			setcolor(BLACK);
+			xyprintf(widthOfBlock+sideLength/32, heightOfBar+widthOfBorder+heightOfBlock+sideLength/32, "请按键盘任意键关闭窗口");
+			setcolor(RED);
+			xyprintf(widthOfBlock, heightOfBar+widthOfBorder+heightOfBlock, "请按键盘任意键关闭窗口");
+			setfont(heightOfChar, 0, "Consolas");
+			delay_ms(0);
+			getch();
+			closegraph();
+		}
 	}
 	numberOfMine = temp.numberOfMine;
 	heightOfBoard = temp.heightOfBoard;
 	widthOfBoard = temp.widthOfBoard;
 	summonCheckMode = temp.summonCheckMode;
 	//keepCursor = temp.isHelped;
+	ReallocMemory(heightOfBoard, widthOfBoard, dictionaryCapacity, lengthOfThinkMineCheck);
 }
 */
 void RCScan(char* operation, int* r, int* c, int yOfCommand, struct Record information)//@#rc指令输入模块
@@ -9649,9 +9883,9 @@ void RCScan(char* operation, int* r, int* c, int yOfCommand, struct Record infor
 	printf(">%c _     \r>%c ", *operation, *operation);//覆写>@ 128 92
 	while(p != 4)
 	{
-		if(kbhit_console())
+		if(kbhit())
 		{
-			key = getch_console();//接收字符但不显示
+			key = getch();//接收字符但不显示
 			gotoxy(0, yOfCommand);
 			//切为鼠标
 			if(key == 'm' || key == 'M')
@@ -9837,7 +10071,7 @@ void RCScan(char* operation, int* r, int* c, int yOfCommand, struct Record infor
 				//yOfCommand = heightOfMapShown-1+3+2
 			}
 		}
-		//api_sleep(refreshCycle);
+		//Sleep(refreshCycle);
 	}
 }
 
@@ -10055,7 +10289,7 @@ void Bench(int seedMin, int seedMax, int r0, int c0, int showStep, int showSolut
 	int** BBBVOfSeed =(int**) MatrixMemory(NULL, seedMax-seedMin+1, 2, sizeof(int), 1);
 	int countOf3BV = 0, countOfSolved3BV = 0;
 	int maxPlaceOfBBBV = 0, i;//根据最大3BV位数补全3BV矩阵空格
-	//int clock0, clock1;
+	int clock0, clock1;
 	/*初始化*/
 	numberOfAbandonedThinkChain = 0;
 	countOfDictionaryOverflow = 0;
@@ -10073,7 +10307,7 @@ void Bench(int seedMin, int seedMax, int r0, int c0, int showStep, int showSolut
 	}
 	countOfSolved3BV = countOf3BV;
 	t0 = time(0);//计时
-	//clock0 = clock();
+	clock0 = clock();
 	/*开跑！*/
 	for(seed=seedMin; seed<=seedMax; seed++)
 	{
@@ -10143,7 +10377,7 @@ void Bench(int seedMin, int seedMax, int r0, int c0, int showStep, int showSolut
 			}
 			/*胜负判断*/
 			if(isOpenMine == 1) break;
-			if(RealRemainder() == 0)
+			if(RemainedMineWin())
 			{
 				countOfWin++;
 				//isWinningOfSeed[seed-seedMin]++;
@@ -10254,7 +10488,7 @@ void Bench(int seedMin, int seedMax, int r0, int c0, int showStep, int showSolut
 		}
 	}
 	/*输出结果*/
-	//clock1 = clock();
+	clock1 = clock();
 	t1 = time(0);
 	//clrscr();
 	gotoxy(0, 3);
@@ -10274,6 +10508,7 @@ void Bench(int seedMin, int seedMax, int r0, int c0, int showStep, int showSolut
 		printf("(%f%%)\n", sqrt((float)countOfWin*(temp-countOfWin)/temp/temp/temp)*100);//胜率参考标准差
 		printf("方案数：%d 步数：%d 步均方案数：%.2f\n", countOfSolution, countOfStep, (float)countOfSolution/countOfStep);
 		printf("用时：%d 3BV：%d/%d 3BV/s：%.2f\n", t1-t0, countOfSolved3BV, countOf3BV, (float)countOfSolved3BV/(t1-t0));
+		printf("毫秒用时：%d\n", clock1-clock0);
 		printf("放弃链数：%d 字典溢出：%d 字典需求：%d\n", numberOfAbandonedThinkChain, countOfDictionaryOverflow, dictionaryNeeded);
 		printf("未知链长度统计：");
 		for(i=0; i<2*LimLength; i++)
@@ -10601,6 +10836,26 @@ int BBBV(int seed, int r0, int c0, int mode)//计算地图3BV
 	return bbbv;
 }
 
+double STNB(int h, int w, int n, int time, int solved3BV, int total3BV)//计算任意记录发挥水平STNB尸体牛逼
+{
+	//计算STNBC = A(e^(n/h/w)-1)*(h^B)*(w^C)
+	/*const double A = 8.14593564;
+	const double B = 0.528462037;
+	const double C = 1.172055106;
+	double densityWeight = expm1(1.0*n/(h*w));
+	if(h > w)//约定长边为w
+	{
+		int temp = h;
+		h = w;
+		w = temp;
+	}
+	double completion =(double) solved3BV / total3BV;
+	double stnbc = A * densityWeight * pow(h, B) * pow(w, C);
+	double qg = pow(time, 1.7) / solved3BV;
+	return sqrt(completion) * stnbc / qg;*/
+	return 0;
+}
+
 int SearchSeed(int seedMin, int r0, int c0, int difficulty)//可解和筛选种子搜索模块
 {
 	int seed = seedMin;
@@ -10701,6 +10956,10 @@ void MapSearch(int seedMin, int seedMax, int r0, int c0)//地图搜索模块
 							printf("Map:%d*%d-%d\n", heightOfBoard, widthOfBoard, numberOfMine);
 							printf("seed=%d,%d,%d\n", seed, r0, c0);
 							printf("3BV=%d\n", bbbv);
+							temp = debug;
+							debug = 0;//不显示重复信息
+							printf("IsSolvableMap=%d\n", IsSolvableMap(seed, r0, c0));
+							debug = temp;
 							ShowBoard(1);
 							//system("pause");
 						}
@@ -10715,6 +10974,10 @@ void MapSearch(int seedMin, int seedMax, int r0, int c0)//地图搜索模块
 					printf("Map:%d*%d-%d\n", heightOfBoard, widthOfBoard, numberOfMine);
 					printf("seed=%d,%d,%d\n", seed, r0, c0);
 					printf("3BV=%d\n", bbbv);
+					temp = debug;
+					debug = 0;//不显示重复信息
+					printf("IsSolvableMap=%d\n", IsSolvableMap(seed, r0, c0));
+					debug = temp;
 					ShowBoard(1);
 					//system("pause");
 				}
@@ -11026,35 +11289,15 @@ struct Records RecordsEditer(struct Records records)//记录编辑器模块
 		}
 		else if(choice == 2)//删除无效记录
 		{
-			for(i=records.numberOfRecords-1; i>=0; i--)
-			{
-				if(IsEffectiveRecord(records.record[i]) == 0)
-				{
-					records = DeleteRecord(records, i);
-				}
-			}
+			records = DeleteRecords(records, 0);
 		}
 		else if(choice == 3)//仅保留纪录
 		{
-			for(i=records.numberOfRecords-1; i>=0; i--)
-			{
-				if(IsEffectiveRecord(records.record[i]) == 0//无效记录
-					|| (records.record[i].time != records.minimumTime[records.record[i].difficulty]
-						&& records.record[i].speed != records.fastestSpeed[records.record[i].difficulty]))//不是纪录
-				{
-					records = DeleteRecord(records, i);
-				}
-			}
+			records = DeleteRecords(records, 1);
 		}
 		else if(choice == 4)//删除全部记录
 		{
-			records.numberOfRecords = 0;
-			for(i=0; i<5; i++)
-			{
-				records.minimumTime[i] = -1;
-				records.fastestSpeed[i] = 0;
-			}
-			free(records.record);
+			records = DeleteRecords(records, 2);
 		}
 		else if(choice == 5)//保存并重新读取
 		{
@@ -11188,6 +11431,19 @@ int CustomMapsEditer()//地图绘制器模块
 	int choice, i, r, c;
 	struct Maps maps = ReadMaps();
 	struct Map newMap;
+	struct Record temp;
+	//备份难度并设置为最大地图大小
+	temp.numberOfMine = numberOfMine;
+	temp.heightOfBoard = heightOfBoard;
+	temp.widthOfBoard = widthOfBoard;
+	heightOfBoard = 0;
+	widthOfBoard = 0;
+	for(i=0; i<maps.numberOfMaps; i++)
+	{
+		if(maps.map[i].height > heightOfBoard) heightOfBoard = maps.map[i].height;
+		if(maps.map[i].width > widthOfBoard) widthOfBoard = maps.map[i].width;
+	}
+	ReallocMemory(heightOfBoard, widthOfBoard, dictionaryCapacity, lengthOfThinkMineCheck);
 	while(1)
 	{
 		clrscr();
@@ -11220,6 +11476,13 @@ int CustomMapsEditer()//地图绘制器模块
 			//分配矩阵空间
 			newMap.isMine =(int**) MatrixMemory((void**)newMap.isMine, newMap.height, newMap.width, sizeof(int), 1);
 			newMap.board =(int**) MatrixMemory((void**)newMap.board, newMap.height, newMap.width, sizeof(int), 1);
+			//更新最大地图大小
+			if(newMap.height > heightOfBoard || newMap.width > widthOfBoard)
+			{
+				if(newMap.height > heightOfBoard) heightOfBoard = newMap.height;
+				if(newMap.width > widthOfBoard) widthOfBoard = newMap.width;
+				ReallocMemory(heightOfBoard, widthOfBoard, dictionaryCapacity, lengthOfThinkMineCheck);
+			}
 			//编辑地图
 			newMap.numberOfMine = 0;
 			newMap = EditMap(newMap);
@@ -11332,6 +11595,11 @@ int CustomMapsEditer()//地图绘制器模块
 		}
 	}
 	maps = DeleteMaps(maps);//释放内存空间
+	//恢复难度
+	numberOfMine = temp.numberOfMine;
+	heightOfBoard = temp.heightOfBoard;
+	widthOfBoard = temp.widthOfBoard;
+	ReallocMemory(heightOfBoard, widthOfBoard, dictionaryCapacity, lengthOfThinkMineCheck);
 	return 0;
 }
 
@@ -11346,9 +11614,9 @@ void Error()//错误
 	for(c=0; c<=10; c++)
 	{
 		printf("\r%3d%% 完成", c*10);
-		api_sleep(200);
+		Sleep(200);
 	}
-	api_sleep(4*200);
+	Sleep(4*200);
 	printf("\n");
 	//getchar();
 	fflush(stdin);//清空输入缓冲区，多字符仅蓝屏一次(doge)
@@ -11861,16 +12129,31 @@ MineSweeper Run 5.12
 ——修复 删除历史记录和自制地图时可能出现的内存错误
 MineSweeper Map Painter 1.2
 ——优化 功能与函数跟随Run 5.12升级
+MineSweeper Run 5.13
+——新增 3BV筛选搜索显示地图可解性
+——新增 自制地图显示3BV和岛上可解性
+——新增 调试选项可启用可解地图岛预判加速
+——新增 Bench调试显示毫秒用时
+——优化 集成式仅标记雷可赢判断
+——优化 记录统计显示
+——优化 简单判断和逻辑推理效率
+——优化 记录批量删除效率
+——修复 自制地图编辑时调整窗口大小显示控制台光标
 //——新增 调试选项可启用保存有效记录的操作记录
 //——新增 主页按V或拖动文件至程序图标播放操作记录
 //——新增 调试选项可启用屏蔽鼠标点击翻开标记
 //——新增 Window操作模式
 //——新增 组合雷率计算（根据多块枚举的结果组合进行雷率计算）
+//——新增 内外雷率扰动（根据内部雷分布组合数对应枚举结果雷数扰动交界线雷率）
 //——新增 触雷直接重开和超时间纪录且低速直接重开
 //——新增 调试选项可启用统一标记（鼠标点击拖动标记根据起始操作统一标记/取消标记）
 //——优化 现在地图求解可选择从外部文件读取地图，界面支持鼠标点击
 //——优化 重新设计自定义难度设置，以密度设置雷数不再是调试选项
 //——优化 雷率由浮点计算转为整数计算
 //——优化 移除部分不必要的调试
+//——优化 重新设计玩家等级称号
+//——优化 融合胜利判断和3BV计算
+//——优化 统一游戏信息和专用未解3BV内存
 //——修复 未操作的Tab后不使用快速显示
+//——修复 地图列数超过100时列坐标中部0不显示
 --------------------------------*/
