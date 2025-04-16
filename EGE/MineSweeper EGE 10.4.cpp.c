@@ -27,8 +27,6 @@ int sideLength = 32;//外部窗口方块边长
 // 地图生成和显示
 int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2);
 void SummonBoard(int seed, int r0, int c0);
-/*int Place(int n);
-void ShowBoard(int mode);*/
 
 // EGE窗口显示
 int dx = 0, dy = 0;//地图偏移
@@ -48,6 +46,7 @@ void DrawMouse(int x, int y);//绘制鼠标
 void UpdateWindowSize();//根据当前方块边长更新窗口大小
 void InitWindow(int mode);
 void ResizeWindow(char mode);//调整显示大小
+int IsMousePosOutside();//鼠标在窗口边界外
 void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, int solved3BV, int total3BV);
 int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total3BV);
 
@@ -111,7 +110,6 @@ int main()
 				}
 			}
 			/*初始化*/
-			//if(heightOfBoard <= 20 && widthOfBoard <= 58) ShowBoard(0);
 			printf("选择坐标[r:行][c:列]\n");
 			InitWindow(0);//创建窗口
 			operation = 0;
@@ -150,7 +148,6 @@ int main()
 					else if(board[r][c] == 9)//寄
 					{
 						system("cls");
-						//ShowBoard(1);
 						printf(":(\nGame Over!\n");
 						isOpenMine = 1;
 						break;
@@ -159,13 +156,11 @@ int main()
 				if(NumberOfNotShown() == remainder)//未翻开的都是雷则胜利
 				{
 					system("cls");
-					//ShowBoard(1);
 					printf(":)\nYou Win!\n");
 					break;
 				}
 				/*显示*/
 				system("cls");
-				//if(heightOfBoard <= 20 && widthOfBoard <= 58) ShowBoard(0);
 				printf("剩余雷数: %d 用时: %d\n", remainder, t1-t0);//打印剩余雷数
 				/*输入*/
 				operation = 0;
@@ -388,192 +383,134 @@ int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2)
 void SummonBoard(int seed, int r0, int c0)//生成后台总板
 {
 	int r, c, i, ra, ca;
+	int numberOfNotMine = heightOfBoard*widthOfBoard-numberOfMine;
+	int ra1 = r0, ca1 = c0, ra2 = r0, ca2 = c0;
+	int mode = 2;
+	if(ra1 > 0) ra1--;
+	if(ca1 > 0) ca1--;
+	if(ra2+1 < heightOfBoard) ra2++;
+	if(ca2+1 < widthOfBoard) ca2++;
 	srand(seed);
+	/*--重置--*/
 	for(r=0; r<heightOfBoard; r++)
 	{
 		for(c=0; c<widthOfBoard; c++)
 		{
+			numberOfMineAround[r][c] = 0;
+			//board[r][c] = 0;
 			isShown[r][c] = 0;//清零显示方式矩阵
 		}
 	}
-	while(1)
+	/*--生成雷场--*/
+	//在不可能确保起始点为空时仅确保起始点非雷
+	if(mode > 1 && numberOfNotMine < (ra2-ra1+1)*(ca2-ca1+1)) mode = 1;
+	//在不可能确保时自动放弃
+	if(mode > 0 && numberOfNotMine == 0) mode = 0;
+	//对于必然雷场使用布空策略
+	if(numberOfNotMine == 0
+	   || (numberOfNotMine == 1 && mode == 1)
+	   || (numberOfNotMine == (ra2-ra1+1)*(ca2-ca1+1) && mode > 1))
 	{
-		/*--重置--*/
 		for(r=0; r<heightOfBoard; r++)
 		{
 			for(c=0; c<widthOfBoard; c++)
-			{
-				isMine[r][c] = 0;//雷，0无1有
-				numberOfMineAround[r][c] = 0;
-				board[r][c] = 0;
-			}
-		}
-		/*--生成雷--*/
-		for(i=0; i<numberOfMine; )//不校验第1次也可能爆哦(doge)
-		{
-			r = rand() % heightOfBoard;
-			c = rand() % widthOfBoard;
-			if(isMine[r][c] == 0)
 			{
 				isMine[r][c] = 1;
-				i++;
 			}
 		}
-		/*校验*/
-		if(isMine[r0][c0] == 1) continue;//第1次就爆则循环
-		if((r0 > 0 && c0 > 0 && isMine[r0-1][c0-1] == 1)
-			|| (r0 > 0 && isMine[r0-1][c0] == 1)
-			|| (r0 > 0 && c0+1 < widthOfBoard && isMine[r0-1][c0+1] == 1)
-			|| (c0 > 0 && isMine[r0][c0-1] == 1)
-			|| (c0+1 < widthOfBoard && isMine[r0][c0+1] == 1)
-			|| (r0+1 < heightOfBoard && c0 > 0 && isMine[r0+1][c0-1] == 1)
-			|| (r0+1 < heightOfBoard && isMine[r0+1][c0] == 1)
-			|| (r0+1 < heightOfBoard && c0+1 < widthOfBoard && isMine[r0+1][c0+1] == 1))
+		if(mode == 1) isMine[r0][c0] = 0;
+		else if(mode > 1)
 		{
-			continue;//预判到第1次翻开位置不为0则循环
-		}
-		/*--生成雷周围数字--*/
-		for(r=0; r<heightOfBoard; r++)
-		{
-			for(c=0; c<widthOfBoard; c++)
+			for(ra=ra1; ra<=ra2; ra++)
 			{
-				if(isMine[r][c] == 1)//循环遍历雷，在雷周围生成数字
+				for(ca=ca1; ca<=ca2; ca++)
 				{
-					for(ra=r-1; ra<=r+1; ra++)
-					{
-						for(ca=c-1; ca<=c+1; ca++)
-						{
-							if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
-							{
-								numberOfMineAround[ra][ca]++;
-							}
-						}
-					}
-				}//挨得过紧的雷也会被数字覆盖
-			}
-		}
-		/*--生成后台总板--*/
-		for(r=0; r<heightOfBoard; r++)
-		{
-			for(c=0; c<widthOfBoard; c++)
-			{
-				if(isMine[r][c] == 1)
-				{
-					board[r][c] = 9;//雷标记为9，解决数字覆盖掉雷的情况
-				}
-				else
-				{
-					board[r][c] = numberOfMineAround[r][c];
+					isMine[ra][ca] = 0;
 				}
 			}
 		}
-		/*完毕*/
-		break;
-	}	
-}
-/*
-int Place(int n)//计算某数所占位数
-{
-	int i = 0;
-	if(n == 0) return 1;
-	while(n > 0)
-	{
-		i++;
-		n /= 10;
 	}
-	return i;
-}
-
-void ShowBoard(int mode)
-{
-	int r, c, i, j, n;
-	for(i=Place(widthOfBoard-1); i>0; i--)//列坐标
+	else
 	{
-		for(j=0; j<Place(heightOfBoard-1)+1; j++)
+		while(1)
 		{
-			printf(" ");
+			/*初始化*/
+			for(r=0; r<heightOfBoard; r++)
+			{
+				for(c=0; c<widthOfBoard; c++)
+				{
+					isMine[r][c] = 0;//雷，0无1有
+				}
+			}
+			/*布雷*/
+			for(i=0; i<numberOfMine; )//不校验第1次也可能爆哦(doge)
+			{
+				r = rand() % heightOfBoard;
+				c = rand() % widthOfBoard;
+				if(isMine[r][c] == 0)
+				{
+					isMine[r][c] = 1;
+					i++;
+				}
+			}
+			/*校验*/
+			if(isMine[r0][c0] == 1 && mode > 0) continue;//第1次就爆则循环
+			if(mode > 1)
+			{
+				if((r0 > 0 && c0 > 0 && isMine[r0-1][c0-1] == 1)
+					|| (r0 > 0 && isMine[r0-1][c0] == 1)
+					|| (r0 > 0 && c0+1 < widthOfBoard && isMine[r0-1][c0+1] == 1)
+					|| (c0 > 0 && isMine[r0][c0-1] == 1)
+					|| (c0+1 < widthOfBoard && isMine[r0][c0+1] == 1)
+					|| (r0+1 < heightOfBoard && c0 > 0 && isMine[r0+1][c0-1] == 1)
+					|| (r0+1 < heightOfBoard && isMine[r0+1][c0] == 1)
+					|| (r0+1 < heightOfBoard && c0+1 < widthOfBoard && isMine[r0+1][c0+1] == 1))
+				{
+					continue;//预判到第1次翻开位置不为0则循环
+				}
+			}
+			/*完毕*/
+			break;
 		}
+	}
+	/*--生成雷周围数字--*/
+	for(r=0; r<heightOfBoard; r++)
+	{
 		for(c=0; c<widthOfBoard; c++)
 		{
-			n = c;
-			for(j=1; j<i; j++)
+			if(isMine[r][c] == 1)//循环遍历雷，在雷周围生成数字
 			{
-				n /= 10;
-			}
-			n %= 10;
-			if(i != 1 && n == 0)
+				for(ra=r-1; ra<=r+1; ra++)
+				{
+					for(ca=c-1; ca<=c+1; ca++)
+					{
+						if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
+						{
+							numberOfMineAround[ra][ca]++;
+						}
+					}
+				}
+			}//挨得过紧的雷也会被数字覆盖
+			//方法2：循环遍历方块，计算周围雷数，因为不跳过雷，方法1始终不弱于方法2
+		}
+	}
+	/*--生成后台总板--*/
+	for(r=0; r<heightOfBoard; r++)
+	{
+		for(c=0; c<widthOfBoard; c++)
+		{
+			if(isMine[r][c] == 1)
 			{
-				printf("  ");
+				board[r][c] = 9;//雷标记为9，解决数字覆盖掉雷的情况
 			}
 			else
 			{
-				printf("%d ", n);
+				board[r][c] = numberOfMineAround[r][c];
 			}
 		}
-		printf("\n");
-	}
-	for(r=0; r<heightOfBoard; r++)
-	{
-		for(i=0; i<Place(heightOfBoard-1)-Place(r); i++)//行坐标
-		{
-			printf(" ");
-		}
-		printf("%d ", r);
-		for(c=0; c<widthOfBoard; c++)
-		{
-			if(mode == 1)
-			{
-				if(board[r][c] == 0)
-				{
-					printf("  ");
-				}
-				else if(board[r][c] == 9)
-				{
-					if(isShown[r][c] == 1)
-					{
-						printf("@ ");
-					}
-					else if(isShown[r][c] == 2)
-					{
-						printf("# ");
-					}
-					else
-					{
-						printf("* ");
-					}
-				}
-				else
-				{
-					printf("%d ", board[r][c]);
-				}
-			}
-			else if(mode == 0)
-			{
-				if(isShown[r][c] == 1)
-				{
-					if(board[r][c] == 0)
-					{
-						printf("  ");
-					}
-					else
-					{
-						printf("%d ", board[r][c]);
-					}
-				}
-				else if(isShown[r][c] == 2)
-				{
-					printf("# ");
-				}
-				else
-				{
-					printf("%% ");
-				}
-			}	
-		}
-		printf("\n");
 	}
 }
-*/
+
 void DrawMine(int r, int c)//绘制地图地雷
 {
 	float x = c*widthOfBlock+widthOfBorder+dx;
@@ -1111,7 +1048,7 @@ void InitWindow(int mode)//创建窗口
 		else if(screenHeight >= 1080) sideLength = 32;
 		else sideLength = 24;
 		while(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth
-			  || heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > screenHeight)
+			|| heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > screenHeight)
 		{
 			if(sideLength > 16) sideLength -= 4;
 			else sideLength -= 1;
@@ -1160,6 +1097,20 @@ void ResizeWindow(char mode)//调整显示大小
 	dy = dy*sideLength/oldSideLength;
 }
 
+int IsMousePosOutside()//鼠标在窗口边界外
+{
+	//EGE无法区分鼠标静止和鼠标在窗口边界外，调用WindowsAPI
+	HWND hwnd = getHWnd();//获取绘图窗口句柄
+	RECT rect;
+	POINT point;
+	GetWindowRect(hwnd, &rect);//获取窗口四角坐标
+	GetCursorPos(&point);//获取鼠标屏幕坐标
+	return (point.x < rect.left || point.x > rect.right || point.y < rect.top || point.y > rect.bottom);
+	//ScreenToClient(hwnd, &point);//转换为窗口坐标
+	//窗口大小rect.right-rect.left+1, rect.bottom-rect.top+1
+	//return (point.x <= 0 || point.x > rect.right-rect.left || point.y <= 0 || point.y > rect.bottom-rect.top);
+}
+
 void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, int solved3BV, int total3BV)
 {
 	int xm, ym, xn, yn, xo, yo, clock0, clock1;
@@ -1174,6 +1125,11 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 		flushmouse();
 		flushkey();
 		return;
+	}
+	if(IsMousePosOutside())
+	{
+		mouseR = -1;
+		mouseC = -1;
 	}
 	while(mousemsg())//使用while代替if避免堆积消息产生延迟
 	{
@@ -1711,6 +1667,7 @@ MineSweeper EGE 10.3
 //——修复 点击笑脸按钮可能不能重新生成地图
 //——修复 点击笑脸按钮重新生成地图时控制台3BV/s可能不能正确覆写
 MineSweeper EGE 10.4
+——修复 鼠标移至界外可能残留悬浮高亮
 //——新增 拖动标记根据起始操作统一标记/取消标记
 //——新增 根据位数自动调整图标位置
 //——优化 分立地图和窗口绘制代码
