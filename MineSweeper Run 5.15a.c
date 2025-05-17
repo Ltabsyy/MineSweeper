@@ -56,7 +56,7 @@ void DrawSetCursor(int select);
 int ChoiceSetCursor(COORD mousePos, DWORD dwButtonState);
 
 // 地图生成和显示
-/*struct Information
+struct Information
 {
 	int yOfMap, yOfInformation, yOfCommand;
 	int remainedMine;
@@ -64,7 +64,7 @@ int ChoiceSetCursor(COORD mousePos, DWORD dwButtonState);
 	int unsolved3BV, total3BV;
 	int showInformation;//0第一次翻开，1刷新信息
 	int clock0;
-}game;*/
+}game;
 void SummonBoard(int seed, int r0, int c0);//生成雷，数字和后台总板
 int Place(int n);//计算某数所占位数，用于对齐坐标轴
 void PrintBlank(int n);//打印n个空格
@@ -176,9 +176,9 @@ struct Record
 	//存储数据
 	int numberOfMine;
 	int heightOfBoard, widthOfBoard;
-	int summonCheckMode;
+	int summonMode, iterateMode;
 	int seed, r0, c0;
-	int time;
+	int sTime, msTime;
 	int solved3BV, total3BV;
 	int isHelped;
 	//计算数据
@@ -275,7 +275,7 @@ void QuestionMark(char operation, int ro, int co);//问号模块
 void Solution();//地图求解模块
 void Bench(int seedMin, int seedMax, int r0, int c0, int showStep, int showSolution, int showInformation);//Bench模块
 int BBBV(int seed, int r0, int c0, int mode);//Bechtel'sBoardBenchmarkValue，计算地图3BV
-double STNB(int h, int w, int n, int time, int solved3BV, int total3BV);//尸体牛逼，计算发挥水平STNB
+double STNB(int h, int w, int n, double time, int solved3BV, int total3BV);//尸体牛逼，计算发挥水平STNB
 int SearchSeed(int seedMin, int r0, int c0, int difficulty);//可解和筛选种子搜索模块
 void MapSearch(int seedMin, int seedMax, int r0, int c0);//地图搜索模块
 void** MatrixMemory(void** matrix, int rm, int cm, int sizeOfElements, int mode);//矩阵内存操作
@@ -355,10 +355,11 @@ int debug = 0;
 void ColorStr(const char* content, int color)//输出彩色字符
 {
 	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
-	printf("%s", content);
+	//printf("%s", content);
+	fputs(content, stdout);
 	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), backgroundColor);
 }
-void gotoxy(short int x, short int y)//以覆写代替清屏，加速Bench
+void gotoxy(short x, short y)//以覆写代替清屏，加速Bench
 {
 	COORD coord = {x, y};
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
@@ -742,7 +743,7 @@ int main(/*int argc, char** argv*/)
 					while(operation == 0)
 					{
 						operation = '@';//防止@被删除
-						newRecord.summonCheckMode = 0;//不刷新游戏信息
+						newRecord.summonMode = 0;//不刷新游戏信息
 						RCScan(&operation, &r0, &c0, heightOfMapShown-1+3+2, newRecord);
 						//RCScan(&operation, &r0, &c0, heightOfMapShown-1+3+2, 0);
 					}
@@ -1338,10 +1339,10 @@ int main(/*int argc, char** argv*/)
 								//printf(">%c ", operation);
 								//scanf("%d%d", &r, &c);
 								newRecord.numberOfMine = remainder;
-								newRecord.time = t0-t2;//t1-t0+t2
+								newRecord.sTime = t0-t2;//t1-t0+t2
 								newRecord.solved3BV = bbbv-temp;
 								newRecord.total3BV = bbbv;//打包信息至RCScan
-								newRecord.summonCheckMode = 1;
+								newRecord.summonMode = 1;
 								RCScan(&operation, &r, &c, yOfMapEnd+4, newRecord);
 								//RCScan(&operation, &r, &c, yOfMapEnd+4, 1);
 								if(operation == 'm')
@@ -1587,11 +1588,14 @@ int main(/*int argc, char** argv*/)
 				newRecord.numberOfMine = numberOfMine;
 				newRecord.heightOfBoard = heightOfBoard;
 				newRecord.widthOfBoard = widthOfBoard;
-				newRecord.summonCheckMode = summonCheckMode;
+				newRecord.summonMode = summonCheckMode;
+				newRecord.iterateMode = (heightOfBoard*widthOfBoard-numberOfMine > 3*numberOfMine
+					&& heightOfBoard*widthOfBoard >= 64 && heightOfBoard*widthOfBoard <= 3696) ? -2 : 0;
 				newRecord.seed = seed;
 				newRecord.r0 = r0;
 				newRecord.c0 = c0;
-				newRecord.time = t1-t0+t2;
+				newRecord.sTime = t1-t0+t2;
+				newRecord.msTime = newRecord.sTime*1000;//暂用
 				newRecord.solved3BV = bbbv-temp;
 				newRecord.total3BV = bbbv;
 				newRecord.isHelped = isHelped;
@@ -3703,7 +3707,6 @@ void SummonBoard(int seed, int r0, int c0)//生成后台总板
 	int r, c, i, ra, ca;
 	int numberOfNotMine = heightOfBoard*widthOfBoard-numberOfMine;
 	int ra1 = r0, ca1 = c0, ra2 = r0, ca2 = c0;
-	int mode = summonCheckMode;
 	if(ra1 > 0) ra1--;
 	if(ca1 > 0) ca1--;
 	if(ra2+1 < heightOfBoard) ra2++;
@@ -3720,35 +3723,8 @@ void SummonBoard(int seed, int r0, int c0)//生成后台总板
 		}
 	}
 	/*--生成雷场--*/
-	//在不可能确保起始点为空时仅确保起始点非雷
-	if(mode > 1 && numberOfNotMine < (ra2-ra1+1)*(ca2-ca1+1)) mode = 1;
-	//在不可能确保时自动放弃
-	if(mode > 0 && numberOfNotMine == 0) mode = 0;
-	//对于必然雷场使用布空策略
-	if(numberOfNotMine == 0
-		|| (numberOfNotMine == 1 && mode == 1)
-		|| (numberOfNotMine == (ra2-ra1+1)*(ca2-ca1+1) && mode > 1))
-	{
-		for(r=0; r<heightOfBoard; r++)
-		{
-			for(c=0; c<widthOfBoard; c++)
-			{
-				isMine[r][c] = 1;
-			}
-		}
-		if(mode == 1) isMine[r0][c0] = 0;
-		else if(mode > 1)
-		{
-			for(ra=ra1; ra<=ra2; ra++)
-			{
-				for(ca=ca1; ca<=ca2; ca++)
-				{
-					isMine[ra][ca] = 0;
-				}
-			}
-		}
-	}
-	else
+	if(numberOfNotMine > 3*numberOfMine//密度<0.25且面积在[64,3696]，使用第一代雷场生成算法
+		&& heightOfBoard*widthOfBoard >= 64 && heightOfBoard*widthOfBoard <= 3696)
 	{
 		while(1)
 		{
@@ -3772,8 +3748,8 @@ void SummonBoard(int seed, int r0, int c0)//生成后台总板
 				}
 			}
 			/*校验*/
-			if(isMine[r0][c0] == 1 && mode > 0) continue;//第1次就爆则循环
-			if(mode > 1)
+			if(isMine[r0][c0] == 1 && summonCheckMode > 0) continue;//第1次就爆则循环
+			if(summonCheckMode > 1)
 			{
 				if((r0 > 0 && c0 > 0 && isMine[r0-1][c0-1] == 1)
 					|| (r0 > 0 && isMine[r0-1][c0] == 1)
@@ -3789,6 +3765,120 @@ void SummonBoard(int seed, int r0, int c0)//生成后台总板
 			}
 			/*完毕*/
 			break;
+		}
+	}
+	else//使用第二代雷场生成算法
+	{
+		if(numberOfMine <= numberOfNotMine)//使用布雷策略
+		{
+			//初始化
+			for(r=0; r<heightOfBoard; r++)
+			{
+				for(c=0; c<widthOfBoard; c++)
+				{
+					isMine[r][c] = 0;//雷，0无1有
+				}
+			}
+			//布雷
+			for(i=0; i<numberOfMine; )//不校验第1次也可能爆哦(doge)
+			{
+				r = rand() % heightOfBoard;
+				c = rand() % widthOfBoard;
+				if(isMine[r][c] == 0)
+				{
+					isMine[r][c] = 1;
+					i++;
+				}
+			}
+			//布置起始点
+			if(summonCheckMode > 0 && numberOfNotMine > 0)//在不可能确保时自动放弃
+			{//尽管过半密度一般使用布空策略，此处仍有自动放弃特性以作保障
+				//确保起始点非雷
+				if(isMine[r0][c0] == 1)
+				{
+					isMine[r0][c0] = 0;
+					while(1)
+					{
+						r = rand() % heightOfBoard;
+						c = rand() % widthOfBoard;
+						if(isMine[r][c] == 0 && r != r0 && c != c0)
+						{
+							isMine[r][c] = 1;
+							break;
+						}
+					}
+				}
+				//确保起始点为空，在不可能确保起始点为空时仅确保起始点非雷
+				if(summonCheckMode > 1 && numberOfNotMine >= (ra2-ra1+1)*(ca2-ca1+1))
+				{
+					for(ra=ra1; ra<=ra2; ra++)
+					{
+						for(ca=ca1; ca<=ca2; ca++)
+						{
+							if(isMine[ra][ca] == 1)
+							{
+								isMine[ra][ca] = 0;
+								while(1)
+								{
+									r = rand() % heightOfBoard;
+									c = rand() % widthOfBoard;
+									if(r>=ra1 && r<=ra2 && c>=ca1 && c<=ca2);
+									else if(isMine[r][c] == 0)
+									{
+										isMine[r][c] = 1;
+										break;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		else//使用布空策略，避免高密度布雷后期随机数命中率过低
+		{
+			//初始化
+			for(r=0; r<heightOfBoard; r++)
+			{
+				for(c=0; c<widthOfBoard; c++)
+				{
+					isMine[r][c] = 1;//默认为雷
+				}
+			}
+			//布置起始点，不共用具有随机命中特性的布雷策略代码
+			i = 0;
+			if(summonCheckMode > 0 && numberOfNotMine > 0)
+			{
+				//确保起始点非雷
+				isMine[r0][c0] = 0;
+				i++;
+				//确保起始点为空
+				if(summonCheckMode > 1 && numberOfNotMine >= (ra2-ra1+1)*(ca2-ca1+1))
+				{
+					for(ra=ra1; ra<=ra2; ra++)
+					{
+						for(ca=ca1; ca<=ca2; ca++)
+						{
+							if(isMine[ra][ca] == 1)
+							{
+								isMine[ra][ca] = 0;
+								i++;
+							}
+						}
+					}
+				}
+			}
+			//布空
+			while(i < numberOfNotMine)
+			{
+				r = rand() % heightOfBoard;
+				c = rand() % widthOfBoard;
+				if(isMine[r][c] == 1)
+				{
+					isMine[r][c] = 0;
+					i++;
+				}
+			}
 		}
 	}
 	/*--生成雷周围数字--*/
@@ -3829,73 +3919,91 @@ void SummonBoard(int seed, int r0, int c0)//生成后台总板
 	}
 }
 /*
-void SummonMine2(int seed, int r0, int c0)//第二代雷场生成算法
+void SummonMine2(int seed, int r0, int c0, int summonMode, int iterateMode)//第二代雷场生成算法
 {
-	int r, c, i, ra, ca;
+	//生成模式：0不校验，1起始点必非雷，2起始点必为空
+	//迭代模式：1初始迭代，0顺延迭代，2-2147483647定位迭代
+	int r, c, i, ra, ca, it;
 	int numberOfNotMine = heightOfBoard*widthOfBoard-numberOfMine;
 	int ra1 = r0, ca1 = c0, ra2 = r0, ca2 = c0;
 	if(ra1 > 0) ra1--;
 	if(ca1 > 0) ca1--;
 	if(ra2+1 < heightOfBoard) ra2++;
 	if(ca2+1 < widthOfBoard) ca2++;
-	if(numberOfMine <= numberOfNotMine)//使用布雷策略
+	// 重置
+	if(iterateMode != 0) srand(seed);
+	for(r=0; r<heightOfBoard; r++)
 	{
-		//初始化
-		for(r=0; r<heightOfBoard; r++)
+		for(c=0; c<widthOfBoard; c++)
 		{
-			for(c=0; c<widthOfBoard; c++)
-			{
-				isMine[r][c] = 0;//雷，0无1有
-			}
+			numberOfMineAround[r][c] = 0;
+			//board[r][c] = 0;
+			isShown[r][c] = 0;//清零显示方式矩阵
 		}
-		//布雷
-		for(i=0; i<numberOfMine; )//不校验第1次也可能爆哦(doge)
+	}
+	// 迭代生成雷场
+	if(iterateMode < 1) iterateMode = 1;//迭代模式转为迭代次数
+	for(it = 0; it < iterateMode; it++)
+	{
+		if(numberOfMine <= numberOfNotMine)//使用布雷策略
 		{
-			r = rand() % heightOfBoard;
-			c = rand() % widthOfBoard;
-			if(isMine[r][c] == 0)
+			//初始化
+			for(r=0; r<heightOfBoard; r++)
 			{
-				isMine[r][c] = 1;
-				i++;
-			}
-		}
-		//布置起始点
-		if(summonCheckMode > 0 && numberOfNotMine > 0)//在不可能确保时自动放弃
-		{//尽管过半密度一般使用布空策略，此处仍有自动放弃特性以作保障
-			//确保起始点非雷
-			if(isMine[r0][c0] == 1)
-			{
-				isMine[r0][c0] = 0;
-				while(1)
+				for(c=0; c<widthOfBoard; c++)
 				{
-					r = rand() % heightOfBoard;
-					c = rand() % widthOfBoard;
-					if(isMine[r][c] == 0 && r != r0 && c != c0)
-					{
-						isMine[r][c] = 1;
-						break;
-					}
+					isMine[r][c] = 0;//雷，0无1有
 				}
 			}
-			//确保起始点为空，在不可能确保起始点为空时仅确保起始点非雷
-			if(summonCheckMode > 1 && numberOfNotMine >= (ra2-ra1+1)*(ca2-ca1+1))
+			//布雷
+			for(i=0; i<numberOfMine; )//不校验第1次也可能爆哦(doge)
 			{
-				for(ra=ra1; ra<=ra2; ra++)
+				r = rand() % heightOfBoard;
+				c = rand() % widthOfBoard;
+				if(isMine[r][c] == 0)
 				{
-					for(ca=ca1; ca<=ca2; ca++)
+					isMine[r][c] = 1;
+					i++;
+				}
+			}
+			//布置起始点
+			if(summonMode > 0 && numberOfNotMine > 0)//在不可能确保时自动放弃
+			{//尽管过半密度一般使用布空策略，此处仍有自动放弃特性以作保障
+				//确保起始点非雷
+				if(isMine[r0][c0] == 1)
+				{
+					isMine[r0][c0] = 0;
+					while(1)
 					{
-						if(isMine[ra][ca] == 1)
+						r = rand() % heightOfBoard;
+						c = rand() % widthOfBoard;
+						if(isMine[r][c] == 0 && r != r0 && c != c0)
 						{
-							isMine[ra][ca] = 0;
-							while(1)
+							isMine[r][c] = 1;
+							break;
+						}
+					}
+				}
+				//确保起始点为空，在不可能确保起始点为空时仅确保起始点非雷
+				if(summonMode > 1 && numberOfNotMine >= (ra2-ra1+1)*(ca2-ca1+1))
+				{
+					for(ra=ra1; ra<=ra2; ra++)
+					{
+						for(ca=ca1; ca<=ca2; ca++)
+						{
+							if(isMine[ra][ca] == 1)
 							{
-								r = rand() % heightOfBoard;
-								c = rand() % widthOfBoard;
-								if(r>=ra1 && r<=ra2 && c>=ca1 && c<=ca2);
-								else if(isMine[r][c] == 0)
+								isMine[ra][ca] = 0;
+								while(1)
 								{
-									isMine[r][c] = 1;
-									break;
+									r = rand() % heightOfBoard;
+									c = rand() % widthOfBoard;
+									if(r>=ra1 && r<=ra2 && c>=ca1 && c<=ca2);
+									else if(isMine[r][c] == 0)
+									{
+										isMine[r][c] = 1;
+										break;
+									}
 								}
 							}
 						}
@@ -3903,49 +4011,85 @@ void SummonMine2(int seed, int r0, int c0)//第二代雷场生成算法
 				}
 			}
 		}
-	}
-	else//使用布空策略，避免高密度布雷后期随机数命中率过低
-	{
-		//初始化
-		for(r=0; r<heightOfBoard; r++)
+		else//使用布空策略，避免高密度布雷后期随机数命中率过低
 		{
-			for(c=0; c<widthOfBoard; c++)
+			//初始化
+			for(r=0; r<heightOfBoard; r++)
 			{
-				isMine[r][c] = 1;//默认为雷
-			}
-		}
-		//布置起始点，不共用具有随机命中特性的布雷策略代码
-		i = 0;
-		if(summonCheckMode > 0 && numberOfNotMine > 0)
-		{
-			//确保起始点非雷
-			isMine[r0][c0] = 0;
-			i++;
-			//确保起始点为空
-			if(summonCheckMode > 1 && numberOfNotMine >= (ra2-ra1+1)*(ca2-ca1+1))
-			{
-				for(ra=ra1; ra<=ra2; ra++)
+				for(c=0; c<widthOfBoard; c++)
 				{
-					for(ca=ca1; ca<=ca2; ca++)
+					isMine[r][c] = 1;//默认为雷
+				}
+			}
+			//布置起始点，不共用具有随机命中特性的布雷策略代码
+			i = 0;
+			if(summonMode > 0 && numberOfNotMine > 0)
+			{
+				//确保起始点非雷
+				isMine[r0][c0] = 0;
+				i++;
+				//确保起始点为空
+				if(summonMode > 1 && numberOfNotMine >= (ra2-ra1+1)*(ca2-ca1+1))
+				{
+					for(ra=ra1; ra<=ra2; ra++)
 					{
-						if(isMine[ra][ca] == 1)
+						for(ca=ca1; ca<=ca2; ca++)
 						{
-							isMine[ra][ca] = 0;
-							i++;
+							if(isMine[ra][ca] == 1)
+							{
+								isMine[ra][ca] = 0;
+								i++;
+							}
 						}
 					}
 				}
 			}
+			//布空
+			while(i < numberOfNotMine)
+			{
+				r = rand() % heightOfBoard;
+				c = rand() % widthOfBoard;
+				if(isMine[r][c] == 1)
+				{
+					isMine[r][c] = 0;
+					i++;
+				}
+			}
 		}
-		//布空
-		while(i < numberOfNotMine)
+	}
+	// 生成雷周围数字
+	for(r=0; r<heightOfBoard; r++)
+	{
+		for(c=0; c<widthOfBoard; c++)
 		{
-			r = rand() % heightOfBoard;
-			c = rand() % widthOfBoard;
+			if(isMine[r][c] == 1)//循环遍历雷，在雷周围生成数字
+			{
+				for(ra=r-1; ra<=r+1; ra++)
+				{
+					for(ca=c-1; ca<=c+1; ca++)
+					{
+						if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
+						{
+							numberOfMineAround[ra][ca]++;
+						}
+					}
+				}
+			}//挨得过紧的雷也会被数字覆盖
+			//方法2：循环遍历方块，计算周围雷数，因为不跳过雷，方法1始终不弱于方法2
+		}
+	}
+	// 生成后台总板
+	for(r=0; r<heightOfBoard; r++)
+	{
+		for(c=0; c<widthOfBoard; c++)
+		{
 			if(isMine[r][c] == 1)
 			{
-				isMine[r][c] = 0;
-				i++;
+				board[r][c] = 9;//雷标记为9，解决数字覆盖掉雷的情况
+			}
+			else
+			{
+				board[r][c] = numberOfMineAround[r][c];
 			}
 		}
 	}
@@ -8591,7 +8735,7 @@ int WholeThink()
 
 int IsEffectiveRecord(struct Record record)
 {
-	if(record.solved3BV == record.total3BV && record.difficulty != 5 && record.isHelped == 0 && record.summonCheckMode != 4)
+	if(record.solved3BV == record.total3BV && record.difficulty != 5 && record.isHelped == 0 && record.summonMode != 4)
 	{
 		return 1;//胜利记录、非自定义难度记录、未被实时求解指令帮助过的记录
 	}
@@ -8605,6 +8749,12 @@ void PrintRecords(struct Records records, int mode)
 {
 	struct Record* record = records.record;
 	int numberOfRecords = records.numberOfRecords, i = 0;
+	const char* difficultyName[5] = {"默认", "初级", "中级", "高级", "顶级"};//显示难度名称
+	const char* levelName[13] = {
+		"无境界",
+		"凝气境", "淬体境", "煅骨境", "元丹境", "破海境", "凌空境",
+		"天境", "仙境", "神境", "圣境", "帝境", "至尊境"
+	};//显示玩家等级称号
 	//printf("[Records Editer]\n");
 	printf("**************************************************************\n");//宽62
 	if(mode == 0 && numberOfRecords > 1024) i = numberOfRecords-1024;
@@ -8619,30 +8769,20 @@ void PrintRecords(struct Records records, int mode)
 			ColorStr("无效", backgroundColor/16*16 + 0x04);
 		}
 		printf("记录%d:", i);
-		printf("Map:%d*%d-%d ", record[i].heightOfBoard, record[i].widthOfBoard, record[i].numberOfMine);
-		printf("seed=%d,%d,%d ", record[i].seed, record[i].r0, record[i].c0);
-		printf("summonCheckMode=%d ", record[i].summonCheckMode);
-		printf("time=%d ", record[i].time);
+		printf("Map:%d*%d-%d, ", record[i].heightOfBoard, record[i].widthOfBoard, record[i].numberOfMine);
+		printf("%d,%d,%d, ", record[i].seed, record[i].r0, record[i].c0);
+		printf("%d,%d, ", record[i].summonMode, record[i].iterateMode);
+		printf("time=%d(%d) ", record[i].sTime, record[i].msTime);
 		printf("3BV:%d/%d ", record[i].solved3BV, record[i].total3BV);
+		printf("3BV/s=%.2f ", record[i].speed);
+		//printf("STNB=%.2f ", record[i].stnb);
 		printf("isHelped=%d\n", record[i].isHelped);
-		/*printf("记录%d：地图", i);
-		if(record[i].difficulty != 5) printf("%d ", record[i].difficulty);
-		else printf("%d*%d-%d ", record[i].heightOfBoard, record[i].widthOfBoard, record[i].numberOfMine);
-		printf("种子=(%d,%d,%d) ", record[i].seed, record[i].r0, record[i].c0);
-		printf("校验=%d ", record[i].summonCheckMode);
-		printf("用时=%d ", record[i].time);
-		printf("3BV:%d/%d ", record[i].solved3BV, record[i].total3BV);*/
 	}
 	printf("**************************************************************\n");
 	printf("* 已读取记录%d条\n", numberOfRecords);
 	for(i=0; i<5; i++)
 	{
-		printf("* ");
-		if(i == 0) printf("默认");
-		else if(i == 1) printf("初级");
-		else if(i == 2) printf("中级");
-		else if(i == 3) printf("高级");
-		else if(i == 4) printf("顶级");
+		printf("* %s", difficultyName[i]);
 		printf("时间纪录:%4d | 3BV/s纪录:%5.2f", records.minimumTime[i], records.fastestSpeed[i]);//最大9999秒，99.99速
 		//printf(" | STNB纪录:%7.2f", records.highestStnb[i]);//最大9999.99
 		//printf(" | 局数:%6d | 胜利局数:%5d", records.count[i], records.countEffective[i]);//确保100万局和10万局内显示
@@ -8650,22 +8790,7 @@ void PrintRecords(struct Records records, int mode)
 	}
 	printf("* 总时间：%d(%.2f小时) 总翻开数：%d\n", records.totalTime, (float)records.totalTime/3600, records.totalSolved3BV);
 	printf("* 最大翻开数字：%d\n", records.maxOpenNumber);//(Ltabsyy: 8)
-	printf("* 玩家等级：Lv.%d(", records.gamerLevel);
-	//显示称号
-	if(records.gamerLevel == 1) printf("Gamer");
-	else if(records.gamerLevel == 2) printf("Gamer*");
-	else if(records.gamerLevel == 3) printf("Gamer**");
-	else if(records.gamerLevel == 4) printf("Gamer***");
-	else if(records.gamerLevel == 5) printf("ProGamer");
-	else if(records.gamerLevel == 6) printf("ProGamer*");
-	else if(records.gamerLevel == 7) printf("ProGamer**");
-	else if(records.gamerLevel == 8) printf("ProGamer***");
-	else if(records.gamerLevel == 9) printf("神境");
-	else if(records.gamerLevel == 10) printf("圣境");
-	else if(records.gamerLevel == 11) printf("帝境");
-	else if(records.gamerLevel == 12) printf("至尊境");
-	else printf("User");
-	printf(")\n");
+	printf("* 玩家等级：Lv.%d(%s)\n", records.gamerLevel, levelName[records.gamerLevel]);
 	printf("*******************************\n");
 }
 
@@ -8674,7 +8799,8 @@ struct Records ReadRecords()
 	FILE* file;
 	struct Records records;
 	struct Record* record;
-	int numberOfRecords, i;
+	char line[128]={0};//文件行缓冲
+	int numberOfRecords = 0, i;
 	//初始化
 	records.numberOfRecords = 0;
 	for(i=0; i<5; i++)
@@ -8689,36 +8815,27 @@ struct Records ReadRecords()
 	records.totalSolved3BV = 0;
 	records.maxOpenNumber = 0;
 	records.gamerLevel = 0;
-	if((file = fopen("minesweeper-records.txt", "r")))
+	if((file = fopen("minesweeper-records.csv", "r")))
 	{
-		fscanf(file, "numberOfRecords=%d\n", &numberOfRecords);
-		record =(struct Record*) calloc(numberOfRecords, sizeof(struct Record));
-		for(i=0; i<numberOfRecords; i++)
+		fscanf(file, "heightOfBoard,widthOfBoard,numberOfMine,"
+			"seed,r0,c0,summonMode,iterateMode,sTime,msTime,solved3BV,total3BV,isHelped\n");
+		while(fgets(line, 128, file) != NULL)
 		{
-			fscanf(file, "\n");
-			fscanf(file, "Map:%d*%d-%d\n", &(record[i].heightOfBoard), &(record[i].widthOfBoard), &(record[i].numberOfMine));
-			fscanf(file, "seed=%d,%d,%d\n", &(record[i].seed), &(record[i].r0), &(record[i].c0));
-			fscanf(file, "summonCheckMode=%d\n", &(record[i].summonCheckMode));
-			fscanf(file, "time=%d\n", &(record[i].time));
-			fscanf(file, "3BV:%d/%d\n", &(record[i].solved3BV), &(record[i].total3BV));
-			fscanf(file, "isHelped=%d\n", &(record[i].isHelped));
-			//计算3BV/s
-			record[i].speed =(float) record[i].solved3BV / record[i].time;
-			//计算难度
-			record[i].difficulty = Difficulty(record[i].heightOfBoard, record[i].widthOfBoard, record[i].numberOfMine);
-			//计算发挥水平
-			record[i].stnb = STNB(record[i].heightOfBoard, record[i].widthOfBoard, record[i].numberOfMine,
-								  record[i].time, record[i].solved3BV, record[i].total3BV);
-			//读入一个纪录
-			/*if(IsEffectiveRecord(record[i]))
-			{
-				records.minimumTime[record[i].difficulty] = record[i].time;
-				//records.fastestSpeed[record[i].difficulty] = record[i].speed;
-			}*/
-			//计算总时间和总翻开数
-			records.totalTime += record[i].time;
-			records.totalSolved3BV += record[i].solved3BV;
-			records.count[record[i].difficulty]++;
+			numberOfRecords++;//计算记录数
+		}
+		record =(struct Record*) calloc(numberOfRecords, sizeof(struct Record));//分配内存
+		rewind(file);//返回到文件头
+		fscanf(file, "heightOfBoard,widthOfBoard,numberOfMine,"
+			"seed,r0,c0,summonMode,iterateMode,sTime,msTime,solved3BV,total3BV,isHelped\n");
+		for(i=0; fgets(line, 128, file) != NULL; i++)
+		{
+			sscanf(line, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+				&(record[i].heightOfBoard), &(record[i].widthOfBoard), &(record[i].numberOfMine),
+				&(record[i].seed), &(record[i].r0), &(record[i].c0),
+				&(record[i].summonMode), &(record[i].iterateMode),
+				&(record[i].sTime), &(record[i].msTime),
+				&(record[i].solved3BV), &(record[i].total3BV),
+				&(record[i].isHelped));
 		}
 		fclose(file);
 		records.numberOfRecords = numberOfRecords;
@@ -8726,11 +8843,23 @@ struct Records ReadRecords()
 		//计算纪录
 		for(i=0; i<numberOfRecords; i++)
 		{
+			//计算3BV/s
+			record[i].speed =(float) record[i].solved3BV / record[i].sTime;
+			//计算难度
+			record[i].difficulty = Difficulty(record[i].heightOfBoard, record[i].widthOfBoard, record[i].numberOfMine);
+			//计算发挥水平
+			record[i].stnb = STNB(record[i].heightOfBoard, record[i].widthOfBoard, record[i].numberOfMine,
+								  record[i].sTime, record[i].solved3BV, record[i].total3BV);
+			//计算总时间和总翻开数
+			records.totalTime += record[i].sTime;
+			records.totalSolved3BV += record[i].solved3BV;
+			records.count[record[i].difficulty]++;
+			//计算纪录
 			if(IsEffectiveRecord(record[i]))
 			{
-				if(record[i].time < records.minimumTime[record[i].difficulty] || records.minimumTime[record[i].difficulty] == -1)
+				if(record[i].sTime < records.minimumTime[record[i].difficulty] || records.minimumTime[record[i].difficulty] == -1)
 				{
-					records.minimumTime[record[i].difficulty] = record[i].time;
+					records.minimumTime[record[i].difficulty] = record[i].sTime;
 				}
 				if(record[i].speed > records.fastestSpeed[record[i].difficulty])
 				{
@@ -8756,22 +8885,23 @@ void WriteRecords(struct Records records)
 	FILE* file;
 	struct Record* record = records.record;
 	int numberOfRecords = records.numberOfRecords, i;
-	file = fopen("minesweeper-records.txt", "w");
-	fprintf(file, "numberOfRecords=%d\n", numberOfRecords);
+	file = fopen("minesweeper-records.csv", "w");
+	fprintf(file, "heightOfBoard,widthOfBoard,numberOfMine,"
+		"seed,r0,c0,summonMode,iterateMode,sTime,msTime,solved3BV,total3BV,isHelped");
 	for(i=0; i<numberOfRecords; i++)
 	{
-		fprintf(file, "\n");
-		fprintf(file, "Map:%d*%d-%d\n", record[i].heightOfBoard, record[i].widthOfBoard, record[i].numberOfMine);
-		fprintf(file, "seed=%d,%d,%d\n", record[i].seed, record[i].r0, record[i].c0);
-		fprintf(file, "summonCheckMode=%d\n", record[i].summonCheckMode);
-		fprintf(file, "time=%d\n", record[i].time);
-		fprintf(file, "3BV:%d/%d\n", record[i].solved3BV, record[i].total3BV);
-		fprintf(file, "isHelped=%d\n", record[i].isHelped);
+		fprintf(file, "\n%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+			record[i].heightOfBoard, record[i].widthOfBoard, record[i].numberOfMine,
+			record[i].seed, record[i].r0, record[i].c0,
+			record[i].summonMode, record[i].iterateMode,
+			record[i].sTime, record[i].msTime,
+			record[i].solved3BV, record[i].total3BV,
+			record[i].isHelped);
 	}
 	fclose(file);
 	if(numberOfRecords == 0)//删除文件
 	{
-		remove("minesweeper-records.txt");
+		remove("minesweeper-records.csv");
 	}
 }
 
@@ -8780,9 +8910,9 @@ struct Records AddRecord(struct Records records, struct Record newRecord)
 	int i;
 	int numberOfRecords = records.numberOfRecords + 1;
 	struct Record* record =(struct Record*) calloc(numberOfRecords, sizeof(struct Record));
-	newRecord.speed =(float) newRecord.solved3BV / newRecord.time;
+	newRecord.speed =(float) newRecord.solved3BV / newRecord.sTime;
 	newRecord.stnb = STNB(newRecord.heightOfBoard, newRecord.widthOfBoard, newRecord.numberOfMine,
-						  newRecord.time, newRecord.solved3BV, newRecord.total3BV);
+						  newRecord.sTime, newRecord.solved3BV, newRecord.total3BV);
 	//读取record数据
 	for(i=0; i<numberOfRecords-1; i++)
 	{
@@ -8793,17 +8923,17 @@ struct Records AddRecord(struct Records records, struct Record newRecord)
 	if(numberOfRecords != 1) free(records.record);//records非空时释放
 	records.record = record;
 	records.numberOfRecords++;
-	records.totalTime += newRecord.time;
+	records.totalTime += newRecord.sTime;
 	records.totalSolved3BV += newRecord.solved3BV;
 	if(IsEffectiveRecord(newRecord))
 	{
-		if(newRecord.time < records.minimumTime[newRecord.difficulty] || records.minimumTime[newRecord.difficulty] == -1)
+		if(newRecord.sTime < records.minimumTime[newRecord.difficulty] || records.minimumTime[newRecord.difficulty] == -1)
 		{
-			records.minimumTime[newRecord.difficulty] = newRecord.time;
+			records.minimumTime[newRecord.difficulty] = newRecord.sTime;
 			printf("恭喜！你更新了当前难度的时间纪录！\n");
 			if(debug == 1 || debug == 2)
 			{
-				printf("[Debug]已更新%d难度时间纪录为%d\n", newRecord.difficulty, newRecord.time);
+				printf("[Debug]已更新%d难度时间纪录为%d\n", newRecord.difficulty, newRecord.sTime);
 			}
 		}
 		if(newRecord.speed > records.fastestSpeed[newRecord.difficulty])
@@ -8877,7 +9007,7 @@ struct Records DeleteRecords(struct Records records, int mode)
 			for(i=0; i<records.numberOfRecords; i++)
 			{
 				if(IsEffectiveRecord(records.record[i]) == 0//无效记录
-					|| (records.record[i].time != records.minimumTime[records.record[i].difficulty]
+					|| (records.record[i].sTime != records.minimumTime[records.record[i].difficulty]
 						&& records.record[i].speed != records.fastestSpeed[records.record[i].difficulty]))//不是纪录
 				{
 					deleteList[i] = 1;
@@ -8928,7 +9058,7 @@ int MaxOpenNumber(struct Records records)//计算有效记录最大翻开数字
 	temp.numberOfMine = numberOfMine;
 	temp.heightOfBoard = heightOfBoard;
 	temp.widthOfBoard = widthOfBoard;
-	temp.summonCheckMode = summonCheckMode;
+	temp.summonMode = summonCheckMode;
 	ReallocMemory(42, 88, dictionaryCapacity, lengthOfThinkMineCheck);
 	if(debug == 2)
 	{
@@ -8942,7 +9072,7 @@ int MaxOpenNumber(struct Records records)//计算有效记录最大翻开数字
 			numberOfMine = record[i].numberOfMine;
 			heightOfBoard = record[i].heightOfBoard;
 			widthOfBoard = record[i].widthOfBoard;
-			summonCheckMode = record[i].summonCheckMode;
+			summonCheckMode = record[i].summonMode;
 			SummonBoard(record[i].seed, record[i].r0, record[i].c0);
 			//ShowBoard(1);
 			for(r=0; r<heightOfBoard; r++)
@@ -8967,38 +9097,38 @@ int MaxOpenNumber(struct Records records)//计算有效记录最大翻开数字
 	numberOfMine = temp.numberOfMine;
 	heightOfBoard = temp.heightOfBoard;
 	widthOfBoard = temp.widthOfBoard;
-	summonCheckMode = temp.summonCheckMode;
+	summonCheckMode = temp.summonMode;
 	ReallocMemory(heightOfBoard, widthOfBoard, dictionaryCapacity, lengthOfThinkMineCheck);
 	return maxOpenNumber;
 }
 
 int GamerLevel(struct Records records)//计算玩家等级并显示称号
 {
-	int level = 0;//"User":初始
+	int level = 0;//"无境界":初始
 	//完成任意一条件获取
 	if(records.minimumTime[0] != -1 || records.minimumTime[1] != -1)
 	{
-		level = 1;//"Gamer":赢1场默认或初级地图
+		level = 1;//"凝气境":赢1场默认或初级地图
 	}
 	if((records.minimumTime[0] != -1 && records.minimumTime[0] <= 26)//25.60秒内赢默认地图
 		|| (records.minimumTime[1] != -1 && records.minimumTime[1] <= 30)//29.44秒内赢初级地图
 		|| records.minimumTime[2] != -1)//赢1场中级地图
 	{
-		level = 2;//"Gamer*"
+		level = 2;//"淬体境"
 	}
 	if((records.minimumTime[0] != -1 && records.minimumTime[0] <= 19)//18.10秒内赢默认地图
 		|| (records.minimumTime[1] != -1 && records.minimumTime[1] <= 21)//20.82秒内赢初级地图
 		|| (records.minimumTime[2] != -1 && records.minimumTime[2] <= 129)//128.76秒内赢中级地图
 		|| records.minimumTime[3] != -1)//赢1场高级地图
 	{
-		level = 3;//"Gamer**"
+		level = 3;//"煅骨境"
 	}
 	if((records.minimumTime[0] != -1 && records.minimumTime[0] <= 13)//默认基准12.80秒
 		|| (records.minimumTime[1] != -1 && records.minimumTime[1] <= 15)//初级基准14.72秒
 		|| (records.minimumTime[2] != -1 && records.minimumTime[2] <= 92)//91.04秒内赢中级地图
 		|| (records.minimumTime[3] != -1 && records.minimumTime[3] <= 344))//343.14秒内赢高级地图
 	{
-		level = 4;//"Gamer***"
+		level = 4;//"元丹境"
 	}
 	//完成所有条件获取
 	if(records.minimumTime[0] != -1 && records.minimumTime[1] != -1
@@ -9009,35 +9139,35 @@ int GamerLevel(struct Records records)//计算玩家等级并显示称号
 			&& records.minimumTime[2] <= 65//中级基准64.38秒
 			&& records.minimumTime[3] <= 243)//242.64秒内赢高级地图
 		{
-			level = 5;//"ProGamer"
+			level = 5;//"破海境"
 			if(records.minimumTime[0] <= 7//6.40秒内赢默认地图
 				&& records.minimumTime[1] <= 8//7.36秒内赢初级地图
 				&& records.minimumTime[2] <= 46//45.52秒内赢中级地图
 				&& records.minimumTime[3] <= 172//高级基准171.57秒
 				&& records.minimumTime[4] != -1)//赢1场顶级地图
 			{
-				level = 6;//"ProGamer*"
+				level = 6;//"凌空境"
 				if(records.minimumTime[0] <= 5//4.53秒内赢默认地图
 					&& records.minimumTime[1] <= 6//5.21秒内赢初级地图
 					&& records.minimumTime[2] <= 33//32.19秒内赢中级地图
 					&& records.minimumTime[3] <= 122//121.34秒内赢高级地图
 					&& records.minimumTime[4] <= 2478)//2477.04秒内赢顶级地图
 				{
-					level = 7;//"ProGamer**"
+					level = 7;//"天境"
 					if(records.minimumTime[0] <= 4//3.20秒内赢默认地图
 						&& records.minimumTime[1] <= 4//3.68秒内赢初级地图
 						&& records.minimumTime[2] <= 23//22.77秒内赢中级地图
 						&& records.minimumTime[3] <= 86//85.79秒内赢高级地图
 						&& records.minimumTime[4] <= 1752)//1751.27秒内赢顶级地图
 					{
-						level = 8;//"ProGamer***"
+						level = 8;//"仙境"
 						if(records.minimumTime[0] <= 3//2.26秒内赢默认地图
 							&& records.minimumTime[1] <= 3//2.60秒内赢初级地图
 							&& records.minimumTime[2] <= 17//16.10秒内赢中级地图
 							&& records.minimumTime[3] <= 61//60.67秒内赢高级地图
 							&& records.minimumTime[4] <= 1239)//顶级基准1238.52秒
 						{
-							level = 9;//"神境"(Ltabsyy: 1 2 17 57 634)
+							level = 9;//"神境"(Ltabsyy: 1 2 17 54 634)
 							if(records.minimumTime[0] <= 2//1.60秒内赢默认地图
 								&& records.minimumTime[1] <= 2//1.84秒内赢初级地图
 								&& records.minimumTime[2] <= 12//11.38秒内赢中级地图
@@ -9058,7 +9188,7 @@ int GamerLevel(struct Records records)//计算玩家等级并显示称号
 										&& records.minimumTime[3] <= 22//21.45秒内赢高级地图
 										&& records.minimumTime[4] <= 438)//437.95秒内赢顶级地图
 									{
-										level = 12;//"至尊境"(纪录 0.09 5.80 26.59)
+										level = 12;//"至尊境"(纪录 0.09 5.80 25.10)
 									}
 								}
 							}
@@ -10003,10 +10133,10 @@ void RCScan(char* operation, int* r, int* c, int yOfCommand, struct Record infor
 	int p = 0;
 	char key;
 	int remainder = information.numberOfMine;//解包信息
-	int t0 = information.time, t1;
+	int t0 = information.sTime, t1;
 	int solved3BV = information.solved3BV;
 	int total3BV = information.total3BV;
-	int showInformation = information.summonCheckMode;
+	int showInformation = information.summonMode;
 	//yOfCommand = yOfMapEnd+4
 	gotoxy(0, yOfCommand);
 	printf(">%c _     \r>%c ", *operation, *operation);//覆写>@ 128 92
@@ -10923,7 +11053,7 @@ int BBBV(int seed, int r0, int c0, int mode)//计算地图3BV
 	return bbbv;
 }
 
-double STNB(int h, int w, int n, int time, int solved3BV, int total3BV)//计算任意记录发挥水平STNB尸体牛逼
+double STNB(int h, int w, int n, double time, int solved3BV, int total3BV)//计算任意记录发挥水平STNB尸体牛逼
 {
 	//计算STNBC = A(e^(n/h/w)-1)*(h^B)*(w^C)
 	/*const double A = 8.14593564;
@@ -11356,7 +11486,7 @@ struct Records RecordsEditer(struct Records records)//记录编辑器模块
 			scanf("%d", &i);
 			if(IsEffectiveRecord(records.record[i]))//是有效记录
 			{
-				if(records.record[i].time == records.minimumTime[records.record[i].difficulty]
+				if(records.record[i].sTime == records.minimumTime[records.record[i].difficulty]
 					|| records.record[i].speed == records.fastestSpeed[records.record[i].difficulty])//是纪录
 				{
 					//纪录初始化
@@ -11467,9 +11597,9 @@ struct Records RecordsEditer(struct Records records)//记录编辑器模块
 			}
 			printf("(0)关闭校验 (1)起始点必非雷 (2)起始点必为空 (3)地图可解\n");
 			printf("[地图生成校验]>");
-			scanf("%d", &(newRecord.summonCheckMode));
-			if(newRecord.summonCheckMode < 0) newRecord.summonCheckMode = 0;
-			if(newRecord.summonCheckMode > 3) newRecord.summonCheckMode = 3;
+			scanf("%d", &(newRecord.summonMode));
+			if(newRecord.summonMode < 0) newRecord.summonMode = 0;
+			if(newRecord.summonMode > 3) newRecord.summonMode = 3;
 			printf("地图种子(例如%d)，起始点位置\n", time(0));
 			printf("[seed] [r0] [c0]>");
 			scanf("%d%d%d", &(newRecord.seed), &(newRecord.r0), &(newRecord.c0));
@@ -11478,13 +11608,13 @@ struct Records RecordsEditer(struct Records records)//记录编辑器模块
 			if(newRecord.c0 < 0) newRecord.c0 = 0;
 			if(newRecord.c0 >= newRecord.widthOfBoard) newRecord.c0 = newRecord.widthOfBoard-1;
 			printf("[用时]>");
-			scanf("%d", &(newRecord.time));
-			if(newRecord.time < 0) newRecord.time = 0;
+			scanf("%d", &(newRecord.sTime));
+			if(newRecord.sTime < 0) newRecord.sTime = 0;
 			//计算地图3BV
 			numberOfMine = newRecord.numberOfMine;
 			heightOfBoard = newRecord.heightOfBoard;
 			widthOfBoard = newRecord.widthOfBoard;
-			summonCheckMode = newRecord.summonCheckMode;
+			summonCheckMode = newRecord.summonMode;
 			newRecord.total3BV = BBBV(newRecord.seed, newRecord.r0, newRecord.c0, 1);
 			printf("当前地图3BV：%d\n", newRecord.total3BV);
 			printf("[已解3BV]>");
@@ -11502,7 +11632,7 @@ struct Records RecordsEditer(struct Records records)//记录编辑器模块
 			{
 				newRecord.isHelped = 1;//插入无效记录
 			}
-			newRecord.speed =(float) newRecord.solved3BV / newRecord.time;
+			newRecord.speed =(float) newRecord.solved3BV / newRecord.sTime;
 			records = AddRecord(records, newRecord);
 		}
 		else
@@ -12234,6 +12364,12 @@ MineSweeper Run 5.14
 ——优化 移除部分不必要的调试
 ——修复 键盘设置光标不能按5退出
 ——修复 地图列数超过100时列坐标中部0不显示
+MineSweeper Run 5.15
+——新增 对密度>=0.25或面积小于64或大于3696的地图使用第二代雷场生成算法
+——新增 使用csv文件保存历史记录
+——新增 记录显示3BV/s//和毫秒用时
+——优化 彩色字符显示效率
+——优化 重新设计8级及以下玩家等级称号
 //——新增 调试选项可启用保存有效记录的操作记录
 //——新增 主页按V或拖动文件至程序图标播放操作记录
 //——新增 调试选项可启用屏蔽鼠标点击翻开标记
