@@ -34,6 +34,10 @@
 
 （4）控制台鼠标模式下的其他操作逻辑
 
+**注意：**
+
+从旧版升级到Run 5.15及以上，历史记录文件需运行`MSR Records Updater`执行升级才能被新版程序读取！
+
 ## 特色
 
 **推荐扫雷玩家使用MineSweeper Run的原因：**
@@ -88,9 +92,11 @@ Window版（或早期的WindowTest版）至少需Windows Vista系统，控制台
 
 存储着未结束的上一次游戏，程序启动后会优先进入上一次游戏。
 
-（3）minesweeper-records.txt
+（3）minesweeper-records.txt（Run 5.15开始后缀为.csv）
 
 存储着扫雷历史记录，用于打破纪录显示，删除后记录会丢失，第一局有效胜利即可打破纪录。
+
+从旧版本游戏（Run 3.4-5.14）更新为新版本（Run 5.15起）时，需运行`MSR Records Updater`。
 
 （4）minesweeper-maps.txt
 
