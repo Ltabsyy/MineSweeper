@@ -25,6 +25,14 @@ int sideLength = 32;//外部窗口方块边长
 #define heightOfChar heightOfBlock
 
 // 地图生成和显示
+struct Information
+{
+	int remainedMine;
+	int t0, t1, t2;//显示用时
+	int unsolved3BV, total3BV;//地图3BV
+	int showInformation;//0第一次翻开，1刷新信息
+	int clock0, clock1;//毫秒用时
+}game;
 int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2);
 void SummonBoard(int seed, int r0, int c0);
 
@@ -32,6 +40,7 @@ void SummonBoard(int seed, int r0, int c0);
 int dx = 0, dy = 0;//地图偏移
 int screenHeight, screenWidth;
 int windowHeight, windowWidth, xFace;
+int xRemainedMine, xRemainedMineNumber, xTime, xTimeNumber, x3BV, x3BVNumber, x3BVps, x3BVpsNumber;
 int mouseR = -1, mouseC = -1;//悬浮高亮
 void DrawMine(int r, int c);//绘制地图地雷
 void DrawMineA(int x0, int y0, int r);//绘制地雷图形
@@ -40,15 +49,15 @@ void DrawBlock(int r, int c, int board, int isShown, int highlight);//绘制方�
 void DrawLineA(int x0, int y0, int r, int angle);//绘制时钟指针
 void DrawClock(int x0, int y0, int r, int time);//绘制时钟
 void DrawFace(int mode);//绘制笑脸
-void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV);//绘制总外部窗口
+void DrawBoard(int mode);//绘制总外部窗口
 void DrawSolution();//在外部窗口绘制方案矩阵
 void DrawMouse(int x, int y);//绘制鼠标
 void UpdateWindowSize();//根据当前方块边长更新窗口大小
 void InitWindow(int mode);
 void ResizeWindow(char mode);//调整显示大小
 int IsMousePosOutside();//鼠标在窗口边界外
-void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, int solved3BV, int total3BV);
-int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total3BV);
+void GetWindowOperation(char* operation, int* r, int* c);
+int CloseWindow(int isWinning);
 
 // 后台计算
 int IsAroundZeroChain(int r0, int c0);
@@ -72,14 +81,12 @@ int showTime = 1;
 int show3BV = 0;
 int refreshCycle = 50;
 int newCursor = 2;
-int bbbv = 10;
 
 int main()
 {
 	int choiceMode = 0;//游戏功能的选择
 	int seed, r0, c0;//地图生成
-	int r, c, remainder, isOpenMine, ra, ca;
-	int t0, t1;
+	int r, c, isOpenMine, ra, ca;
 	char operation;
 	int temp, difficulty;//设置
 	while(1)//main内循环防止变量重复定义
@@ -100,7 +107,10 @@ int main()
 		{
 			/*重置*/
 			system("cls");
-			remainder = numberOfMine;
+			game.remainedMine = numberOfMine;
+			game.t0 = 0;
+			game.t1 = 0;
+			game.showInformation = 0;//不刷新游戏信息
 			isOpenMine = 0;
 			for(r=0; r<heightOfBoard; r++)
 			{
@@ -117,13 +127,15 @@ int main()
 			c0 = widthOfBoard/2;
 			while(operation == 0)
 			{
-				DrawBoard(0, numberOfMine, 0, -1, -1);
-				GetWindowOperation(&operation, &r0, &c0, numberOfMine, 0, -1, -1);
+				DrawBoard(0);
+				GetWindowOperation(&operation, &r0, &c0);
 				delay_ms(refreshCycle);
 			}
 			seed = time(0);//当前时间戳作种子生成随机数
-			t0 = time(0);
-			t1 = t0;
+			game.t0 = time(0);
+			game.t1 = game.t0;
+			game.t2 = 0;
+			game.showInformation = 1;
 			SummonBoard(seed, r0, c0);
 			for(r=0; r<heightOfBoard; r++)
 			{
@@ -153,28 +165,32 @@ int main()
 						break;
 					}
 				}
-				if(NumberOfNotShown() == remainder)//未翻开的都是雷则胜利
+				if(NumberOfNotShown() == game.remainedMine)//未翻开的都是雷则胜利
 				{
 					system("cls");
 					printf(":)\nYou Win!\n");
 					break;
 				}
 				/*显示*/
-				system("cls");
-				printf("剩余雷数: %d 用时: %d\n", remainder, t1-t0);//打印剩余雷数
+				//system("cls");
+				//printf("剩余雷数: %d 用时: %d\n", game.remainedMine, t1-t0);//打印剩余雷数
 				/*输入*/
 				operation = 0;
 				while(1)
 				{
 					if(1)
 					{
-						t1 = time(0);
-						DrawBoard(0, remainder, t1-t0, bbbv-temp, bbbv);
+						game.t1 = time(0);
+						DrawBoard(0);
 						DrawSolution();
-						GetWindowOperation(&operation, &r, &c, remainder, t1-t0, bbbv-temp, bbbv);
+						GetWindowOperation(&operation, &r, &c);
 						if(operation == '%')//重新生成地图
 						{
-							remainder = numberOfMine;
+							game.remainedMine = numberOfMine;
+							game.t0 = 0;
+							game.t1 = 0;
+							game.t2 = 0;
+							game.showInformation = 0;
 							for(r=0; r<heightOfBoard; r++)
 							{
 								for(c=0; c<widthOfBoard; c++)
@@ -188,8 +204,8 @@ int main()
 							c0 = widthOfBoard/2;
 							while(operation == 0)
 							{
-								DrawBoard(0, numberOfMine, 0, -1, -1);
-								GetWindowOperation(&operation, &r0, &c0, numberOfMine, 0, -1, -1);
+								DrawBoard(0);
+								GetWindowOperation(&operation, &r0, &c0);
 								delay_ms(refreshCycle);
 							}
 							seed = time(0);
@@ -205,13 +221,16 @@ int main()
 								}
 							}*/
 							SummonBoard(seed, r0, c0);
-							//bbbv = BBBV(seed, r0, c0, 3);
-							//temp = bbbv;
+							//game.total3BV = BBBV(seed, r0, c0, 3);
+							//game.unsolved3BV = game.total3BV;
+							game.showInformation = 1;
 							r = r0;
 							c = c0;
 							isShown[r][c] = 1;
 							//isHelped = 0;
-							t0 = time(0);
+							//ClearOperations(operationRecord);
+							//operationRecord = AddOperations(seed, r0, c0);
+							game.t0 = time(0);
 						}
 					}
 					if(operation != 0)
@@ -258,7 +277,7 @@ int main()
 					}
 					else if(isShown[r][c] == 2)
 					{
-						remainder++;//取消标记，剩余雷数+1
+						game.remainedMine++;//取消标记，剩余雷数+1
 						isShown[r][c] = 1;
 					}
 					else
@@ -271,25 +290,25 @@ int main()
 					if(isShown[r][c] == 0)//标记
 					{
 						isShown[r][c] = 2;
-						remainder--;
+						game.remainedMine--;
 					}
 					else if(isShown[r][c] == 2)//取消标记
 					{
 						isShown[r][c] = 0;
-						remainder++;
+						game.remainedMine++;
 					}
-					else
+					/*else
 					{
 						printf(":(\n该坐标已翻开！\n");
-					}
+					}*/
 				}
-				else
+				/*else
 				{
 					printf(":(\n未选择操作模式！\n");
-				}
+				}*/
 			}
 			/*游戏结束*/
-			choiceMode = CloseWindow(1-isOpenMine, remainder, t1-t0, bbbv-temp, bbbv);
+			choiceMode = CloseWindow(1-isOpenMine);
 		}
 		/*--设置--*/
 		else if(choiceMode == 2)
@@ -385,7 +404,7 @@ void SummonBoard(int seed, int r0, int c0)//生成后台总板
 	int r, c, i, ra, ca;
 	int numberOfNotMine = heightOfBoard*widthOfBoard-numberOfMine;
 	int ra1 = r0, ca1 = c0, ra2 = r0, ca2 = c0;
-	int mode = 2;
+	const int summonCheckMode = 2;
 	if(ra1 > 0) ra1--;
 	if(ca1 > 0) ca1--;
 	if(ra2+1 < heightOfBoard) ra2++;
@@ -402,35 +421,8 @@ void SummonBoard(int seed, int r0, int c0)//生成后台总板
 		}
 	}
 	/*--生成雷场--*/
-	//在不可能确保起始点为空时仅确保起始点非雷
-	if(mode > 1 && numberOfNotMine < (ra2-ra1+1)*(ca2-ca1+1)) mode = 1;
-	//在不可能确保时自动放弃
-	if(mode > 0 && numberOfNotMine == 0) mode = 0;
-	//对于必然雷场使用布空策略
-	if(numberOfNotMine == 0
-	   || (numberOfNotMine == 1 && mode == 1)
-	   || (numberOfNotMine == (ra2-ra1+1)*(ca2-ca1+1) && mode > 1))
-	{
-		for(r=0; r<heightOfBoard; r++)
-		{
-			for(c=0; c<widthOfBoard; c++)
-			{
-				isMine[r][c] = 1;
-			}
-		}
-		if(mode == 1) isMine[r0][c0] = 0;
-		else if(mode > 1)
-		{
-			for(ra=ra1; ra<=ra2; ra++)
-			{
-				for(ca=ca1; ca<=ca2; ca++)
-				{
-					isMine[ra][ca] = 0;
-				}
-			}
-		}
-	}
-	else
+	if(numberOfNotMine > 3*numberOfMine//密度<0.25且面积在[64,3696]，使用第一代雷场生成算法
+		&& heightOfBoard*widthOfBoard >= 64 && heightOfBoard*widthOfBoard <= 3696)
 	{
 		while(1)
 		{
@@ -454,8 +446,8 @@ void SummonBoard(int seed, int r0, int c0)//生成后台总板
 				}
 			}
 			/*校验*/
-			if(isMine[r0][c0] == 1 && mode > 0) continue;//第1次就爆则循环
-			if(mode > 1)
+			if(isMine[r0][c0] == 1 && summonCheckMode > 0) continue;//第1次就爆则循环
+			if(summonCheckMode > 1)
 			{
 				if((r0 > 0 && c0 > 0 && isMine[r0-1][c0-1] == 1)
 					|| (r0 > 0 && isMine[r0-1][c0] == 1)
@@ -471,6 +463,120 @@ void SummonBoard(int seed, int r0, int c0)//生成后台总板
 			}
 			/*完毕*/
 			break;
+		}
+	}
+	else//使用第二代雷场生成算法
+	{
+		if(numberOfMine <= numberOfNotMine)//使用布雷策略
+		{
+			//初始化
+			for(r=0; r<heightOfBoard; r++)
+			{
+				for(c=0; c<widthOfBoard; c++)
+				{
+					isMine[r][c] = 0;//雷，0无1有
+				}
+			}
+			//布雷
+			for(i=0; i<numberOfMine; )//不校验第1次也可能爆哦(doge)
+			{
+				r = rand() % heightOfBoard;
+				c = rand() % widthOfBoard;
+				if(isMine[r][c] == 0)
+				{
+					isMine[r][c] = 1;
+					i++;
+				}
+			}
+			//布置起始点
+			if(summonCheckMode > 0 && numberOfNotMine > 0)//在不可能确保时自动放弃
+			{//尽管过半密度一般使用布空策略，此处仍有自动放弃特性以作保障
+				//确保起始点非雷
+				if(isMine[r0][c0] == 1)
+				{
+					isMine[r0][c0] = 0;
+					while(1)
+					{
+						r = rand() % heightOfBoard;
+						c = rand() % widthOfBoard;
+						if(isMine[r][c] == 0 && r != r0 && c != c0)
+						{
+							isMine[r][c] = 1;
+							break;
+						}
+					}
+				}
+				//确保起始点为空，在不可能确保起始点为空时仅确保起始点非雷
+				if(summonCheckMode > 1 && numberOfNotMine >= (ra2-ra1+1)*(ca2-ca1+1))
+				{
+					for(ra=ra1; ra<=ra2; ra++)
+					{
+						for(ca=ca1; ca<=ca2; ca++)
+						{
+							if(isMine[ra][ca] == 1)
+							{
+								isMine[ra][ca] = 0;
+								while(1)
+								{
+									r = rand() % heightOfBoard;
+									c = rand() % widthOfBoard;
+									if(r>=ra1 && r<=ra2 && c>=ca1 && c<=ca2);
+									else if(isMine[r][c] == 0)
+									{
+										isMine[r][c] = 1;
+										break;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		else//使用布空策略，避免高密度布雷后期随机数命中率过低
+		{
+			//初始化
+			for(r=0; r<heightOfBoard; r++)
+			{
+				for(c=0; c<widthOfBoard; c++)
+				{
+					isMine[r][c] = 1;//默认为雷
+				}
+			}
+			//布置起始点，不共用具有随机命中特性的布雷策略代码
+			i = 0;
+			if(summonCheckMode > 0 && numberOfNotMine > 0)
+			{
+				//确保起始点非雷
+				isMine[r0][c0] = 0;
+				i++;
+				//确保起始点为空
+				if(summonCheckMode > 1 && numberOfNotMine >= (ra2-ra1+1)*(ca2-ca1+1))
+				{
+					for(ra=ra1; ra<=ra2; ra++)
+					{
+						for(ca=ca1; ca<=ca2; ca++)
+						{
+							if(isMine[ra][ca] == 1)
+							{
+								isMine[ra][ca] = 0;
+								i++;
+							}
+						}
+					}
+				}
+			}
+			//布空
+			while(i < numberOfNotMine)
+			{
+				r = rand() % heightOfBoard;
+				c = rand() % widthOfBoard;
+				if(isMine[r][c] == 1)
+				{
+					isMine[r][c] = 0;
+					i++;
+				}
+			}
 		}
 	}
 	/*--生成雷周围数字--*/
@@ -752,12 +858,11 @@ void DrawFace(int mode)//绘制笑脸
 	}
 }
 
-void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘制总外部窗口
+void DrawBoard(int mode)//绘制总外部窗口
 {
 	int r, c;
 	int rc1, cc1, rc2, cc2;
 	int highlight;
-	int xRemainedMine, xRemainedMineNumber, xTime, xTimeNumber, x3BV, x3BVNumber, x3BVps, x3BVpsNumber;
 	setfillcolor(LIGHTGRAY);
 	ege_fillrect(0, 0, windowWidth, heightOfBar);//清除旧顶栏减少锯齿感
 	ege_point polyPoints1[6] =
@@ -856,78 +961,31 @@ void DrawBoard(int mode, int remainder, int t, int solved3BV, int total3BV)//绘
 	}
 	setbkmode(OPAQUE);
 	//剩余雷数
-	if(widthOfBoard > 12)
-	{
-		xRemainedMine = 2*widthOfBlock;
-		xRemainedMineNumber = 3*widthOfBlock+xOfChar;
-	}
-	else
-	{
-		xRemainedMine = 1*widthOfBlock;
-		xRemainedMineNumber = 2*widthOfBlock;
-	}
 	DrawMineA(xRemainedMine, heightOfBar/2, 20*heightOfBar/64*4/3);
 	setcolor(RED);
 	setfontbkcolor(BLACK);
-	xyprintf(xRemainedMineNumber, (heightOfBar-heightOfChar)/2, " %d ", remainder);
+	xyprintf(xRemainedMineNumber, (heightOfBar-heightOfChar)/2, " %d ", game.remainedMine);
 	//用时
 	if(showTime == 1)
 	{
-		if(widthOfBoard > 23)
-		{
-			xTime = 7*widthOfBlock;
-			xTimeNumber = 8*widthOfBlock+xOfChar;
-		}
-		else if(widthOfBoard > 12)
-		{
-			xTime = (widthOfBoard+6)*widthOfBlock/2;
-			xTimeNumber = (widthOfBoard+8)*widthOfBlock/2+xOfChar;
-		}
-		else if(widthOfBoard > 10)
-		{
-			xTime = (widthOfBoard+4)*widthOfBlock/2;
-			xTimeNumber = (widthOfBoard+6)*widthOfBlock/2+xOfChar;
-		}
-		else
-		{
-			xTime = 7*widthOfBlock;
-			xTimeNumber = 8*widthOfBlock;
-		}
 		DrawClock(xTime, heightOfBar/2, 20*heightOfBar/64, time(0));//按真实时间走的钟(doge)
 		setcolor(RED);
 		setfontbkcolor(BLACK);
-		xyprintf(xTimeNumber, (heightOfBar-heightOfChar)/2, " %d ", t);
+		xyprintf(xTimeNumber, (heightOfBar-heightOfChar)/2, " %d ", game.t1-game.t0+game.t2);
 	}
 	//3BV
-	if(show3BV == 1 && total3BV != -1)
+	if(show3BV == 1 && game.showInformation == 1 && widthOfBoard > 27)
 	{
-		if(widthOfBoard > 53)
-		{
-			x3BV = 12*widthOfBlock+xOfChar;
-			x3BVps = 20*widthOfBlock+xOfChar;
-			x3BVNumber = 14*widthOfBlock+xOfChar;
-			x3BVpsNumber = 23*widthOfBlock+xOfChar;
-		}
-		else if(widthOfBoard > 27)
-		{
-			x3BV = (widthOfBoard+3)*widthOfBlock/2+xOfChar;
-			x3BVps = (widthOfBoard+17)*widthOfBlock/2+xOfChar;
-			x3BVNumber = (widthOfBoard+7)*widthOfBlock/2+xOfChar;
-			x3BVpsNumber = (widthOfBoard+22)*widthOfBlock/2+xOfChar;
-		}
-		if(widthOfBoard > 27)
-		{
-			setbkmode(TRANSPARENT);
-			setcolor(BLACK);
-			//setfontbkcolor(LIGHTGRAY);
-			xyprintf(x3BV, (heightOfBar-heightOfChar)/2, "3BV");
-			xyprintf(x3BVps, (heightOfBar-heightOfChar)/2, "3BV/s");
-			setbkmode(OPAQUE);
-			setcolor(RED);
-			setfontbkcolor(BLACK);
-			xyprintf(x3BVNumber, (heightOfBar-heightOfChar)/2, " %d/%d ", solved3BV, total3BV);
-			xyprintf(x3BVpsNumber, (heightOfBar-heightOfChar)/2, " %.2f ", (float)solved3BV/t);
-		}
+		setbkmode(TRANSPARENT);
+		setcolor(BLACK);
+		//setfontbkcolor(LIGHTGRAY);
+		xyprintf(x3BV, (heightOfBar-heightOfChar)/2, "3BV");
+		xyprintf(x3BVps, (heightOfBar-heightOfChar)/2, "3BV/s");
+		setbkmode(OPAQUE);
+		setcolor(RED);
+		setfontbkcolor(BLACK);
+		xyprintf(x3BVNumber, (heightOfBar-heightOfChar)/2, " %d/%d ", game.total3BV-game.unsolved3BV, game.total3BV);
+		xyprintf(x3BVpsNumber, (heightOfBar-heightOfChar)/2, " %.2f ", (float)(game.total3BV-game.unsolved3BV)/(game.t1-game.t0+game.t2));
 	}
 	setbkmode(TRANSPARENT);
 	DrawFace(0);
@@ -1019,6 +1077,53 @@ void UpdateWindowSize()//根据当前方块边长更新窗口大小
 	{
 		xFace = widthOfBlock*widthOfBoard/2+widthOfBorder-widthOfBlock*3/4;
 	}
+	//剩余雷数
+	if(widthOfBoard > 12)
+	{
+		xRemainedMine = 2*widthOfBlock;
+		xRemainedMineNumber = 3*widthOfBlock+xOfChar;
+	}
+	else
+	{
+		xRemainedMine = 1*widthOfBlock;
+		xRemainedMineNumber = 2*widthOfBlock;
+	}
+	//用时
+	if(widthOfBoard > 23)
+	{
+		xTime = 7*widthOfBlock;
+		xTimeNumber = 8*widthOfBlock+xOfChar;
+	}
+	else if(widthOfBoard > 12)
+	{
+		xTime = (widthOfBoard+6)*widthOfBlock/2;
+		xTimeNumber = (widthOfBoard+8)*widthOfBlock/2+xOfChar;
+	}
+	else if(widthOfBoard > 10)
+	{
+		xTime = (widthOfBoard+4)*widthOfBlock/2;
+		xTimeNumber = (widthOfBoard+6)*widthOfBlock/2+xOfChar;
+	}
+	else
+	{
+		xTime = 7*widthOfBlock;
+		xTimeNumber = 8*widthOfBlock;
+	}
+	//3BV
+	if(widthOfBoard > 53)
+	{
+		x3BV = 12*widthOfBlock+xOfChar;
+		x3BVps = 20*widthOfBlock+xOfChar;
+		x3BVNumber = 14*widthOfBlock+xOfChar;
+		x3BVpsNumber = 23*widthOfBlock+xOfChar;
+	}
+	else if(widthOfBoard > 27)
+	{
+		x3BV = (widthOfBoard+3)*widthOfBlock/2+xOfChar;
+		x3BVps = (widthOfBoard+17)*widthOfBlock/2+xOfChar;
+		x3BVNumber = (widthOfBoard+7)*widthOfBlock/2+xOfChar;
+		x3BVpsNumber = (widthOfBoard+22)*widthOfBlock/2+xOfChar;
+	}
 }
 
 void InitWindow(int mode)//创建窗口
@@ -1068,7 +1173,7 @@ void InitWindow(int mode)//创建窗口
 	if(widthOfBoard < 10) dx = widthOfBlock*(10-widthOfBoard)/2;
 	else dx = 0;
 	dy = 0;//偏移回正
-	GetWindowOperation(NULL, NULL, NULL, numberOfMine, 0, -1, -1);
+	GetWindowOperation(NULL, NULL, NULL);
 	//showmouse(0);//隐藏鼠标指针
 }
 
@@ -1111,7 +1216,7 @@ int IsMousePosOutside()//鼠标在窗口边界外
 	//return (point.x <= 0 || point.x > rect.right-rect.left || point.y <= 0 || point.y > rect.bottom-rect.top);
 }
 
-void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, int solved3BV, int total3BV)
+void GetWindowOperation(char* operation, int* r, int* c)
 {
 	int xm, ym, xn, yn, xo, yo, clock0, clock1;
 	static int isOpening, isSigning, ro, co;//拖动操作
@@ -1139,7 +1244,7 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 		ym = mouseMsg.y;
 		//if(total3BV != -1)
 		//{
-			//AddOperation(&operationRecord, clock()-gameClock0, 'm',
+			//AddOperation(&operationRecord, clock()-game.clock0, 'm',
 				//(ym-dy-heightOfBar-widthOfBorder)*64/sideLength, (xm-dx-widthOfBorder)*64/sideLength);//坐标拟合到64边长
 		//}
 		mouseR = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
@@ -1184,7 +1289,7 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 							dx += xn-xm;
 							dy += yn-ym;
 							cleardevice();
-							DrawBoard(0, remainder, t, solved3BV, total3BV);
+							DrawBoard(0);
 							dx -= xn-xm;
 							dy -= yn-ym;
 							clock0 = clock();
@@ -1197,7 +1302,7 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 					if(dx > -widthOfBlock/8 && dx < widthOfBlock/8) dx = 0;//弱趋向回正
 					if(dy > -heightOfBlock/8 && dy < heightOfBlock/8) dy = 0;
 					cleardevice();//避免重影
-					DrawBoard(0, remainder, t, solved3BV, total3BV);//避免闪烁
+					DrawBoard(0);//避免闪烁
 				}
 				else
 				{
@@ -1269,7 +1374,7 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 			if(mouseMsg.wheel > 0) ResizeWindow('+');
 			else ResizeWindow('-');
 			cleardevice();//地图偏移时避免重影
-			DrawBoard(0, remainder, t, solved3BV, total3BV);//避免闪烁
+			DrawBoard(0);//避免闪烁
 		}
 	}
 	while(kbmsg())//鼠标专门处理，避免无尽滚动，随后处理纯键盘操作输入
@@ -1289,7 +1394,7 @@ void GetWindowOperation(char* operation, int* r, int* c, int remainder, int t, i
 	}
 }
 
-int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total3BV)
+int CloseWindow(int isWinning)
 {
 	int r, c, newGame = -1;
 	int xm, ym, xn, yn, clock0, clock1;
@@ -1307,7 +1412,7 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 			}
 		}
 	}
-	DrawBoard(1, remainder, time, solved3BV, total3BV);
+	DrawBoard(1);
 	if(isWinning == 1)
 	{
 		DrawFace(3);
@@ -1329,7 +1434,7 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 	while(newGame == -1)
 	{
 		cleardevice();//清除旧游戏结束文字减少锯齿感
-		DrawBoard(1, remainder, time, solved3BV, total3BV);//刷新界面
+		DrawBoard(1);//刷新界面
 		if(isWinning == 1)
 		{
 			DrawFace(3);
@@ -1391,7 +1496,7 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 							dx += xn-xm;
 							dy += yn-ym;
 							cleardevice();
-							DrawBoard(1, remainder, time, solved3BV, total3BV);
+							DrawBoard(1);
 							if(isWinning == 1) DrawFace(3);
 							else DrawFace(2);
 							dx -= xn-xm;
@@ -1405,7 +1510,7 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 					if(dx > -widthOfBlock && dx < widthOfBlock) dx = 0;//趋向回正
 					if(dy > -heightOfBlock && dy < heightOfBlock) dy = 0;
 					cleardevice();
-					DrawBoard(1, remainder, time, solved3BV, total3BV);
+					DrawBoard(1);
 					if(isWinning == 1) DrawFace(3);//保持笑脸
 					else DrawFace(2);
 				}
@@ -1425,7 +1530,7 @@ int CloseWindow(int isWinning, int remainder, int time, int solved3BV, int total
 				if(mouseMsg.wheel > 0) ResizeWindow('+');
 				else ResizeWindow('-');
 				cleardevice();
-				DrawBoard(1, remainder, time, solved3BV, total3BV);
+				DrawBoard(1);
 				if(isWinning == 1) DrawFace(3);
 				else DrawFace(2);
 			}
@@ -1668,10 +1773,15 @@ MineSweeper EGE 10.3
 //——修复 点击笑脸按钮重新生成地图时控制台3BV/s可能不能正确覆写
 MineSweeper EGE 10.4
 ——修复 鼠标移至界外可能残留悬浮高亮
+MineSweeper EGE 10.5
+——优化 游戏信息横坐标仅在更新时计算
+//——修复 继续上一次游戏时点击笑脸按钮不能正确重置时间
+MineSweeper EGE 10.6
 //——新增 拖动标记根据起始操作统一标记/取消标记
 //——新增 根据位数自动调整图标位置
 //——优化 分立地图和窗口绘制代码
 //——优化 编译体积（加链接参数-Wl,--gc-sections）
 //——优化 根据位偏移统一图标位置设计语言
+//——优化 通过地图快速显示技术降低按键延迟
 //——修复 按下Alt时抬起Ctrl会进入Ctrl锁死状态
 --------------------------------*/
