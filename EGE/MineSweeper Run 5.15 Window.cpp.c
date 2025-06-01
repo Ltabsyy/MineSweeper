@@ -1274,9 +1274,9 @@ int main(/*int argc, char** argv*/)
 							mouseSignPos.Y = 0;
 						}
 					}
-					if(operateMode < 2 && kbhit())//按键
+					if(operateMode < 2 && kbhit_console())//按键
 					{
-						key = getch();//接收字符但不显示
+						key = getch_console();//接收字符但不显示
 						if(key == '`')//清空已输入操作
 						{
 							operation = 0;
@@ -10138,9 +10138,9 @@ void RCScan(char* operation, int* r, int* c, int yOfCommand)//@#rc指令输入�
 	printf(">%c _     \r>%c ", *operation, *operation);//覆写>@ 128 92
 	while(p != 4)
 	{
-		if(kbhit())
+		if(kbhit_console())
 		{
-			key = getch();//接收字符但不显示
+			key = getch_console();//接收字符但不显示
 			gotoxy(0, yOfCommand);
 			//切为鼠标
 			if(key == 'm' || key == 'M')
