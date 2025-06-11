@@ -34,7 +34,7 @@ struct Information
 	int clock0, clock1;//毫秒用时
 }game;
 int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2);
-void SummonBoard(int seed, int r0, int c0);
+void SummonBoard(int seed, int r0, int c0, int summonMode, int iterateMode);//地图生成
 
 // EGE窗口显示
 int dx = 0, dy = 0;//地图偏移
@@ -77,6 +77,7 @@ int solution[LimHeight][LimWidth]={0};
 int numberOfMine = 10;//雷数量
 int heightOfBoard = 10;//界面高度
 int widthOfBoard = 10;//界面宽度
+int summonCheckMode = 2;//0不校验，1非雷，2必空，3可解，4筛选
 int showTime = 1;
 int show3BV = 0;
 int refreshCycle = 50;
@@ -136,7 +137,7 @@ int main()
 			game.t1 = game.t0;
 			game.t2 = 0;
 			game.showInformation = 1;
-			SummonBoard(seed, r0, c0);
+			SummonBoard(seed, r0, c0, summonCheckMode, 1);
 			for(r=0; r<heightOfBoard; r++)
 			{
 				for(c=0; c<widthOfBoard; c++)
@@ -220,7 +221,7 @@ int main()
 									}
 								}
 							}*/
-							SummonBoard(seed, r0, c0);
+							SummonBoard(seed, r0, c0, summonCheckMode, 1);
 							//game.total3BV = BBBV(seed, r0, c0, 3);
 							//game.unsolved3BV = game.total3BV;
 							game.showInformation = 1;
@@ -399,18 +400,19 @@ int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2)
 	}
 }
 
-void SummonBoard(int seed, int r0, int c0)//生成后台总板
+void SummonBoard(int seed, int r0, int c0, int summonMode, int iterateMode)//地图生成，生成雷，数字和后台总板
 {
-	int r, c, i, ra, ca;
+	//生成模式：0不校验，1起始点必非雷，2起始点必为空
+	//迭代模式：1初始迭代，0顺延迭代，2-2147483647定位迭代，-1无迭代，-2旧版迭代
+	int r, c, i, ra, ca, it;
 	int numberOfNotMine = heightOfBoard*widthOfBoard-numberOfMine;
 	int ra1 = r0, ca1 = c0, ra2 = r0, ca2 = c0;
-	const int summonCheckMode = 2;
 	if(ra1 > 0) ra1--;
 	if(ca1 > 0) ca1--;
 	if(ra2+1 < heightOfBoard) ra2++;
 	if(ca2+1 < widthOfBoard) ca2++;
-	srand(seed);
-	/*--重置--*/
+	// 重置
+	if(iterateMode != 0) srand(seed);
 	for(r=0; r<heightOfBoard; r++)
 	{
 		for(c=0; c<widthOfBoard; c++)
@@ -420,54 +422,128 @@ void SummonBoard(int seed, int r0, int c0)//生成后台总板
 			isShown[r][c] = 0;//清零显示方式矩阵
 		}
 	}
-	/*--生成雷场--*/
-	if(numberOfNotMine > 3*numberOfMine//密度<0.25且面积在[64,3696]，使用第一代雷场生成算法
-		&& heightOfBoard*widthOfBoard >= 64 && heightOfBoard*widthOfBoard <= 3696)
+	// 迭代生成雷场
+	if(iterateMode >= 0)//使用第二代雷场生成算法
 	{
-		while(1)
+		if(iterateMode == 0) iterateMode = 1;//迭代模式转为迭代次数
+		for(it = 0; it < iterateMode; it++)
 		{
-			/*初始化*/
-			for(r=0; r<heightOfBoard; r++)
+			if(numberOfMine <= numberOfNotMine)//使用布雷策略
 			{
-				for(c=0; c<widthOfBoard; c++)
+				//初始化
+				for(r=0; r<heightOfBoard; r++)
 				{
-					isMine[r][c] = 0;//雷，0无1有
+					for(c=0; c<widthOfBoard; c++)
+					{
+						isMine[r][c] = 0;//雷，0无1有
+					}
+				}
+				//布雷
+				for(i=0; i<numberOfMine; )//不校验第1次也可能爆哦(doge)
+				{
+					r = rand() % heightOfBoard;
+					c = rand() % widthOfBoard;
+					if(isMine[r][c] == 0)
+					{
+						isMine[r][c] = 1;
+						i++;
+					}
+				}
+				//布置起始点
+				if(summonMode > 0 && numberOfNotMine > 0)//在不可能确保时自动放弃
+				{//尽管过半密度一般使用布空策略，此处仍有自动放弃特性以作保障
+					//确保起始点非雷
+					if(isMine[r0][c0] == 1)
+					{
+						isMine[r0][c0] = 0;
+						while(1)
+						{
+							r = rand() % heightOfBoard;
+							c = rand() % widthOfBoard;
+							if(isMine[r][c] == 0 && r != r0 && c != c0)
+							{
+								isMine[r][c] = 1;
+								break;
+							}
+						}
+					}
+					//确保起始点为空，在不可能确保起始点为空时仅确保起始点非雷
+					if(summonMode > 1 && numberOfNotMine >= (ra2-ra1+1)*(ca2-ca1+1))
+					{
+						for(ra=ra1; ra<=ra2; ra++)
+						{
+							for(ca=ca1; ca<=ca2; ca++)
+							{
+								if(isMine[ra][ca] == 1)
+								{
+									isMine[ra][ca] = 0;
+									while(1)
+									{
+										r = rand() % heightOfBoard;
+										c = rand() % widthOfBoard;
+										if(r>=ra1 && r<=ra2 && c>=ca1 && c<=ca2);
+										else if(isMine[r][c] == 0)
+										{
+											isMine[r][c] = 1;
+											break;
+										}
+									}
+								}
+							}
+						}
+					}
 				}
 			}
-			/*布雷*/
-			for(i=0; i<numberOfMine; )//不校验第1次也可能爆哦(doge)
+			else//使用布空策略，避免高密度布雷后期随机数命中率过低
 			{
-				r = rand() % heightOfBoard;
-				c = rand() % widthOfBoard;
-				if(isMine[r][c] == 0)
+				//初始化
+				for(r=0; r<heightOfBoard; r++)
 				{
-					isMine[r][c] = 1;
+					for(c=0; c<widthOfBoard; c++)
+					{
+						isMine[r][c] = 1;//默认为雷
+					}
+				}
+				//布置起始点，不共用具有随机命中特性的布雷策略代码
+				i = 0;
+				if(summonMode > 0 && numberOfNotMine > 0)
+				{
+					//确保起始点非雷
+					isMine[r0][c0] = 0;
 					i++;
+					//确保起始点为空
+					if(summonMode > 1 && numberOfNotMine >= (ra2-ra1+1)*(ca2-ca1+1))
+					{
+						for(ra=ra1; ra<=ra2; ra++)
+						{
+							for(ca=ca1; ca<=ca2; ca++)
+							{
+								if(isMine[ra][ca] == 1)
+								{
+									isMine[ra][ca] = 0;
+									i++;
+								}
+							}
+						}
+					}
 				}
-			}
-			/*校验*/
-			if(isMine[r0][c0] == 1 && summonCheckMode > 0) continue;//第1次就爆则循环
-			if(summonCheckMode > 1)
-			{
-				if((r0 > 0 && c0 > 0 && isMine[r0-1][c0-1] == 1)
-					|| (r0 > 0 && isMine[r0-1][c0] == 1)
-					|| (r0 > 0 && c0+1 < widthOfBoard && isMine[r0-1][c0+1] == 1)
-					|| (c0 > 0 && isMine[r0][c0-1] == 1)
-					|| (c0+1 < widthOfBoard && isMine[r0][c0+1] == 1)
-					|| (r0+1 < heightOfBoard && c0 > 0 && isMine[r0+1][c0-1] == 1)
-					|| (r0+1 < heightOfBoard && isMine[r0+1][c0] == 1)
-					|| (r0+1 < heightOfBoard && c0+1 < widthOfBoard && isMine[r0+1][c0+1] == 1))
+				//布空
+				while(i < numberOfNotMine)
 				{
-					continue;//预判到第1次翻开位置不为0则循环
+					r = rand() % heightOfBoard;
+					c = rand() % widthOfBoard;
+					if(isMine[r][c] == 1)
+					{
+						isMine[r][c] = 0;
+						i++;
+					}
 				}
 			}
-			/*完毕*/
-			break;
 		}
 	}
-	else//使用第二代雷场生成算法
+	else if(iterateMode == -2)//旧版迭代，使用第一代雷场生成算法，无迭代被跳过
 	{
-		if(numberOfMine <= numberOfNotMine)//使用布雷策略
+		while(1)
 		{
 			//初始化
 			for(r=0; r<heightOfBoard; r++)
@@ -488,98 +564,27 @@ void SummonBoard(int seed, int r0, int c0)//生成后台总板
 					i++;
 				}
 			}
-			//布置起始点
-			if(summonCheckMode > 0 && numberOfNotMine > 0)//在不可能确保时自动放弃
-			{//尽管过半密度一般使用布空策略，此处仍有自动放弃特性以作保障
-				//确保起始点非雷
-				if(isMine[r0][c0] == 1)
-				{
-					isMine[r0][c0] = 0;
-					while(1)
-					{
-						r = rand() % heightOfBoard;
-						c = rand() % widthOfBoard;
-						if(isMine[r][c] == 0 && r != r0 && c != c0)
-						{
-							isMine[r][c] = 1;
-							break;
-						}
-					}
-				}
-				//确保起始点为空，在不可能确保起始点为空时仅确保起始点非雷
-				if(summonCheckMode > 1 && numberOfNotMine >= (ra2-ra1+1)*(ca2-ca1+1))
-				{
-					for(ra=ra1; ra<=ra2; ra++)
-					{
-						for(ca=ca1; ca<=ca2; ca++)
-						{
-							if(isMine[ra][ca] == 1)
-							{
-								isMine[ra][ca] = 0;
-								while(1)
-								{
-									r = rand() % heightOfBoard;
-									c = rand() % widthOfBoard;
-									if(r>=ra1 && r<=ra2 && c>=ca1 && c<=ca2);
-									else if(isMine[r][c] == 0)
-									{
-										isMine[r][c] = 1;
-										break;
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		else//使用布空策略，避免高密度布雷后期随机数命中率过低
-		{
-			//初始化
-			for(r=0; r<heightOfBoard; r++)
+			//校验
+			if(isMine[r0][c0] == 1 && summonMode > 0) continue;//第1次就爆则循环
+			if(summonMode > 1)
 			{
-				for(c=0; c<widthOfBoard; c++)
+				if((r0 > 0 && c0 > 0 && isMine[r0-1][c0-1] == 1)
+					|| (r0 > 0 && isMine[r0-1][c0] == 1)
+					|| (r0 > 0 && c0+1 < widthOfBoard && isMine[r0-1][c0+1] == 1)
+					|| (c0 > 0 && isMine[r0][c0-1] == 1)
+					|| (c0+1 < widthOfBoard && isMine[r0][c0+1] == 1)
+					|| (r0+1 < heightOfBoard && c0 > 0 && isMine[r0+1][c0-1] == 1)
+					|| (r0+1 < heightOfBoard && isMine[r0+1][c0] == 1)
+					|| (r0+1 < heightOfBoard && c0+1 < widthOfBoard && isMine[r0+1][c0+1] == 1))
 				{
-					isMine[r][c] = 1;//默认为雷
+					continue;//预判到第1次翻开位置不为0则循环
 				}
 			}
-			//布置起始点，不共用具有随机命中特性的布雷策略代码
-			i = 0;
-			if(summonCheckMode > 0 && numberOfNotMine > 0)
-			{
-				//确保起始点非雷
-				isMine[r0][c0] = 0;
-				i++;
-				//确保起始点为空
-				if(summonCheckMode > 1 && numberOfNotMine >= (ra2-ra1+1)*(ca2-ca1+1))
-				{
-					for(ra=ra1; ra<=ra2; ra++)
-					{
-						for(ca=ca1; ca<=ca2; ca++)
-						{
-							if(isMine[ra][ca] == 1)
-							{
-								isMine[ra][ca] = 0;
-								i++;
-							}
-						}
-					}
-				}
-			}
-			//布空
-			while(i < numberOfNotMine)
-			{
-				r = rand() % heightOfBoard;
-				c = rand() % widthOfBoard;
-				if(isMine[r][c] == 1)
-				{
-					isMine[r][c] = 0;
-					i++;
-				}
-			}
+			//完毕
+			break;
 		}
 	}
-	/*--生成雷周围数字--*/
+	// 生成雷周围数字
 	for(r=0; r<heightOfBoard; r++)
 	{
 		for(c=0; c<widthOfBoard; c++)
@@ -600,7 +605,7 @@ void SummonBoard(int seed, int r0, int c0)//生成后台总板
 			//方法2：循环遍历方块，计算周围雷数，因为不跳过雷，方法1始终不弱于方法2
 		}
 	}
-	/*--生成后台总板--*/
+	// 生成后台总板
 	for(r=0; r<heightOfBoard; r++)
 	{
 		for(c=0; c<widthOfBoard; c++)
@@ -1242,7 +1247,7 @@ void GetWindowOperation(char* operation, int* r, int* c)
 		//鼠标位置分析
 		xm = mouseMsg.x;
 		ym = mouseMsg.y;
-		//if(total3BV != -1)
+		//if(game.showInformation == 1)
 		//{
 			//AddOperation(&operationRecord, clock()-game.clock0, 'm',
 				//(ym-dy-heightOfBar-widthOfBorder)*64/sideLength, (xm-dx-widthOfBorder)*64/sideLength);//坐标拟合到64边长
@@ -1464,6 +1469,11 @@ int CloseWindow(int isWinning)
 		//getch();
 		//delay_ms(2000);
 		//break;
+		if(IsMousePosOutside())
+		{
+			mouseR = -1;
+			mouseC = -1;
+		}
 		while(mousemsg())
 		{
 			mouseMsg = getmouse();
@@ -1777,6 +1787,7 @@ MineSweeper EGE 10.5
 ——优化 游戏信息横坐标仅在更新时计算
 //——修复 继续上一次游戏时点击笑脸按钮不能正确重置时间
 MineSweeper EGE 10.6
+——修复 终局时鼠标移至界外可能残留悬浮高亮
 //——新增 拖动标记根据起始操作统一标记/取消标记
 //——新增 根据位数自动调整图标位置
 //——优化 分立地图和窗口绘制代码

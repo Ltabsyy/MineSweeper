@@ -92,7 +92,7 @@ Window版（或早期的WindowTest版）至少需Windows Vista系统，控制台
 
 存储着未结束的上一次游戏，程序启动后会优先进入上一次游戏。
 
-（3）minesweeper-records.txt（Run 5.15开始后缀为.csv）
+（3）minesweeper-records.csv（旧版后缀为.txt）
 
 存储着扫雷历史记录，用于打破纪录显示，删除后记录会丢失，第一局有效胜利即可打破纪录。
 
