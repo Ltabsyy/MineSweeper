@@ -9746,6 +9746,9 @@ void PlayOperations(struct Operations operations)
 	game.total3BV = BBBV(operations.seed, operations.r0, operations.c0, 1);
 	game.unsolved3BV = game.total3BV;
 	game.remainedMine = numberOfMine;
+	game.yOfMap = 3;//显示准备
+	game.yOfInformation = game.yOfMap + heightOfMapShown;//heightOfMapShown在AdaptScreenBufferWidth()更新
+	game.showInformation = 1;
 	if(fastShow == 1)
 	{
 		for(r=0; r<heightOfBoard; r++)
@@ -12204,6 +12207,7 @@ MineSweeper Run 5.16
 ——新增 全面使用第二代雷场生成算法
 ——新增 历史记录仅显示最近1024条时显示第1条和省略号
 ——优化 更精确的记录毫秒用时和秒用时
+MineSweeper Run 5.17
 //——新增 调试选项可启用保存有效记录的操作记录
 //——新增 主页按V或拖动文件至程序图标播放操作记录
 //——新增 调试选项可启用屏蔽鼠标点击翻开标记
