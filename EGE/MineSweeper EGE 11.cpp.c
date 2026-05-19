@@ -31,7 +31,7 @@ struct Information
 	int t0, t1, t2;//显示用时
 	int unsolved3BV, total3BV;//地图3BV
 	int showInformation;//0第一次翻开，1刷新信息
-	int clock0, clock1;//毫秒用时
+	int clock0, clock1, clock2;//毫秒用时
 }game;
 int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2);
 void SummonBoard(int seed, int r0, int c0, int summonMode, int iterateMode);//地图生成
@@ -42,13 +42,14 @@ int screenHeight, screenWidth;
 int windowHeight, windowWidth, xFace;
 int xRemainedMine, xRemainedMineNumber, xTime, xTimeNumber, x3BV, x3BVNumber, x3BVps, x3BVpsNumber;
 int mouseR = -1, mouseC = -1;//悬浮高亮
-void DrawMine(int r, int c);//绘制地图地雷
+void DrawMine(PIMAGE pimg);//在图像中绘制地图地雷
 void DrawMineA(int x0, int y0, int r);//绘制地雷图形
-void DrawFlag(int r, int c);//绘制地图旗帜
-void DrawBlock(int r, int c, int board, int isShown, int highlight);//绘制方块
+void DrawFlag(PIMAGE pimg);//在图像中绘制地图旗帜
+void DrawBlock(int board, int isShown, int highlight, PIMAGE pimg);//在图像中绘制方块
 void DrawLineA(int x0, int y0, int r, int angle);//绘制时钟指针
 void DrawClock(int x0, int y0, int r, int time);//绘制时钟
 void DrawFace(int mode);//绘制笑脸
+void DrawBlockP(int r, int c, int board, int isShown, int highlight);//绘制方块
 void DrawBoard(int mode);//绘制总外部窗口
 void DrawSolution();//在外部窗口绘制方案矩阵
 void DrawMouse(int x, int y);//绘制鼠标
@@ -80,7 +81,7 @@ int widthOfBoard = 10;//界面宽度
 int summonCheckMode = 2;//0不校验，1非雷，2必空，3可解，4筛选
 int showTime = 1;
 int show3BV = 0;
-int refreshCycle = 50;
+int refreshCycle = 25;
 int newCursor = 2;
 
 int main()
@@ -191,6 +192,7 @@ int main()
 							game.t0 = 0;
 							game.t1 = 0;
 							game.t2 = 0;
+							//game.clock2 = 0;
 							game.showInformation = 0;
 							for(r=0; r<heightOfBoard; r++)
 							{
@@ -232,6 +234,7 @@ int main()
 							//ClearOperations(operationRecord);
 							//operationRecord = AddOperations(seed, r0, c0);
 							game.t0 = time(0);
+							//game.clock0 = clock();
 						}
 					}
 					if(operation != 0)
@@ -622,22 +625,20 @@ void SummonBoard(int seed, int r0, int c0, int summonMode, int iterateMode)//地
 	}
 }
 
-void DrawMine(int r, int c)//绘制地图地雷
+void DrawMine(PIMAGE pimg)//在图像中绘制地图地雷
 {
-	float x = c*widthOfBlock+widthOfBorder+dx;
-	float y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
-	//setcolor(LIGHTRED);
-	//xyprintf(x+xOfChar, y+yOfChar, "@");
-	setfillcolor(BLACK);
-	ege_fillellipse(x+7.4/32*widthOfBlock, y+7.4/32*heightOfBlock, 0.6*widthOfBlock, 0.6*heightOfBlock);
-	setcolor(BLACK);
-	setlinewidth(sideLength/16);
-	ege_line(x+5.0/32*widthOfBlock, y+17.0/32*heightOfBlock, x+29.0/32*widthOfBlock, y+17.0/32*heightOfBlock);
-	ege_line(x+17.0/32*widthOfBlock, y+5.0/32*heightOfBlock, x+17.0/32*widthOfBlock, y+29.0/32*heightOfBlock);
-	ege_line(x+9.0/32*widthOfBlock, y+9.0/32*heightOfBlock, x+25.0/32*widthOfBlock, y+25.0/32*heightOfBlock);
-	ege_line(x+9.0/32*widthOfBlock, y+25.0/32*heightOfBlock, x+25.0/32*widthOfBlock, y+9.0/32*heightOfBlock);
-	setfillcolor(WHITE);
-	ege_fillrect(x+12.0/32*widthOfBlock, y+12.0/32*heightOfBlock, 4.0/32*widthOfBlock, 4.0/32*heightOfBlock);
+	//setcolor(LIGHTRED, pimg);
+	//outtextxy(xOfChar, yOfChar, '@', pimg);
+	setfillcolor(BLACK, pimg);
+	ege_fillellipse(7.4/32*widthOfBlock, 7.4/32*heightOfBlock, 0.6*widthOfBlock, 0.6*heightOfBlock, pimg);
+	setcolor(BLACK, pimg);
+	setlinewidth(sideLength/16, pimg);
+	ege_line(5.0/32*widthOfBlock, 17.0/32*heightOfBlock, 29.0/32*widthOfBlock, 17.0/32*heightOfBlock, pimg);
+	ege_line(17.0/32*widthOfBlock, 5.0/32*heightOfBlock, 17.0/32*widthOfBlock, 29.0/32*heightOfBlock, pimg);
+	ege_line(9.0/32*widthOfBlock, 9.0/32*heightOfBlock, 25.0/32*widthOfBlock, 25.0/32*heightOfBlock, pimg);
+	ege_line(9.0/32*widthOfBlock, 25.0/32*heightOfBlock, 25.0/32*widthOfBlock, 9.0/32*heightOfBlock, pimg);
+	setfillcolor(WHITE, pimg);
+	ege_fillrect(12.0/32*widthOfBlock, 12.0/32*heightOfBlock, 4.0/32*widthOfBlock, 4.0/32*heightOfBlock, pimg);
 }
 
 void DrawMineA(int x0, int y0, int r)//绘制地雷图形
@@ -655,94 +656,96 @@ void DrawMineA(int x0, int y0, int r)//绘制地雷图形
 	ege_fillrect(x0-r+11.0/16*r, y0-r+11.0/16*r, 4.0/16*r, 4.0/16*r);
 }
 
-void DrawFlag(int r, int c)//绘制地图旗帜
+void DrawFlag(PIMAGE pimg)//在图像中绘制地图旗帜
 {
-	float x = c*widthOfBlock+widthOfBorder+dx;
-	float y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
-	//setcolor(LIGHTRED);
-	//xyprintf(x+xOfChar, y+yOfChar, "#");
-	setfillcolor(BLACK);
+	//setcolor(LIGHTRED, pimg);
+	//outtextxy(xOfChar, yOfChar, '#', pimg);
+	setfillcolor(BLACK, pimg);
 	//绘制底座
-	ege_fillrect(x+8.0/32*widthOfBlock, y+24.0/32*heightOfBlock, 16.0/32*widthOfBlock, 2.0/32*heightOfBlock);
-	ege_fillrect(x+10.0/32*widthOfBlock, y+22.0/32*heightOfBlock, 12.0/32*widthOfBlock, 2.0/32*heightOfBlock);
+	ege_fillrect(8.0/32*widthOfBlock, 24.0/32*heightOfBlock, 16.0/32*widthOfBlock, 2.0/32*heightOfBlock, pimg);
+	ege_fillrect(10.0/32*widthOfBlock, 22.0/32*heightOfBlock, 12.0/32*widthOfBlock, 2.0/32*heightOfBlock, pimg);
 	//绘制旗杆
-	ege_fillrect(x+15.0/32*widthOfBlock, y+16.0/32*heightOfBlock, 2.0/32*widthOfBlock, 8.0/32*heightOfBlock);
+	ege_fillrect(15.0/32*widthOfBlock, 16.0/32*heightOfBlock, 2.0/32*widthOfBlock, 8.0/32*heightOfBlock, pimg);
 	//绘制旗帜
-	setfillcolor(RED);
+	setfillcolor(RED, pimg);
 	ege_point polyPoints[3] =
 	{
-		{x+6.0f/32*widthOfBlock, y+11.0f/32*heightOfBlock},
-		{x+17.0f/32*widthOfBlock, y+6.0f/32*heightOfBlock},
-		{x+17.0f/32*widthOfBlock, y+16.0f/32*heightOfBlock}
+		{6.0f/32*widthOfBlock, 11.0f/32*heightOfBlock},
+		{17.0f/32*widthOfBlock, 6.0f/32*heightOfBlock},
+		{17.0f/32*widthOfBlock, 16.0f/32*heightOfBlock}
 	};
-	ege_fillpoly(3, polyPoints);
+	ege_fillpoly(3, polyPoints, pimg);
 }
 
-void DrawBlock(int r, int c, int board, int isShown, int highlight)//绘制方块
+void DrawBlock(int board, int isShown, int highlight, PIMAGE pimg)//在图像中绘制方块
 {
-	float x = c*widthOfBlock+widthOfBorder+dx;
-	float y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
 	static const color_t numberColor[10] = {
 		//0, BLUE, GREEN, RED, RED, RED, YELLOW, YELLOW, YELLOW, 0//配色1
 		0, BLUE, GREEN, RED, DARKBLUE, BROWN, DARKCYAN, BLACK, GRAY, 0//配色2
 	};
+	//pimg绘制特性初始化
+	setbkcolor(LIGHTGRAY, pimg);
+	setfont(heightOfChar, 0, "Consolas", pimg);
+	setbkmode(TRANSPARENT, pimg);
+	ege_enable_aa(true, pimg);
 	//绘制边框和底纹
 	if(isShown == 1 || (board == 9 && isShown == 0))
 	{
-		setfillcolor(GRAY);
-		ege_fillrect(x, y, widthOfBlock, heightOfBlock);
-		setfillcolor(highlight ? LIGHTBLUE : DARKGRAY);
-		ege_fillrect(x+widthOfBlock*2/32, y+heightOfBlock*2/32, widthOfBlock*30/32, heightOfBlock*30/32);
-		//setfontbkcolor(DARKGRAY);
+		setfillcolor(GRAY, pimg);
+		ege_fillrect(0, 0, widthOfBlock, heightOfBlock, pimg);
+		setfillcolor(highlight ? LIGHTBLUE : DARKGRAY, pimg);
+		ege_fillrect(widthOfBlock*2/32, heightOfBlock*2/32, widthOfBlock*30/32, heightOfBlock*30/32, pimg);
+		//setfontbkcolor(DARKGRAY, pimg);
 	}
 	else
 	{
-		ege_point polyPoints1[3] = {{x, y}, {x+widthOfBlock, y}, {x, y+heightOfBlock}};
-		ege_point polyPoints2[3] = {{x+widthOfBlock, y}, {x, y+heightOfBlock}, {x+widthOfBlock, y+heightOfBlock}};
-		setfillcolor(WHITE);
-		ege_fillpoly(3, polyPoints1);
-		setfillcolor(GRAY);
-		ege_fillpoly(3, polyPoints2);
-		setfillcolor(highlight ? LIGHTBLUE : LIGHTGRAY);
-		//ege_fillrect(x+widthOfBlock*4/32, y+heightOfBlock*4/32, widthOfBlock*24/32, heightOfBlock*24/32);
-		ege_fillrect(x+widthOfBlock*2.0/32, y+heightOfBlock*2.0/32, widthOfBlock*28/32, heightOfBlock*28/32);
-		//setfontbkcolor(LIGHTGRAY);
+		ege_point polyPoints1[3] =
+		{
+			{0, 0}, {(float)widthOfBlock, 0}, {0, (float)heightOfBlock}
+		};
+		ege_point polyPoints2[3] =
+		{
+			{(float)widthOfBlock, 0}, {0, (float)heightOfBlock}, {(float)widthOfBlock, (float)heightOfBlock}
+		};
+		setfillcolor(WHITE, pimg);
+		ege_fillpoly(3, polyPoints1, pimg);
+		setfillcolor(GRAY, pimg);
+		ege_fillpoly(3, polyPoints2, pimg);
+		setfillcolor(highlight ? LIGHTBLUE : LIGHTGRAY, pimg);
+		//ege_fillrect(widthOfBlock*4/32, heightOfBlock*4/32, widthOfBlock*24/32, heightOfBlock*24/32, pimg);
+		ege_fillrect(widthOfBlock*2.0/32, heightOfBlock*2.0/32, widthOfBlock*28/32, heightOfBlock*28/32, pimg);
+		//setfontbkcolor(LIGHTGRAY, pimg);
 	}
 	//绘制文字或图形
-	//xyprintf(x+12, y+8, "%d", board);
-	//rectprintf(x, y, widthOfBlock, heightOfBlock, "%d", board);
 	if(isShown == 2)
 	{
 		if(board != 9)//错误标记
 		{
-			setfillcolor(LIGHTRED);
-			ege_fillrect(x+widthOfBlock*2.0/32, y+heightOfBlock*2.0/32, widthOfBlock*28/32, heightOfBlock*28/32);
+			setfillcolor(LIGHTRED, pimg);
+			ege_fillrect(widthOfBlock*2.0/32, heightOfBlock*2.0/32, widthOfBlock*28/32, heightOfBlock*28/32, pimg);
 		}
-		DrawFlag(r, c);
+		DrawFlag(pimg);
 	}
 	else if(isShown == 0)
 	{
 		if(board == 9)
 		{
-			DrawMine(r, c);
+			DrawMine(pimg);
 		}
 	}
 	else
 	{
 		if(board == 9)
 		{
-			setfillcolor(RED);
-			ege_fillrect(x+widthOfBlock*2/32, y+heightOfBlock*2/32, widthOfBlock*30/32, heightOfBlock*30/32);
-			DrawMine(r, c);
+			setfillcolor(RED, pimg);
+			ege_fillrect(widthOfBlock*2/32, heightOfBlock*2/32, widthOfBlock*30/32, heightOfBlock*30/32, pimg);
+			DrawMine(pimg);
 		}
 		else if(board == 0);
 		else//数字
 		{
-			setcolor(numberColor[board]);
-			//setbkmode(TRANSPARENT);
-			xyprintf(x+xOfChar, y+yOfChar, "%d", board);
-			//outtextxy(x+xOfChar, y+yOfChar, (char)('0'+board));
-			//setbkmode(OPAQUE);
+			setcolor(numberColor[board], pimg);
+			outtextxy(xOfChar, yOfChar, (char)('0'+board), pimg);
 		}
 	}
 }
@@ -852,6 +855,44 @@ void DrawFace(int mode)//绘制笑脸
 	}
 }
 
+void DrawBlockP(int r, int c, int board, int isShown, int highlight)//绘制方块
+{
+	float x = c*widthOfBlock+widthOfBorder+dx;
+	float y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
+	static int cacheSideLength = 0;
+	static PIMAGE cacheBlock[10][3][2];
+	int i, j, k;
+	if(cacheSideLength != sideLength)//重绘图像缓存
+	{
+		if(cacheSideLength != 0)
+		{
+			for(i=0; i<10; i++)
+			{
+				for(j=0; j<3; j++)
+				{
+					for(k=0; k<2; k++)
+					{
+						delimage(cacheBlock[i][j][k]);
+					}
+				}
+			}
+		}
+		for(i=0; i<10; i++)
+		{
+			for(j=0; j<3; j++)
+			{
+				for(k=0; k<2; k++)
+				{
+					cacheBlock[i][j][k] = newimage(widthOfBlock, heightOfBlock);
+					DrawBlock(i, j, k, cacheBlock[i][j][k]);
+				}
+			}
+		}
+		cacheSideLength = sideLength;
+	}
+	putimage(x, y, cacheBlock[board][isShown][highlight]);
+}
+
 void DrawBoard(int mode)//绘制总外部窗口
 {
 	int r, c;
@@ -859,6 +900,7 @@ void DrawBoard(int mode)//绘制总外部窗口
 	int highlight;
 	setfillcolor(LIGHTGRAY);
 	ege_fillrect(0, 0, windowWidth, heightOfBar);//清除旧顶栏减少锯齿感
+	//绘制地图边框
 	ege_point polyPoints1[6] =
 	{
 		{(float)0+dx, (float)heightOfBar+dy},
@@ -921,34 +963,34 @@ void DrawBoard(int mode)//绘制总外部窗口
 			{
 				if(isShown[r][c] == 2)
 				{
-					DrawBlock(r, c, board[r][c], 2, highlight);
+					DrawBlockP(r, c, board[r][c], 2, highlight);
 				}
 				else if(board[r][c] == 0)
 				{
-					DrawBlock(r, c, 0, 1, highlight);
+					DrawBlockP(r, c, 0, 1, highlight);
 				}
 				else if(board[r][c] == 9)
 				{
-					DrawBlock(r, c, 9, isShown[r][c], highlight);
+					DrawBlockP(r, c, 9, isShown[r][c], highlight);
 				}
 				else
 				{
-					DrawBlock(r, c, board[r][c], 1, highlight);
+					DrawBlockP(r, c, board[r][c], 1, highlight);
 				}
 			}
 			else if(mode == 0)//前台
 			{
 				if(isShown[r][c] == 2)
 				{
-					DrawBlock(r, c, 9, 2, highlight);
+					DrawBlockP(r, c, 9, 2, highlight);
 				}
 				else if(isShown[r][c] == 0)
 				{
-					DrawBlock(r, c, 0, 0, highlight);
+					DrawBlockP(r, c, 0, 0, highlight);
 				}
 				else
 				{
-					DrawBlock(r, c, board[r][c], 1, highlight);
+					DrawBlockP(r, c, board[r][c], 1, highlight);
 				}
 			}
 		}
@@ -1032,7 +1074,8 @@ void DrawMouse(int x, int y)//绘制鼠标
 	ege_line(x0+x+sideLength/4, y0+y+sideLength/4, x0+x+sideLength/2, y0+y+sideLength*3/8);
 	ege_line(x0+x+sideLength/4, y0+y+sideLength/4, x0+x+sideLength*3/8, y0+y+sideLength/2);*/
 	//鼠标指针
-	ege_point polyPoints[8] = {
+	ege_point polyPoints[8] =
+	{
 		{x0+x+0*k, y0+y+0*k}, {x0+x+0*k, y0+y+27*k}, {x0+x+6*k, y0+y+22*k}, {x0+x+11*k, y0+y+31*k},
 		{x0+x+16*k, y0+y+28*k}, {x0+x+11*k, y0+y+20*k}, {x0+x+20*k, y0+y+20*k}, {x0+x+0*k, y0+y+0*k}
 	};
@@ -1780,8 +1823,10 @@ MineSweeper EGE 10.6
 MineSweeper EGE 10.7
 ——优化 通过三目运算符和数字配色数组简化代码
 ——优化 默认显示大小
-//——新增 拖动标记根据起始操作统一标记/取消标记
+MineSweeper EGE 11
+——新增 方块绘制全面使用图像缓存
 //——新增 根据位数自动调整图标位置
+//——新增 胜利后未标记方块显示蓝色旗帜
 //——优化 分立地图和窗口绘制代码
 //——优化 编译体积（加链接参数-Wl,--gc-sections）
 //——优化 根据位偏移统一图标位置设计语言
