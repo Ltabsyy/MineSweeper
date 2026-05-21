@@ -14,7 +14,7 @@
 /**
  * 扫雷 MineSweeper Run
  * 
- * by Ltabsyy & Jws
+ * by Ltabsyy
  * 
  * https://github.com/Ltabsyy/MineSweeper
  **/
@@ -27,8 +27,8 @@
 
 // 外部窗口形态
 int sideLength = 32;//外部窗口方块边长
-#define heightOfBlock sideLength
-#define widthOfBlock sideLength//锁定纵横比
+#define heightOfBlock (sideLength)
+#define widthOfBlock (sideLength)//锁定纵横比，被用作除数需加括号
 #define heightOfBar 2*sideLength
 #define widthOfBorder sideLength/4
 #define xOfChar widthOfBlock*10/32
@@ -66,7 +66,7 @@ struct Information
 	int t0, t1, t2;//显示用时
 	int unsolved3BV, total3BV;//地图3BV
 	int showInformation;//0第一次翻开，1刷新信息
-	int clock0, clock1;//毫秒用时
+	int clock0, clock1, clock2;//毫秒用时
 }game;
 void SummonBoard(int seed, int r0, int c0, int summonMode, int iterateMode);//地图生成
 int Place(int n);//计算某数所占位数，用于对齐坐标轴
@@ -88,13 +88,14 @@ int screenHeight, screenWidth;
 int windowHeight, windowWidth, xFace;
 int xRemainedMine, xRemainedMineNumber, xTime, xTimeNumber, x3BV, x3BVNumber, x3BVps, x3BVpsNumber;
 int mouseR = -1, mouseC = -1;//悬浮高亮
-void DrawMine(int r, int c);//绘制地图地雷
+void DrawMine(PIMAGE pimg);//在图像中绘制地图地雷
 void DrawMineA(int x0, int y0, int r);//绘制地雷图形
-void DrawFlag(int r, int c);//绘制地图旗帜
-void DrawBlock(int r, int c, int board, int isShown, int highlight);//绘制方块
+void DrawFlag(PIMAGE pimg);//在图像中绘制地图旗帜
+void DrawBlock(int board, int isShown, int highlight, PIMAGE pimg);//在图像中绘制方块
 void DrawLineA(int x0, int y0, int r, int angle);//绘制时钟指针
 void DrawClock(int x0, int y0, int r, int time);//绘制时钟
 void DrawFace(int mode);//绘制笑脸
+void DrawBlockP(int r, int c, int board, int isShown, int highlight);//绘制方块
 void DrawBoard(int mode);//绘制总外部窗口
 void DrawSolution();//在外部窗口绘制方案矩阵
 //void DrawMouse(int x, int y);//绘制鼠标
@@ -258,7 +259,7 @@ struct Operations
 {
 	int numberOfMine;
 	int heightOfBoard, widthOfBoard;
-	int summonMode;
+	int summonMode, iterateMode;
 	int seed, r0, c0;
 	int time;//终局时整数时间，避免毫秒时间显示偏差
 	int isWin;//胜局时显示3BV全解
@@ -320,6 +321,7 @@ int numberOfMine = 10;//雷数量
 int heightOfBoard = 10;//界面高度
 int widthOfBoard = 10;//界面宽度
 int summonCheckMode = 2;//0不校验，1非雷，2必空，3可解，4筛选
+int mapIterator = 1;//记录地图迭代次数
 int showTime = 1;//显示用时，0不显示，1显示
 int show3BV = 0;//显示3BV和3BV/s
 int backgroundColor = 0x07;//背景颜色，深色模式0x07，浅色模式0xf0
@@ -332,7 +334,7 @@ int dictionaryCapacity = 32768;//全字典大小
 int remainedMineJudgeLocalNC = 1;//剩余雷数判断
 int remainedMineJudgeLocalMC = 0;
 int remainedMineJudgeGlobal = 0;
-int refreshCycle = 50;//刷新周期，默认50ms，一般鼠标8ms，游戏鼠标1ms
+int refreshCycle = 25;//刷新周期，默认25ms，一般鼠标8ms，游戏鼠标1ms
 int fastShow = 1;//启用快速显示，仅刷新地图更新部分
 int fastSign = 0;//#数字快速标记周围
 int newCursor = 2;//1><光标，2淡黄色高亮光标，3淡黄色高亮行列
@@ -585,10 +587,9 @@ int main(/*int argc, char** argv*/)
 	{
 		lastMap = 1;
 		choiceMode = 1;
-		fscanf(file, "Map:%d*%d-%d\n", &heightOfBoard, &widthOfBoard, &numberOfMine);
-		fscanf(file, "seed=%d,%d,%d\n", &seed, &r0, &c0);
-		fscanf(file, "summonCheckMode=%d\n", &summonCheckMode);
-		fscanf(file, "time=%d\n", &(game.t2));
+		fscanf(file, "Map:%d*%d-%d,%d,%d,%d,%d,%d\n",
+			&heightOfBoard, &widthOfBoard, &numberOfMine, &seed, &r0, &c0, &summonCheckMode, &mapIterator);
+		fscanf(file, "time=%d(%d)\n", &(game.t2), &(game.clock2));
 		fscanf(file, "pos=(%d,%d)\n", &ro, &co);
 		fscanf(file, "isHelped=%d\n", &isHelped);
 		//提前申请内存空间读入显示方式矩阵
@@ -606,10 +607,9 @@ int main(/*int argc, char** argv*/)
 		if(debug == 2)
 		{
 			printf("[Debug]已获取上一次地图：\n");
-			printf("Map:%d*%d-%d\n", heightOfBoard, widthOfBoard, numberOfMine);
-			printf("seed=%d,%d,%d\n", seed, r0, c0);
-			printf("summonCheckMode=%d\n", summonCheckMode);
-			printf("time=%d\n", game.t2);
+			printf("Map:%d*%d-%d,%d,%d,%d,%d,%d\n",
+				heightOfBoard, widthOfBoard, numberOfMine, seed, r0, c0, summonCheckMode, mapIterator);
+			printf("time=%d(%d)\n", game.t2, game.clock2);
 			printf("pos=(%d,%d)\n", ro, co);
 			printf("isHelped=%d\n", isHelped);
 			printf("[Debug]显示方式矩阵：\n");
@@ -709,6 +709,7 @@ int main(/*int argc, char** argv*/)
 			else//无上一次地图或自制地图
 			{
 				game.t2 = 0;
+				game.clock2 = 0;
 				isHelped = 0;
 				if(lastMap == 2) isHelped = 1;
 				for(r=0; r<heightOfBoard; r++)//确保第一次显示为全未翻开
@@ -837,7 +838,7 @@ int main(/*int argc, char** argv*/)
 			else if(lastMap != 2)
 			{
 				ShownModeBak(1);//有上一次地图时显示方式矩阵不清零
-				SummonBoard(seed, r0, c0, summonCheckMode, 1);
+				SummonBoard(seed, r0, c0, summonCheckMode, mapIterator);
 				ShownModeBak(0);
 			}
 			/*准备开始游戏*/
@@ -1005,10 +1006,9 @@ int main(/*int argc, char** argv*/)
 				if(lastMap != 2)//自制地图不备份
 				{
 					file = fopen("minesweeper-lastmap.txt", "w");
-					fprintf(file, "Map:%d*%d-%d\n", heightOfBoard, widthOfBoard, numberOfMine);
-					fprintf(file, "seed=%d,%d,%d\n", seed, r0, c0);
-					fprintf(file, "summonCheckMode=%d\n", summonCheckMode);
-					fprintf(file, "time=%d\n", game.t1-game.t0+game.t2);
+					fprintf(file, "Map:%d*%d-%d,%d,%d,%d,%d,%d\n",
+						heightOfBoard, widthOfBoard, numberOfMine, seed, r0, c0, summonCheckMode, mapIterator);
+					fprintf(file, "time=%d(%d)\n", game.t1-game.t0+game.t2, game.clock1-game.clock0+game.clock2);
 					fprintf(file, "pos=(%d,%d)\n", ro, co);
 					fprintf(file, "isHelped=%d\n", isHelped);
 					for(r=0; r<heightOfBoard; r++)
@@ -1040,6 +1040,7 @@ int main(/*int argc, char** argv*/)
 							game.t0 = 0;
 							game.t1 = 0;
 							game.t2 = 0;
+							game.clock2 = 0;
 							game.showInformation = 0;
 							for(r=0; r<heightOfBoard; r++)
 							{
@@ -1429,7 +1430,7 @@ int main(/*int argc, char** argv*/)
 						}
 					}
 					if(operateMode == 3) delay_ms(0);
-					api_sleep(refreshCycle);//每50ms刷新一次
+					api_sleep(refreshCycle);//每25ms刷新一次
 				}
 				ro = r;
 				co = c;
@@ -1572,6 +1573,7 @@ int main(/*int argc, char** argv*/)
 			if(choiceMode == 5)//暂停
 			{
 				game.t2 = game.t1-game.t0+game.t2;//更新时间
+				game.clock2 = game.clock1-game.clock0+game.clock2;
 				choiceMode = 0;//返回主页
 			}
 			else if(choiceMode == 0)//完成地图退出
@@ -1585,7 +1587,7 @@ int main(/*int argc, char** argv*/)
 				newRecord.r0 = r0;
 				newRecord.c0 = c0;
 				newRecord.sTime = game.t1-game.t0+game.t2;
-				newRecord.msTime = game.clock1-game.clock0 + game.t2*1000;
+				newRecord.msTime = game.clock1-game.clock0+game.clock2;
 				newRecord.solved3BV = game.total3BV-game.unsolved3BV;
 				newRecord.total3BV = game.total3BV;
 				newRecord.isHelped = isHelped;
@@ -2502,6 +2504,7 @@ int main(/*int argc, char** argv*/)
 			while(scanf("%d", &c0) == 0) getchar();//同时兼容空格形式和逗号形式
 			lastMap = 1;
 			game.t2 = 0;
+			game.clock2 = 0;
 			ro = r0;
 			co = c0;
 			isHelped = 1;//无效记录
@@ -4587,22 +4590,20 @@ void ShowInformation()//更新时间并显示游戏信息
 	printf("\n");
 }
 
-void DrawMine(int r, int c)//绘制地图地雷
+void DrawMine(PIMAGE pimg)//在图像中绘制地图地雷
 {
-	float x = c*widthOfBlock+widthOfBorder+dx;
-	float y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
-	//setcolor(LIGHTRED);
-	//xyprintf(x+xOfChar, y+yOfChar, "@");
-	setfillcolor(BLACK);
-	ege_fillellipse(x+7.4/32*widthOfBlock, y+7.4/32*heightOfBlock, 0.6*widthOfBlock, 0.6*heightOfBlock);
-	setcolor(BLACK);
-	setlinewidth(sideLength/16);
-	ege_line(x+5.0/32*widthOfBlock, y+17.0/32*heightOfBlock, x+29.0/32*widthOfBlock, y+17.0/32*heightOfBlock);
-	ege_line(x+17.0/32*widthOfBlock, y+5.0/32*heightOfBlock, x+17.0/32*widthOfBlock, y+29.0/32*heightOfBlock);
-	ege_line(x+9.0/32*widthOfBlock, y+9.0/32*heightOfBlock, x+25.0/32*widthOfBlock, y+25.0/32*heightOfBlock);
-	ege_line(x+9.0/32*widthOfBlock, y+25.0/32*heightOfBlock, x+25.0/32*widthOfBlock, y+9.0/32*heightOfBlock);
-	setfillcolor(WHITE);
-	ege_fillrect(x+12.0/32*widthOfBlock, y+12.0/32*heightOfBlock, 4.0/32*widthOfBlock, 4.0/32*heightOfBlock);
+	//setcolor(LIGHTRED, pimg);
+	//outtextxy(xOfChar, yOfChar, '@', pimg);
+	setfillcolor(BLACK, pimg);
+	ege_fillellipse(7.4/32*widthOfBlock, 7.4/32*heightOfBlock, 0.6*widthOfBlock, 0.6*heightOfBlock, pimg);
+	setcolor(BLACK, pimg);
+	setlinewidth(sideLength/16, pimg);
+	ege_line(5.0/32*widthOfBlock, 17.0/32*heightOfBlock, 29.0/32*widthOfBlock, 17.0/32*heightOfBlock, pimg);
+	ege_line(17.0/32*widthOfBlock, 5.0/32*heightOfBlock, 17.0/32*widthOfBlock, 29.0/32*heightOfBlock, pimg);
+	ege_line(9.0/32*widthOfBlock, 9.0/32*heightOfBlock, 25.0/32*widthOfBlock, 25.0/32*heightOfBlock, pimg);
+	ege_line(9.0/32*widthOfBlock, 25.0/32*heightOfBlock, 25.0/32*widthOfBlock, 9.0/32*heightOfBlock, pimg);
+	setfillcolor(WHITE, pimg);
+	ege_fillrect(12.0/32*widthOfBlock, 12.0/32*heightOfBlock, 4.0/32*widthOfBlock, 4.0/32*heightOfBlock, pimg);
 }
 
 void DrawMineA(int x0, int y0, int r)//绘制地雷图形
@@ -4620,105 +4621,96 @@ void DrawMineA(int x0, int y0, int r)//绘制地雷图形
 	ege_fillrect(x0-r+11.0/16*r, y0-r+11.0/16*r, 4.0/16*r, 4.0/16*r);
 }
 
-void DrawFlag(int r, int c)//绘制地图旗帜
+void DrawFlag(PIMAGE pimg)//在图像中绘制地图旗帜
 {
-	float x = c*widthOfBlock+widthOfBorder+dx;
-	float y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
-	//setcolor(LIGHTRED);
-	//xyprintf(x+xOfChar, y+yOfChar, "#");
-	setfillcolor(BLACK);
+	//setcolor(LIGHTRED, pimg);
+	//outtextxy(xOfChar, yOfChar, '#', pimg);
+	setfillcolor(BLACK, pimg);
 	//绘制底座
-	ege_fillrect(x+8.0/32*widthOfBlock, y+24.0/32*heightOfBlock, 16.0/32*widthOfBlock, 2.0/32*heightOfBlock);
-	ege_fillrect(x+10.0/32*widthOfBlock, y+22.0/32*heightOfBlock, 12.0/32*widthOfBlock, 2.0/32*heightOfBlock);
+	ege_fillrect(8.0/32*widthOfBlock, 24.0/32*heightOfBlock, 16.0/32*widthOfBlock, 2.0/32*heightOfBlock, pimg);
+	ege_fillrect(10.0/32*widthOfBlock, 22.0/32*heightOfBlock, 12.0/32*widthOfBlock, 2.0/32*heightOfBlock, pimg);
 	//绘制旗杆
-	ege_fillrect(x+15.0/32*widthOfBlock, y+16.0/32*heightOfBlock, 2.0/32*widthOfBlock, 8.0/32*heightOfBlock);
+	ege_fillrect(15.0/32*widthOfBlock, 16.0/32*heightOfBlock, 2.0/32*widthOfBlock, 8.0/32*heightOfBlock, pimg);
 	//绘制旗帜
-	setfillcolor(RED);
+	setfillcolor(RED, pimg);
 	ege_point polyPoints[3] =
 	{
-		{x+6.0f/32*widthOfBlock, y+11.0f/32*heightOfBlock},
-		{x+17.0f/32*widthOfBlock, y+6.0f/32*heightOfBlock},
-		{x+17.0f/32*widthOfBlock, y+16.0f/32*heightOfBlock}
+		{6.0f/32*widthOfBlock, 11.0f/32*heightOfBlock},
+		{17.0f/32*widthOfBlock, 6.0f/32*heightOfBlock},
+		{17.0f/32*widthOfBlock, 16.0f/32*heightOfBlock}
 	};
-	ege_fillpoly(3, polyPoints);
+	ege_fillpoly(3, polyPoints, pimg);
 }
 
-void DrawBlock(int r, int c, int board, int isShown, int highlight)//绘制方块
+void DrawBlock(int board, int isShown, int highlight, PIMAGE pimg)//在图像中绘制方块
 {
-	float x = c*widthOfBlock+widthOfBorder+dx;
-	float y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
+	static const color_t numberColor[10] = {
+		//0, BLUE, GREEN, RED, RED, RED, YELLOW, YELLOW, YELLOW, 0//配色1
+		0, BLUE, GREEN, RED, DARKBLUE, BROWN, DARKCYAN, BLACK, GRAY, 0//配色2
+	};
+	//pimg绘制特性初始化
+	setbkcolor(LIGHTGRAY, pimg);
+	setfont(heightOfChar, 0, "Consolas", pimg);
+	setbkmode(TRANSPARENT, pimg);
+	ege_enable_aa(true, pimg);
 	//绘制边框和底纹
 	if(isShown == 1 || (board == 9 && isShown == 0))
 	{
-		setfillcolor(GRAY);
-		ege_fillrect(x, y, widthOfBlock, heightOfBlock);
-		if(highlight == 1) setfillcolor(LIGHTBLUE);
-		else setfillcolor(DARKGRAY);
-		ege_fillrect(x+widthOfBlock*2/32, y+heightOfBlock*2/32, widthOfBlock*30/32, heightOfBlock*30/32);
-		//setfontbkcolor(DARKGRAY);
+		setfillcolor(GRAY, pimg);
+		ege_fillrect(0, 0, widthOfBlock, heightOfBlock, pimg);
+		setfillcolor(highlight ? LIGHTBLUE : DARKGRAY, pimg);
+		ege_fillrect(widthOfBlock*2/32, heightOfBlock*2/32, widthOfBlock*30/32, heightOfBlock*30/32, pimg);
+		//setfontbkcolor(DARKGRAY, pimg);
 	}
 	else
 	{
-		ege_point polyPoints1[3] = {{x, y}, {x+widthOfBlock, y}, {x, y+heightOfBlock}};
-		ege_point polyPoints2[3] = {{x+widthOfBlock, y}, {x, y+heightOfBlock}, {x+widthOfBlock, y+heightOfBlock}};
-		setfillcolor(WHITE);
-		ege_fillpoly(3, polyPoints1);
-		setfillcolor(GRAY);
-		ege_fillpoly(3, polyPoints2);
-		if(highlight == 1) setfillcolor(LIGHTBLUE);
-		else setfillcolor(LIGHTGRAY);
-		//ege_fillrect(x+widthOfBlock*4/32, y+heightOfBlock*4/32, widthOfBlock*24/32, heightOfBlock*24/32);
-		ege_fillrect(x+widthOfBlock*2.0/32, y+heightOfBlock*2.0/32, widthOfBlock*28/32, heightOfBlock*28/32);
-		//setfontbkcolor(LIGHTGRAY);
+		ege_point polyPoints1[3] =
+		{
+			{0, 0}, {(float)widthOfBlock, 0}, {0, (float)heightOfBlock}
+		};
+		ege_point polyPoints2[3] =
+		{
+			{(float)widthOfBlock, 0}, {0, (float)heightOfBlock}, {(float)widthOfBlock, (float)heightOfBlock}
+		};
+		setfillcolor(WHITE, pimg);
+		ege_fillpoly(3, polyPoints1, pimg);
+		setfillcolor(GRAY, pimg);
+		ege_fillpoly(3, polyPoints2, pimg);
+		setfillcolor(highlight ? LIGHTBLUE : LIGHTGRAY, pimg);
+		//ege_fillrect(widthOfBlock*4/32, heightOfBlock*4/32, widthOfBlock*24/32, heightOfBlock*24/32, pimg);
+		ege_fillrect(widthOfBlock*2.0/32, heightOfBlock*2.0/32, widthOfBlock*28/32, heightOfBlock*28/32, pimg);
+		//setfontbkcolor(LIGHTGRAY, pimg);
 	}
 	//绘制文字或图形
-	//xyprintf(x+12, y+8, "%d", board);
-	//rectprintf(x, y, widthOfBlock, heightOfBlock, "%d", board);
 	if(isShown == 2)
 	{
 		if(board != 9)//错误标记
 		{
-			setfillcolor(LIGHTRED);
-			ege_fillrect(x+widthOfBlock*2.0/32, y+heightOfBlock*2.0/32, widthOfBlock*28/32, heightOfBlock*28/32);
+			setfillcolor(LIGHTRED, pimg);
+			ege_fillrect(widthOfBlock*2.0/32, heightOfBlock*2.0/32, widthOfBlock*28/32, heightOfBlock*28/32, pimg);
 		}
-		DrawFlag(r, c);
+		DrawFlag(pimg);
 	}
 	else if(isShown == 0)
 	{
 		if(board == 9)
 		{
-			DrawMine(r, c);
+			DrawMine(pimg);
 		}
 	}
 	else
 	{
 		if(board == 9)
 		{
-			setfillcolor(RED);
-			ege_fillrect(x+widthOfBlock*2/32, y+heightOfBlock*2/32, widthOfBlock*30/32, heightOfBlock*30/32);
-			DrawMine(r, c);
+			setfillcolor(RED, pimg);
+			ege_fillrect(widthOfBlock*2/32, heightOfBlock*2/32, widthOfBlock*30/32, heightOfBlock*30/32, pimg);
+			DrawMine(pimg);
 		}
 		else if(board == 0);
-		else
+		else//数字
 		{
-			//配色1
-			//if(board == 1) setcolor(BLUE);
-			//else if(board == 2) setcolor(GREEN);
-			//else if(board < 6) setcolor(RED);//3-5
-			//else setcolor(YELLOW);
-			//配色2
-			if(board == 1) setcolor(BLUE);
-			else if(board == 2) setcolor(GREEN);
-			else if(board == 3) setcolor(RED);
-			else if(board == 4) setcolor(DARKBLUE);
-			else if(board == 5) setcolor(BROWN);
-			else if(board == 6) setcolor(DARKCYAN);
-			else if(board == 7) setcolor(BLACK);
-			else setcolor(GRAY);
-			//数字
-			//setbkmode(TRANSPARENT);
-			xyprintf(x+xOfChar, y+yOfChar, "%d", board);
-			//setbkmode(OPAQUE);
+			setcolor(numberColor[board], pimg);
+			outtextxy(xOfChar, yOfChar, (char)('0'+board), pimg);
 		}
 	}
 }
@@ -4828,6 +4820,44 @@ void DrawFace(int mode)//绘制笑脸
 	}
 }
 
+void DrawBlockP(int r, int c, int board, int isShown, int highlight)//绘制方块
+{
+	float x = c*widthOfBlock+widthOfBorder+dx;
+	float y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
+	static int cacheSideLength = 0;
+	static PIMAGE cacheBlock[10][3][2];
+	int i, j, k;
+	if(cacheSideLength != sideLength)//重绘图像缓存
+	{
+		if(cacheSideLength != 0)
+		{
+			for(i=0; i<10; i++)
+			{
+				for(j=0; j<3; j++)
+				{
+					for(k=0; k<2; k++)
+					{
+						delimage(cacheBlock[i][j][k]);
+					}
+				}
+			}
+		}
+		for(i=0; i<10; i++)
+		{
+			for(j=0; j<3; j++)
+			{
+				for(k=0; k<2; k++)
+				{
+					cacheBlock[i][j][k] = newimage(widthOfBlock, heightOfBlock);
+					DrawBlock(i, j, k, cacheBlock[i][j][k]);
+				}
+			}
+		}
+		cacheSideLength = sideLength;
+	}
+	putimage(x, y, cacheBlock[board][isShown][highlight]);
+}
+
 void DrawBoard(int mode)//绘制总外部窗口
 {
 	int r, c;
@@ -4835,6 +4865,7 @@ void DrawBoard(int mode)//绘制总外部窗口
 	int highlight;
 	setfillcolor(LIGHTGRAY);
 	ege_fillrect(0, 0, windowWidth, heightOfBar);//清除旧顶栏减少锯齿感
+	//绘制地图边框
 	ege_point polyPoints1[6] =
 	{
 		{(float)0+dx, (float)heightOfBar+dy},
@@ -4897,34 +4928,34 @@ void DrawBoard(int mode)//绘制总外部窗口
 			{
 				if(isShown[r][c] == 2)
 				{
-					DrawBlock(r, c, board[r][c], 2, highlight);
+					DrawBlockP(r, c, board[r][c], 2, highlight);
 				}
 				else if(board[r][c] == 0)
 				{
-					DrawBlock(r, c, 0, 1, highlight);
+					DrawBlockP(r, c, 0, 1, highlight);
 				}
 				else if(board[r][c] == 9)
 				{
-					DrawBlock(r, c, 9, isShown[r][c], highlight);
+					DrawBlockP(r, c, 9, isShown[r][c], highlight);
 				}
 				else
 				{
-					DrawBlock(r, c, board[r][c], 1, highlight);
+					DrawBlockP(r, c, board[r][c], 1, highlight);
 				}
 			}
 			else if(mode == 0)//前台
 			{
 				if(isShown[r][c] == 2)
 				{
-					DrawBlock(r, c, 9, 2, highlight);
+					DrawBlockP(r, c, 9, 2, highlight);
 				}
 				else if(isShown[r][c] == 0)
 				{
-					DrawBlock(r, c, 0, 0, highlight);
+					DrawBlockP(r, c, 0, 0, highlight);
 				}
 				else
 				{
-					DrawBlock(r, c, board[r][c], 1, highlight);
+					DrawBlockP(r, c, board[r][c], 1, highlight);
 				}
 			}
 		}
@@ -5008,7 +5039,8 @@ void DrawMouse(int x, int y)//绘制鼠标
 	//ege_line(x0+x+sideLength/4, y0+y+sideLength/4, x0+x+sideLength/2, y0+y+sideLength*3/8);
 	//ege_line(x0+x+sideLength/4, y0+y+sideLength/4, x0+x+sideLength*3/8, y0+y+sideLength/2);
 	//鼠标指针
-	ege_point polyPoints[8] = {
+	ege_point polyPoints[8] =
+	{
 		{x0+x+0*k, y0+y+0*k}, {x0+x+0*k, y0+y+27*k}, {x0+x+6*k, y0+y+22*k}, {x0+x+11*k, y0+y+31*k},
 		{x0+x+16*k, y0+y+28*k}, {x0+x+11*k, y0+y+20*k}, {x0+x+20*k, y0+y+20*k}, {x0+x+0*k, y0+y+0*k}
 	};
@@ -5123,7 +5155,7 @@ void InitWindow(int mode)//创建窗口
 		else if(screenHeight >= 1080) sideLength = 32;
 		else sideLength = 24;
 		while(widthOfBlock*widthOfBoard+widthOfBorder*2 > screenWidth
-			|| heightOfBar+heightOfBlock*(heightOfBoard+4)+widthOfBorder*2 > screenHeight)
+			|| heightOfBar+heightOfBlock*heightOfBoard+widthOfBorder*2 > screenHeight*10/11)
 		{
 			if(sideLength > 16) sideLength -= 4;
 			else sideLength -= 1;
@@ -7351,7 +7383,7 @@ int IsSolvableMap(int seed, int r0, int c0)
 {
 	int r, c, temp, isOpenMine = 0;
 	ShownModeBak(1);
-	SummonBoard(seed, r0, c0, summonCheckMode, 1);
+	SummonBoard(seed, r0, c0, summonCheckMode, mapIterator);
 	if(islandPrediction == 1 && IsSolvableIsland() == 0) return 0;//预判加速
 	isShown[r0][c0] = 1;
 	for(r=0; r<heightOfBoard; r++)
@@ -8848,7 +8880,8 @@ struct Records DeleteRecords(struct Records records, int mode)
 			{
 				if(IsEffectiveRecord(records.record[i]) == 0//无效记录
 					|| (records.record[i].sTime != records.minimumTime[records.record[i].difficulty]
-						&& records.record[i].speed != records.fastestSpeed[records.record[i].difficulty]))//不是纪录
+						&& records.record[i].speed != records.fastestSpeed[records.record[i].difficulty]
+						&& records.record[i].score != records.highestScore[records.record[i].difficulty]))//不是纪录
 				{
 					deleteList[i] = 1;
 				}
@@ -9603,6 +9636,7 @@ struct Operations AddOperations(int seed, int r0, int c0)
 	operations.heightOfBoard = heightOfBoard;
 	operations.widthOfBoard = widthOfBoard;
 	operations.summonMode = summonCheckMode;
+	operations.iterateMode = mapIterator;
 	operations.seed = seed;
 	operations.r0 = r0;
 	operations.c0 = c0;
@@ -9640,9 +9674,9 @@ void WriteOperations(struct Operations operations)
 			operations.heightOfBoard, operations.widthOfBoard, operations.numberOfMine,
 			(float)(operations.tail->mstime-operations.head->mstime)/1000, operations.seed);
 	file = fopen(fileName, "w");
-	fprintf(file, "Map:%d*%d-%d\n", operations.heightOfBoard, operations.widthOfBoard, operations.numberOfMine);
-	fprintf(file, "seed=%d,%d,%d\n", operations.seed, operations.r0, operations.c0);
-	fprintf(file, "summonCheckMode=%d\n", operations.summonMode);
+	fprintf(file, "Map:%d*%d-%d,%d,%d,%d,%d,%d\n",
+		operations.heightOfBoard, operations.widthOfBoard, operations.numberOfMine,
+		operations.seed, operations.r0, operations.c0, operations.summonMode, operations.iterateMode);
 	fprintf(file, "time=%d\n", operations.time);
 	fprintf(file, "isWin=%d\n", operations.isWin);
 	//fprintf(file, "sideLength=16\n");
@@ -9693,9 +9727,9 @@ struct Operations ReadOperations(char* fileName)
 	}
 	if((file = fopen(fileName, "r")))
 	{
-		fscanf(file, "Map:%d*%d-%d\n", &(operations.heightOfBoard), &(operations.widthOfBoard), &(operations.numberOfMine));
-		fscanf(file, "seed=%d,%d,%d\n", &(operations.seed), &(operations.r0), &(operations.c0));
-		fscanf(file, "summonCheckMode=%d\n", &(operations.summonMode));
+		fscanf(file, "Map:%d*%d-%d,%d,%d,%d,%d,%d\n",
+			&(operations.heightOfBoard), &(operations.widthOfBoard), &(operations.numberOfMine),
+			&(operations.seed), &(operations.r0), &(operations.c0), &(operations.summonMode), &(operations.iterateMode));
 		fscanf(file, "time=%d\n", &(operations.time));
 		fscanf(file, "isWin=%d\n", &(operations.isWin));
 		//fscanf(file, "sideLength=16\n");
@@ -9746,6 +9780,9 @@ void PlayOperations(struct Operations operations)
 	game.total3BV = BBBV(operations.seed, operations.r0, operations.c0, 1);
 	game.unsolved3BV = game.total3BV;
 	game.remainedMine = numberOfMine;
+	game.yOfMap = 3;//显示准备
+	game.yOfInformation = game.yOfMap + heightOfMapShown;//heightOfMapShown在AdaptScreenBufferWidth()更新
+	game.showInformation = 1;
 	if(fastShow == 1)
 	{
 		for(r=0; r<heightOfBoard; r++)
@@ -9898,7 +9935,7 @@ void PlayOperations(struct Operations operations)
 				xm = widthOfBlock/2+c*widthOfBlock;
 				ym = heightOfBlock/2+r*heightOfBlock;
 			}
-			DrawMouse(xm, ym);
+			DrawMouse(xm+widthOfBorder+dx, ym+heightOfBar+widthOfBorder+dy);
 			delay_ms(0);
 		}
 		if(operation == 'm')
@@ -9940,7 +9977,7 @@ void PlayOperations(struct Operations operations)
 	{
 		if(operations.isWin != 2)
 		{
-			CloseWindow(operations.isWin);
+			if(CloseWindow(operations.isWin)) closegraph();//左键也关闭
 		}
 		else
 		{
@@ -12204,6 +12241,11 @@ MineSweeper Run 5.16
 ——新增 全面使用第二代雷场生成算法
 ——新增 历史记录仅显示最近1024条时显示第1条和省略号
 ——优化 更精确的记录毫秒用时和秒用时
+MineSweeper Run 5.17
+——优化 默认刷新周期从50ms提高到25ms
+——优化 上一次游戏文件格式（记录迭代、毫秒）
+——修复 仅保留纪录不保留SS纪录
+//——新增 可解和筛选地图生成时可迭代最多8次
 //——新增 调试选项可启用保存有效记录的操作记录
 //——新增 主页按V或拖动文件至程序图标播放操作记录
 //——新增 调试选项可启用屏蔽鼠标点击翻开标记
@@ -12212,8 +12254,10 @@ MineSweeper Run 5.16
 //——新增 内外雷率扰动（根据内部雷分布组合数对应枚举结果雷数扰动交界线雷率）
 //——新增 触雷直接重开和超时间纪录且低速直接重开
 //——新增 调试选项可启用统一标记（鼠标点击拖动标记根据起始操作统一标记/取消标记）
+//——新增 游戏信息显示预计用时、全部3BV不显示十位
 //——优化 现在地图求解可选择从外部文件读取地图，界面支持鼠标点击
 //——优化 重新设计自定义难度设置，以密度设置雷数不再是调试选项
 //——优化 雷率由浮点计算转为整数计算
+//——优化 3BV计算不再绑定生成地图
 //——修复 未操作的Tab后不使用快速显示
 --------------------------------*/
