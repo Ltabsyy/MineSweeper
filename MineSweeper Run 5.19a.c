@@ -6467,7 +6467,95 @@ void Solve(int showAnswer)//程序核心部分(doge)
 		}//我愿称为抽象行为(doge)
 	}*/
 }
-
+/*
+void ContinuousSolve()//对当前地图连续简单判断和逻辑推理
+{
+	int r, c, ra, ca, rb, cb;
+	int isSolving = 1, isOpenZero = 0;
+	int numberOfNotShownAround, numberOfSignAround;
+	//初次获取已知数字
+	for(r=0; r<heightOfBoard; r++)
+	{
+		for(c=0; c<widthOfBoard; c++)
+		{
+			numberShown[r][c] = 9;//精简版LookMap()，无需累赘的map矩阵
+			if(isShown[r][c] == 1) numberShown[r][c] = board[r][c];
+		}
+	}
+	while(isSolving)
+	{
+		isSolving = 0;
+		//简单判断
+		for(r=0; r<heightOfBoard; r++)
+		{
+			for(c=0; c<widthOfBoard; c++)
+			{
+				if(isShown[r][c] == 1 && numberShown[r][c] != 0)
+				{
+					numberOfNotShownAround = NumberOfNotShownAround(r, c);
+					if(numberOfNotShownAround != 0)//是非0数字且周围有未知方块
+					{
+						numberOfSignAround = NumberOfSignAround(r, c);
+						if(numberShown[r][c] == numberOfNotShownAround + numberOfSignAround)
+						{
+							//数字等于未翻开方块数，标记
+							for(ra=r-1; ra<=r+1; ra++)
+							{
+								for(ca=c-1; ca<=c+1; ca++)
+								{
+									if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)
+									{
+										if(isShown[ra][ca] == 0)
+										{
+											isShown[ra][ca] = 2;//直接操作，使产生信息直接作用于该轮
+										}
+									}
+								}
+							}
+							isSolving = 1;
+						}
+						else if(numberShown[r][c] == numberOfSignAround)
+						{
+							//数字等于标记数，翻开
+							for(ra=r-1; ra<=r+1; ra++)
+							{
+								for(ca=c-1; ca<=c+1; ca++)
+								{
+									if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)
+									{
+										if(isShown[ra][ca] == 0)
+										{
+											isShown[ra][ca] = 1;
+											numberShown[ra][ca] = board[ra][ca];
+											if(board[ra][ca] == 0)
+											{
+												OpenZeroChain(ra, ca);
+												//isOpenZero = 1;
+												for(rb=0; rb<heightOfBoard; rb++)
+												{
+													for(cb=0; cb<widthOfBoard; cb++)
+													{
+														if(isShown[rb][cb] == 1) numberShown[rb][cb] = board[rb][cb];
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+							isSolving = 1;
+						}
+					}
+				}
+			}
+		}
+		if(isSolving == 0)
+		{
+			//逻辑推理
+		}
+	}
+}
+*/
 int NumberTeamType(int number1, int number2, int numberOfMine1, int numberOfMine2, int numberOfNotShown1, int numberOfNotShown2)//数对分类显示调试信息
 {
 	if(numberOfNotShown2 == 0)//数对之二独占区全已知，1234类数对
@@ -7434,16 +7522,7 @@ int IsSolvableIsland()//判断当前地图岛上可解性
 			isShown[r][c] = 0;
 		}
 	}
-	if(isOpenMine == 1)
-	{
-		if(debug == 1 || debug == 2) printf("[Debug]该地图岛上不可解\n");
-		return 0;
-	}
-	else
-	{
-		if(debug == 1 || debug == 2) printf("[Debug]该地图岛上可解\n");
-		return 1;
-	}
+	return 1-isOpenMine;
 }
 
 int IsSolvableMap(int seed, int r0, int c0)
@@ -7461,7 +7540,6 @@ int IsSolvableMap(int seed, int r0, int c0)
 		}
 	}
 	OpenZeroChain(r0, c0);
-	if(debug == 1 || debug == 2) printf("[Debug]正在分析seed=%d,%d,%d\n", seed, r0, c0);
 	while(1)
 	{
 		for(r=0; r<heightOfBoard; r++)
@@ -7488,6 +7566,7 @@ int IsSolvableMap(int seed, int r0, int c0)
 		}
 		if(isOpenMine == 1) break;
 		if(RemainedMineWin()) break;
+		//ContinuousSolve();
 		LookMap();
 		temp = debug;
 		debug = 0;//不显示求解信息
@@ -7499,16 +7578,7 @@ int IsSolvableMap(int seed, int r0, int c0)
 		ShowBoard(1);
 	}
 	ShownModeBak(0);
-	if(isOpenMine == 1)
-	{
-		if(debug == 1 || debug == 2) printf("[Debug]该地图不可解\n");
-		return 0;
-	}
-	else
-	{
-		if(debug == 1 || debug == 2) printf("[Debug]该地图可解\n");
-		return 1;
-	}
+	return 1-isOpenMine;
 }
 
 void ShowSolution(int yOfMap)//在原地图显示方案矩阵
@@ -10592,6 +10662,7 @@ void Bench(int seedMin, int seedMax, int r0, int c0, int showStep, int showSolut
 					ShowBoardFast(3+showInformation);
 				}
 			}
+			//ContinuousSolve();
 			LookMap();
 			if(showStep > 2)
 			{
@@ -11002,7 +11073,7 @@ int SearchSeed(int seedMin, int r0, int c0, int difficulty)//可解和筛选种�
 	int bbbv, r, c;
 	while(isOpenMine == 1)
 	{
-		SummonBoard(seed, r0, c0, summonCheckMode, mapIterator);//生成地图
+		SummonBoard(seed, r0, c0, summonCheckMode, mapIterator == 1);//生成地图
 		if(summonCheckMode == 4)//生成可解速通地图
 		{
 			bbbv = BBBV(1);//计算3BV
@@ -11074,15 +11145,12 @@ void MapSearch(int seedMin, int seedMax, int r0, int c0, int iterateMax)//地图
 		{
 			for(iterator=1; iterator<=iterateMax; iterator++)
 			{
-				SummonBoard(seed, r0, c0, summonMode, iterator);
+				SummonBoard(seed, r0, c0, summonMode, iterator == 1);
 				bbbv = BBBV(1);
 				printf("Map:%d*%d-%d,%d,%d,%d,%d,%d\n",
 					heightOfBoard, widthOfBoard, numberOfMine, seed, r0, c0, summonMode, iterator);
 				printf("3BV=%d\n", bbbv);
-				temp = debug;
-				debug = 0;//不显示重复信息
 				printf("IsSolvableMap=%d\n", IsSolvableMap(seed, r0, c0));
-				debug = temp;
 				ShowBoard(1);
 				//system("pause");
 			}
@@ -11098,44 +11166,41 @@ void MapSearch(int seedMin, int seedMax, int r0, int c0, int iterateMax)//地图
 		scanf("%d", &temp);
 		for(seed=seedMin; seed<=seedMax; seed++)
 		{
-			for(iterator=1; iterator<=iterateMax; iterator++)
+			if(temp == 1)
 			{
-				if(temp == 1)
+				for(r0=0; r0<heightOfBoard; r0++)
 				{
-					for(r0=0; r0<heightOfBoard; r0++)
+					for(c0=0; c0<widthOfBoard; c0++)//遍历所有起始点
 					{
-						for(c0=0; c0<widthOfBoard; c0++)//遍历所有起始点
+						for(iterator=1; iterator<=iterateMax; iterator++)
 						{
-							SummonBoard(seed, r0, c0, summonMode, iterator);
+							SummonBoard(seed, r0, c0, summonMode, iterator == 1);
 							bbbv = BBBV(1);
 							if(bbbv >= bbbvMin && bbbv <= bbbvMax)
 							{
 								printf("Map:%d*%d-%d,%d,%d,%d,%d,%d\n",
 									heightOfBoard, widthOfBoard, numberOfMine, seed, r0, c0, summonMode, iterator);
 								printf("3BV=%d\n", bbbv);
-								temp = debug;
-								debug = 0;//不显示重复信息
 								printf("IsSolvableMap=%d\n", IsSolvableMap(seed, r0, c0));
-								debug = temp;
 								ShowBoard(1);
 								//system("pause");
 							}
 						}
 					}
 				}
-				else
+			}
+			else
+			{
+				for(iterator=1; iterator<=iterateMax; iterator++)
 				{
-					SummonBoard(seed, r0, c0, summonMode, iterator);
+					SummonBoard(seed, r0, c0, summonMode, iterator == 1);
 					bbbv = BBBV(1);
 					if(bbbv >= bbbvMin && bbbv <= bbbvMax)
 					{
 						printf("Map:%d*%d-%d,%d,%d,%d,%d,%d\n",
 							heightOfBoard, widthOfBoard, numberOfMine, seed, r0, c0, summonMode, iterator);
 						printf("3BV=%d\n", bbbv);
-						temp = debug;
-						debug = 0;//不显示重复信息
 						printf("IsSolvableMap=%d\n", IsSolvableMap(seed, r0, c0));
-						debug = temp;
 						ShowBoard(1);
 						//system("pause");
 					}
@@ -11152,7 +11217,7 @@ void MapSearch(int seedMin, int seedMax, int r0, int c0, int iterateMax)//地图
 		{
 			for(iterator=1; iterator<=iterateMax; iterator++)
 			{
-				SummonBoard(seed, r0, c0, summonMode, iterator);
+				SummonBoard(seed, r0, c0, summonMode, iterator == 1);
 				bbbv = BBBV(1);
 				bbbvCount[bbbv]++;
 				t1 = time(0);
@@ -11201,11 +11266,8 @@ void MapSearch(int seedMin, int seedMax, int r0, int c0, int iterateMax)//地图
 		{
 			for(iterator=1; iterator<=iterateMax; iterator++)
 			{
-				SummonBoard(seed, r0, c0, summonMode, iterator);
-				temp = debug;
-				debug = 0;//不显示地图信息
+				SummonBoard(seed, r0, c0, summonMode, iterator == 1);
 				if(IsSolvableMap(seed, r0, c0)) count++;
-				debug = temp;
 				t1 = time(0);
 				printf("\rseed=%d 可解数：%d 用时：%d", seed, count, t1-t0);
 			}
@@ -11223,7 +11285,7 @@ void MapSearch(int seedMin, int seedMax, int r0, int c0, int iterateMax)//地图
 		{
 			for(iterator=1; iterator<=iterateMax; iterator++)
 			{
-				SummonBoard(seed, r0, c0, summonMode, iterator);
+				SummonBoard(seed, r0, c0, summonMode, iterator == 1);
 				temp = 0;
 				for(r=0; r<heightOfBoard; r++)
 				{
@@ -11238,11 +11300,8 @@ void MapSearch(int seedMin, int seedMax, int r0, int c0, int iterateMax)//地图
 					printf("Map:%d*%d-%d,%d,%d,%d,%d,%d\n",
 						heightOfBoard, widthOfBoard, numberOfMine, seed, r0, c0, summonMode, iterator);
 					printf("3BV=%d\n", bbbv);
-					temp = debug;
-					debug = 0;//不显示重复信息
 					isSolvable = IsSolvableMap(seed, r0, c0);
 					printf("IsSolvableMap=%d\n", isSolvable);
-					debug = temp;
 					ShowBoard(1);
 					//system("pause");
 					count++;
@@ -11268,8 +11327,8 @@ void MapSearch(int seedMin, int seedMax, int r0, int c0, int iterateMax)//地图
 		{
 			for(iterator=1; iterator<=iterateMax; iterator++)
 			{
-				SummonBoard(seed, r0, c0, summonMode, iterator);//使用定位迭代
-				//SummonBoard(seed, r0, c0, summonMode, iterator == 1);//使用顺延迭代
+				//SummonBoard(seed, r0, c0, summonMode, iterator);//使用定位迭代
+				SummonBoard(seed, r0, c0, summonMode, iterator == 1);//使用顺延迭代
 				t1 = time(0);
 				if(t2 != t1)
 				{
@@ -12349,6 +12408,10 @@ MineSweeper Run 5.18
 ——优化 3BV计算不再生成地图
 ——优化 地图可解性判断不再生成地图
 ——修复 第一次打开后无操作时上一次游戏文件的毫秒信息不正确
+MineSweeper Run 5.19
+——优化 地图搜索模块使用顺延迭代代替定位迭代
+——优化 可解和筛选地图生成使用顺延迭代
+——优化 地图可解性和岛上可解性判断不再调试
 //——新增 调试选项可启用保存有效记录的操作记录
 //——新增 主页按V或拖动文件至程序图标播放操作记录
 //——新增 调试选项可启用屏蔽鼠标点击翻开标记
