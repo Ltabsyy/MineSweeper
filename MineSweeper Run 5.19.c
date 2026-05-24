@@ -8,7 +8,7 @@
 //#define getch _getch
 #include <windows.h>//面向Windows输出彩色字符
 #include <math.h>
-//#include <direct.h>//创建文件夹
+#include <direct.h>//创建文件夹
 //#define SHOW_CONSOLE//vs专属3
 //#include <graphics.h>//Easy Graphics Engine
 /**
@@ -249,7 +249,7 @@ struct Maps DeleteMaps(struct Maps maps);
 struct Map EditMap(struct Map map);
 
 // 操作记录
-/*struct Operation
+struct Operation
 {
 	int mstime;
 	char operation;
@@ -265,6 +265,7 @@ struct Operations
 	int seed, r0, c0;
 	int time;//终局时整数时间，避免毫秒时间显示偏差
 	int isWin;//胜局时显示3BV全解
+	int r, c;//当前位置
 	//int sideLength;
 	struct Operation* head;//头节点，顺序存储便于回放
 	struct Operation* tail;//尾节点，避免插入时搜索尾部
@@ -274,7 +275,7 @@ struct Operations AddOperations(int seed, int r0, int c0);
 void ClearOperations(struct Operations operations);
 void WriteOperations(struct Operations operations);
 struct Operations ReadOperations(char* fileName);
-void PlayOperations(struct Operations operations);*/
+void PlayOperations(struct Operations operations);
 
 // 功能模块
 void RCScan(char* operation, int* r, int* c, int yOfCommand);//@#rc指令输入模块
@@ -350,6 +351,7 @@ int chosen3BVMin[6] = {1, 1, 1, 1, 1, 0};//筛选地图3BV，3BV为2时，仅需
 int chosen3BVMax[6] = {8, 9, 49, 149, 1239, 2147483647};
 int chosenNumber = 0;//筛选地图指定包含数字
 int islandPrediction = 0;//可解地图判断基于岛上可解的预判加速
+int saveOperations = 0;//保存操作记录(录像)，0不保存，1保存有效局，2保存全部
 int heightOfMapShown, widthOfMapShown, rs0, cs0;//控制台地图显示
 int minNumberOfPossibleMine, maxNumberOfPossibleMine;
 int numberOfAbandonedThinkChain, countOfDictionaryOverflow, dictionaryNeeded;//Bench统计
@@ -539,6 +541,7 @@ int main(/*int argc, char** argv*/)
 			&chosen3BVMin[4], &chosen3BVMax[4], &chosen3BVMin[5], &chosen3BVMax[5]);
 		fscanf(file, "chosenNumber=%d\n", &chosenNumber);
 		fscanf(file, "islandPrediction=%d\n", &islandPrediction);
+		fscanf(file, "saveOperations=%d\n", &saveOperations);
 		fclose(file);
 		if(benchShowStep == 3 && debug != 2) benchShowStep = 2;
 		if(lengthOfThinkMineCheck < lengthOfThinkNumberCheck) lengthOfThinkMineCheck = lengthOfThinkNumberCheck;//保持NC<=MC
@@ -583,6 +586,7 @@ int main(/*int argc, char** argv*/)
 				chosen3BVMin[4], chosen3BVMax[4], chosen3BVMin[5], chosen3BVMax[5]);
 			printf("chosenNumber=%d\n", chosenNumber);
 			printf("islandPrediction=%d\n", islandPrediction);
+			printf("saveOperations=%d\n", saveOperations);
 		}
 	}
 	if((file = fopen("minesweeper-lastmap.txt", "r")))//读取上一次地图
@@ -680,10 +684,10 @@ int main(/*int argc, char** argv*/)
 				{
 					choiceMode = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-9
 				}
-				/*else if(rcd.Event.KeyEvent.wVirtualKeyCode == 'V')
+				else if(rcd.Event.KeyEvent.wVirtualKeyCode == 'V')
 				{
 					choiceMode = 10;
-				}*/
+				}
 			}
 			showCursor(visibleCursor);//避免调整窗口大小恢复控制台光标
 			Sleep(refreshCycle);
@@ -860,7 +864,7 @@ int main(/*int argc, char** argv*/)
 			{
 				ro = r0;
 				co = c0;
-				//operationRecord = AddOperations(seed, r0, c0);
+				operationRecord = AddOperations(seed, r0, c0);//仅记录连续局的操作记录
 			}
 			game.total3BV = BBBV(3);//地图3BV仅计算一次，自制地图防止BBBV生成地图
 			game.showInformation = 1;
@@ -1416,7 +1420,7 @@ int main(/*int argc, char** argv*/)
 					game.clock1 = clock();
 					//temp = BBBV(seed, r0, c0, 0);//刷新3BV
 					ShowInformation();
-					//AddOperation(&operationRecord, game.clock1-game.clock0, operation, r, c);
+					if(lastMap == 0) AddOperation(&operationRecord, game.clock1-game.clock0, operation, r, c);
 					if(operateMode > 0)
 					{
 						//显示操作对应指令
@@ -1599,10 +1603,13 @@ int main(/*int argc, char** argv*/)
 				newRecord.difficulty = difficulty;
 				records = AddRecord(records, newRecord);
 				WriteRecords(records);
-				/*operationRecord.time = newRecord.sTime;
+				operationRecord.time = newRecord.sTime;
 				operationRecord.isWin = 1-isOpenMine;
-				if(IsEffectiveRecord(newRecord)) WriteOperations(operationRecord);
-				ClearOperations(operationRecord);*/
+				if((saveOperations == 1 && IsEffectiveRecord(newRecord)) || saveOperations == 2)
+				{
+					WriteOperations(operationRecord);
+				}
+				ClearOperations(operationRecord);
 				//if(operateMode == 3) choiceMode = CloseWindow(1-isOpenMine);
 			}
 		}
@@ -2142,6 +2149,7 @@ int main(/*int argc, char** argv*/)
 					else printf("(6)关闭快速显示\n");
 					printf("(7)设置鼠标点击\n");
 					printf("(8)设置Bench\n");
+					printf("(9)设置保存操作记录\n");
 					printf("*******************************\n");
 					SetConsoleMouseMode(0);
 					//getchar();
@@ -2390,6 +2398,13 @@ int main(/*int argc, char** argv*/)
 							else touchOpen = 0;
 						}
 					}
+					else if(operation == '9')
+					{
+						printf("[0:不保存/1:保存有效记录的操作记录/2:保存全部记录的操作记录]>");
+						scanf("%d", &temp);
+						if(temp == 1 || temp == 2) saveOperations = temp;
+						else saveOperations = 0;
+					}
 					//showCursor(visibleCursor);
 					SetConsoleMouseMode(1);
 					clrscr();
@@ -2440,6 +2455,7 @@ int main(/*int argc, char** argv*/)
 					chosen3BVMin[4], chosen3BVMax[4], chosen3BVMin[5], chosen3BVMax[5]);
 				fprintf(file, "chosenNumber=%d\n", chosenNumber);
 				fprintf(file, "islandPrediction=%d\n", islandPrediction);
+				fprintf(file, "saveOperations=%d\n", saveOperations);
 				fclose(file);
 				clrscr();
 				choiceMode = 0;
@@ -2527,19 +2543,19 @@ int main(/*int argc, char** argv*/)
 			DrawControlBar(0);
 			choiceMode = 1;//进入游戏
 		}
-		/*else if(choiceMode == 10)//播放操作记录
+		else if(choiceMode == 10)//播放操作记录
 		{
 			SetConsoleMouseMode(0);
-			if(argc == 2) operationRecord = ReadOperations(argv[1]);
-			else operationRecord = ReadOperations(NULL);
+			/*if(argc == 2) operationRecord = ReadOperations(argv[1]);
+			else */operationRecord = ReadOperations(NULL);
 			SetConsoleMouseMode(1);
 			clrscr();
 			DrawControlBar(0);
 			PlayOperations(operationRecord);
 			//system("pause");
 			choiceMode = 0;
-			argc = 1;
-		}*/
+			//argc = 1;
+		}
 		else if(choiceMode == 9)//自制地图编辑器
 		{
 			SetConsoleMouseMode(0);
@@ -9724,7 +9740,7 @@ struct Map EditMap(struct Map map)
 	widthOfBoard = temp.widthOfBoard;
 	return map;
 }
-/*
+
 void AddOperation(struct Operations* operations, int mstime, char operation, int r, int c)
 {
 	struct Operation* newNode =(struct Operation*) malloc(sizeof(struct Operation));
@@ -9737,31 +9753,39 @@ void AddOperation(struct Operations* operations, int mstime, char operation, int
 	newNode->prev = operations->tail;
 	if(operations->head == NULL) operations->head = newNode;
 	if(operations->tail == NULL) operations->tail = newNode;
-	else
+	else//NULL情况一般不可能发生因必存在第一次打开
 	{
-		//如果上一次操作为?且最近三次坐标相同，则不保存上一次
-		//1 @ 0 0, (2 ? 0 0), 3 ? 0 0, 4 ? 1 1
-		if(operations->tail->operation == '?'
+		if(operation == '?' && operations->r == r && operations->c == c)
+		{//?方块定位操作与当前坐标相同
+			free(newNode);
+		}
+		/*if(operations->tail->operation == '?'
 			&& operations->tail->r == r && operations->tail->c == c
-			&& operations->tail->prev != NULL
+			&& operations->tail->prev != NULL && operations->tail->prev->operation != 'm'
 			&& operations->tail->prev->r == r && operations->tail->prev->c == c)
-		{
+		{//上一次操作为?且最近三次坐标相同 1 @ 0 0, (2 ? 0 0), 3 ? 0 0, 4 ? 1 1
+			//不保存上一次
 			operations->tail->prev->next = newNode;
 			newNode->prev = operations->tail->prev;
 			free(operations->tail);
 			operations->tail = newNode;
-		}
-		//如果上一次操作和新操作均为鼠标坐标且时间相同，则不保存这一次
-		//如果上一次操作和新操作均为鼠标坐标且相同，则不保存这一次
+		}*/
 		else if(operation == 'm' && operations->tail->operation == 'm'
 			&& (operations->tail->mstime == mstime || (operations->tail->r == r && operations->tail->c == c)))
-		{
+		{//连续鼠标且时间或坐标相同
+			//不保存这一次
 			free(newNode);
 		}
 		else
 		{
+			//保存这一次操作记录
 			operations->tail->next = newNode;
 			operations->tail = newNode;
+			if(operation != 'm')
+			{
+				operations->r = r;
+				operations->c = c;
+			}
 		}
 	}
 }
@@ -9779,6 +9803,8 @@ struct Operations AddOperations(int seed, int r0, int c0)
 	operations.c0 = c0;
 	operations.time = 0;
 	operations.isWin = 2;
+	operations.r = r0;
+	operations.c = c0;
 	operations.head =(struct Operation*) malloc(sizeof(struct Operation));
 	operations.head->mstime = 0;
 	operations.head->operation = '@';
@@ -9869,6 +9895,8 @@ struct Operations ReadOperations(char* fileName)
 			&(operations.seed), &(operations.r0), &(operations.c0), &(operations.summonMode), &(operations.iterateMode));
 		fscanf(file, "time=%d\n", &(operations.time));
 		fscanf(file, "isWin=%d\n", &(operations.isWin));
+		operations.r = operations.r0;
+		operations.c = operations.c0;
 		//fscanf(file, "sideLength=16\n");
 		while(fscanf(file, "\n%d %c %d %d", &mstime, &operation, &r, &c) != EOF)
 		{
@@ -9931,7 +9959,7 @@ void PlayOperations(struct Operations operations)
 		gotoxy(0, 3);
 		ShowBoard(0);
 	}
-	if(operateMode == 3)
+	/*if(operateMode == 3)
 	{
 		InitWindow(0);
 		for(p=operations.head; p!=NULL; p=p->next)
@@ -9945,10 +9973,12 @@ void PlayOperations(struct Operations operations)
 		for(operation = 0; operation == 0; )
 		{
 			DrawBoard(0);
+			game.showInformation = 0;//避免GetWindowOperation()记录操作
 			GetWindowOperation(&operation, &r, &c);
+			game.showInformation = 1;
 			delay_ms(refreshCycle);
 		}
-	}
+	}*/
 	game.t0 = time(0);
 	game.t2 = 0;
 	clock0 = clock();
@@ -10049,7 +10079,7 @@ void PlayOperations(struct Operations operations)
 			ShowBoard(0);
 		}
 		ShowInformation();
-		if(operateMode == 3)
+		/*if(operateMode == 3)
 		{
 			if(operation != 'm')//悬浮高亮
 			{
@@ -10073,7 +10103,7 @@ void PlayOperations(struct Operations operations)
 			}
 			DrawMouse(xm+widthOfBorder+dx, ym+heightOfBar+widthOfBorder+dy);
 			delay_ms(0);
-		}
+		}*/
 		if(operation == 'm')
 		{
 			//SetCursorPos(c, r);
@@ -10109,7 +10139,7 @@ void PlayOperations(struct Operations operations)
 		if(showTime == 1) printf("用时：%d ", operations.time);
 		if(show3BV == 1) printf("3BV：%d/%d 3BV/s：%.2f ", game.total3BV-game.unsolved3BV, game.total3BV, (float)(game.total3BV-game.unsolved3BV)/operations.time);
 	}
-	if(operateMode == 3)
+	/*if(operateMode == 3)
 	{
 		if(operations.isWin != 2)
 		{
@@ -10128,14 +10158,14 @@ void PlayOperations(struct Operations operations)
 			getch();
 			closegraph();
 		}
-	}
+	}*/
 	numberOfMine = temp.numberOfMine;
 	heightOfBoard = temp.heightOfBoard;
 	widthOfBoard = temp.widthOfBoard;
 	//keepCursor = temp.isHelped;
 	ReallocMemory(heightOfBoard, widthOfBoard, dictionaryCapacity, lengthOfThinkMineCheck);
 }
-*/
+
 void RCScan(char* operation, int* r, int* c, int yOfCommand)//@#rc指令输入模块
 {
 	int p = 0;
@@ -12409,20 +12439,22 @@ MineSweeper Run 5.18
 ——优化 地图可解性判断不再生成地图
 ——修复 第一次打开后无操作时上一次游戏文件的毫秒信息不正确
 MineSweeper Run 5.19
+——新增 调试选项可设置保存操作记录（录像）
+——新增 主页按V播放操作记录
 ——优化 地图搜索模块使用顺延迭代代替定位迭代
 ——优化 可解和筛选地图生成使用顺延迭代
 ——优化 地图可解性和岛上可解性判断不再调试
-//——新增 调试选项可启用保存有效记录的操作记录
-//——新增 主页按V或拖动文件至程序图标播放操作记录
-//——新增 调试选项可启用屏蔽鼠标点击翻开标记
 //——新增 Window操作模式
 //——新增 组合雷率计算（根据多块枚举的结果组合进行雷率计算）
 //——新增 内外雷率扰动（根据内部雷分布组合数对应枚举结果雷数扰动交界线雷率）
 //——新增 触雷直接重开和超时间纪录且低速直接重开
+//——新增 调试选项可启用屏蔽鼠标点击翻开标记
 //——新增 调试选项可启用统一标记（鼠标点击拖动标记根据起始操作统一标记/取消标记）
+//——新增 拖动文件至程序图标播放操作记录
 //——新增 游戏信息显示预计用时、全部3BV不显示十位
 //——优化 现在地图求解可选择从外部文件读取地图，界面支持鼠标点击
 //——优化 重新设计自定义难度设置，以密度设置雷数不再是调试选项
 //——优化 雷率由浮点计算转为整数计算
 //——修复 未操作的Tab后不使用快速显示
+//——修复 @#rc的操作记录错误
 --------------------------------*/
