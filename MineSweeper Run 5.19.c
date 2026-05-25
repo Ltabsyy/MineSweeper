@@ -460,7 +460,7 @@ void AdaptScreenBufferWidth()//自适应屏幕缓冲区宽度
 	}
 }
 
-int main(/*int argc, char** argv*/)
+int main(int argc, char** argv)
 {
 	FILE* file;//文件读写
 	int choiceMode = 0, choiceTemp = 0, choiceSet = 0, choiceSubSet = 0;//游戏功能的选择
@@ -645,7 +645,7 @@ int main(/*int argc, char** argv*/)
 		ReallocMemory(heightOfBoard, widthOfBoard, dictionaryCapacity, lengthOfThinkMineCheck);
 	}
 	SetConsoleMouseMode(1);
-	//if(argc == 2) choiceMode = 10;
+	if(argc == 2) choiceMode = 10;
 	/*进入主循环*/
 	while(choiceMode != 5)
 	{
@@ -1087,8 +1087,8 @@ int main(/*int argc, char** argv*/)
 							c = c0;
 							isShown[r][c] = 1;
 							isHelped = 0;
-							//ClearOperations(operationRecord);
-							//operationRecord = AddOperations(seed, r0, c0);
+							ClearOperations(operationRecord);
+							operationRecord = AddOperations(seed, r0, c0);
 							game.t0 = time(0);
 							game.clock0 = clock();
 						}
@@ -1355,6 +1355,8 @@ int main(/*int argc, char** argv*/)
 									SetConsoleMouseMode(1);
 									operateMode = 2;
 								}
+								game.clock1 = clock();
+								if(lastMap == 0) AddOperation(&operationRecord, game.clock1-game.clock0, operation, r, c);
 								break;
 							}
 						}
@@ -2546,15 +2548,20 @@ int main(/*int argc, char** argv*/)
 		else if(choiceMode == 10)//播放操作记录
 		{
 			SetConsoleMouseMode(0);
-			/*if(argc == 2) operationRecord = ReadOperations(argv[1]);
-			else */operationRecord = ReadOperations(NULL);
+			if(argc == 2) operationRecord = ReadOperations(argv[1]);
+			else operationRecord = ReadOperations(NULL);
 			SetConsoleMouseMode(1);
 			clrscr();
 			DrawControlBar(0);
 			PlayOperations(operationRecord);
 			//system("pause");
 			choiceMode = 0;
-			//argc = 1;
+			if(argc == 2)//准备退出，因程序在其他位置打开无法读取配置文件
+			{
+				choiceMode = 5;
+				getchar();
+			}
+			argc = 1;
 		}
 		else if(choiceMode == 9)//自制地图编辑器
 		{
@@ -9771,10 +9778,18 @@ void AddOperation(struct Operations* operations, int mstime, char operation, int
 			operations->tail = newNode;
 		}*/
 		else if(operation == 'm' && operations->tail->operation == 'm'
-			&& (operations->tail->mstime == mstime || (operations->tail->r == r && operations->tail->c == c)))
-		{//连续鼠标且时间或坐标相同
+			&& (operations->tail->r == r && operations->tail->c == c))
+		{//连续鼠标且坐标相同
 			//不保存这一次
 			free(newNode);
+		}
+		else if(operation == 'm' && operations->tail->operation == 'm' && operations->tail->mstime == mstime)
+		{//连续鼠标且时间相同
+			//不保存上一次，鼠标消息间隔式处理，最初时间的坐标已过时
+			operations->tail->prev->next = newNode;
+			newNode->prev = operations->tail->prev;
+			free(operations->tail);
+			operations->tail = newNode;
 		}
 		else
 		{
@@ -9919,7 +9934,53 @@ struct Operations ReadOperations(char* fileName)
 	}
 	return operations;
 }
-
+/*
+void DrawPath(struct Operations operations)
+{
+	struct Operation* p;
+	int x1, y1, x2, y2;
+	float x0 = widthOfBorder+dx;
+	float y0 = heightOfBar+widthOfBorder+dy;
+	setfillcolor(EGERGBA(0x00, 0x00, 0x00, 0x80));
+	ege_fillrect(x0, y0, (float)widthOfBlock*widthOfBoard, (float)heightOfBlock*heightOfBoard);
+	setlinewidth(sideLength/16);
+	setlinecap(LINECAP_ROUND);//使用圆形线帽
+	for(p=operations.head; p!=NULL; p=p->next)
+	{
+		if(p->operation == 'm')
+		{
+			x1 = (p->c)*sideLength/64;
+			y1 = (p->r)*sideLength/64;
+			break;
+		}
+	}
+	setfillcolor(LIME);
+	ege_fillcircle(x0+x1, y0+y1, sideLength/8);
+	for(; p!=NULL; p=p->next)
+	{
+		if(p->operation == 'm')
+		{
+			x2 = (p->c)*sideLength/64;
+			y2 = (p->r)*sideLength/64;
+			setcolor(WHITE);
+			ege_line(x0+x1, y0+y1, x0+x2, y0+y2);
+			x1 = x2;
+			y1 = y2;
+		}
+		else if(p->operation == '@')
+		{
+			setfillcolor(LIME);
+			ege_fillcircle(x0+x1, y0+y1, sideLength/8);
+		}
+		else if(p->operation == '#')
+		{
+			setfillcolor(RED);
+			ege_fillcircle(x0+x1, y0+y1, sideLength/8);
+		}
+	}
+	setlinecap(LINECAP_FLAT);//恢复平直线帽
+}
+*/
 void PlayOperations(struct Operations operations)
 {
 	//const int sideLength = 16;
@@ -10114,6 +10175,7 @@ void PlayOperations(struct Operations operations)
 			//SetCursorPos((cs0+2*c)*sideLength/2+sideLength/4+87, (rs0+r)*sideLength+sideLength/2+110);
 		}
 	}
+	game.t1 = game.t0 + operations.time;//保持时间显示一致
 	clrscr();
 	DrawControlBar(0);
 	if(operations.isWin == 0)//败局
@@ -12441,6 +12503,7 @@ MineSweeper Run 5.18
 MineSweeper Run 5.19
 ——新增 调试选项可设置保存操作记录（录像）
 ——新增 主页按V播放操作记录
+——新增 拖动文件至程序图标播放操作记录
 ——优化 地图搜索模块使用顺延迭代代替定位迭代
 ——优化 可解和筛选地图生成使用顺延迭代
 ——优化 地图可解性和岛上可解性判断不再调试
@@ -12450,11 +12513,10 @@ MineSweeper Run 5.19
 //——新增 触雷直接重开和超时间纪录且低速直接重开
 //——新增 调试选项可启用屏蔽鼠标点击翻开标记
 //——新增 调试选项可启用统一标记（鼠标点击拖动标记根据起始操作统一标记/取消标记）
-//——新增 拖动文件至程序图标播放操作记录
 //——新增 游戏信息显示预计用时、全部3BV不显示十位
 //——优化 现在地图求解可选择从外部文件读取地图，界面支持鼠标点击
 //——优化 重新设计自定义难度设置，以密度设置雷数不再是调试选项
 //——优化 雷率由浮点计算转为整数计算
+//——优化 中断局的操作记录
 //——修复 未操作的Tab后不使用快速显示
-//——修复 @#rc的操作记录错误
 --------------------------------*/
