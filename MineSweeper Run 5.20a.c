@@ -123,6 +123,8 @@ int WASDMove(int* r, int* c, WORD wVirtualKeyCode);
 void LookMap();//从实时游戏获取地图
 void TranslateMap(int rs0, int cs0);//从键盘输入获取地图
 void Solve(int showAnswer);//生成方案矩阵并修改显示方式矩阵，1显示1解，2不确定翻开
+//void OpenZeroChainUpdateNumber(int r0, int c0);
+//void ContinuousSolve();
 int NumberTeamType(int number1, int number2, int numberOfMine1, int numberOfMine2, int numberOfNotShown1, int numberOfNotShown2);
 int Think();
 int ThinkSelect();
@@ -498,10 +500,10 @@ int main(int argc, char** argv)
 	int benchShowSolution = 1;//Bench在原地图显示方案矩阵
 	int benchShowInformation = 0;//Bench显示置顶信息
 	//很好，我已经看不清我定义些啥了(doge)
-	if(debug == 2) printf("<Debug>\nHello! Administrator Ltabsyy or Jws!\n");
+	//if(debug == 2) printf("<Debug>\nHello! Administrator Ltabsyy!\n");
 	/*读取缓存*/
 	records = ReadRecords();//读取历史记录
-	if(debug == 2) PrintRecords(records, 1);
+	//if(debug == 2) PrintRecords(records, 1);
 	if((file = fopen("minesweeper-settings.txt", "r")))//读取设置
 	{//内嵌括号减少warning，其实可以不加(doge)
 		fscanf(file, "Map:%d*%d-%d\n", &heightOfBoard, &widthOfBoard, &numberOfMine);
@@ -546,7 +548,7 @@ int main(int argc, char** argv)
 		if(benchShowStep == 3 && debug != 2) benchShowStep = 2;
 		if(lengthOfThinkMineCheck < lengthOfThinkNumberCheck) lengthOfThinkMineCheck = lengthOfThinkNumberCheck;//保持NC<=MC
 		if(dictionaryCapacity > LimDictionary) dictionaryCapacity = LimDictionary;
-		if(debug == 2)
+		/*if(debug == 2)
 		{
 			printf("[Debug]已获取设置：\n");
 			printf("Map:%d*%d-%d\n", heightOfBoard, widthOfBoard, numberOfMine);
@@ -587,7 +589,7 @@ int main(int argc, char** argv)
 			printf("chosenNumber=%d\n", chosenNumber);
 			printf("islandPrediction=%d\n", islandPrediction);
 			printf("saveOperations=%d\n", saveOperations);
-		}
+		}*/
 	}
 	if((file = fopen("minesweeper-lastmap.txt", "r")))//读取上一次地图
 	{
@@ -610,7 +612,7 @@ int main(int argc, char** argv)
 			fscanf(file, "\n");
 		}
 		fclose(file);
-		if(debug == 2)
+		/*if(debug == 2)
 		{
 			printf("[Debug]已获取上一次地图：\n");
 			printf("Map:%d*%d-%d,%d,%d,%d,%d,%d\n",
@@ -628,18 +630,18 @@ int main(int argc, char** argv)
 				}
 				printf("\n");
 			}
-		}
+		}*/
 	}
 	/*初始设置*/
 	SetConsoleTitle("MineSweeper Console");
 	if(backgroundColor != 0x07) setbgcolor(backgroundColor);//默认浅色模式
 	if(visibleCursor == 0) showCursor(0);
 	difficulty = Difficulty(heightOfBoard, widthOfBoard, numberOfMine);
-	if(debug == 2)
+	/*if(debug == 2)
 	{
 		printf("[Debug]当前难度：%d\n", difficulty);
 		system("pause");
-	}
+	}*/
 	if(lastMap == 0)//申请内存空间
 	{
 		ReallocMemory(heightOfBoard, widthOfBoard, dictionaryCapacity, lengthOfThinkMineCheck);
@@ -649,21 +651,8 @@ int main(int argc, char** argv)
 	/*进入主循环*/
 	while(choiceMode != 5)
 	{
-		//clrscr();//清屏
-		/*printf("*******************************\n"
-			   "**新游戏(1)**设置(2)**退出(3)**\n"
-			   "*******************************\n");*/
-		/*printf("*******************************\n");//宽31
-		if(lastMap == 1) printf("(0)继续上一次游戏\n");
-		printf("(1)新游戏\n"
-			   "(2)地图求解\n"
-			   "(3)设置\n"
-			   "(4)Bench\n"
-			   "(5)退出\n"
-			   "*******************************\n");*/
 		DrawControlBar(0);
 		AdaptScreenBufferWidth();
-		//printf(">");
 		FlushConsoleInputBuffer(hdin);//Bench抗双击
 		while(choiceMode == 0)
 		{
@@ -820,26 +809,11 @@ int main(int argc, char** argv)
 					}
 				}*/
 				seed = time(0);//当前时间戳作种子生成随机数
-				if(debug == 2)
-				{
-					temp = 0;
-					printf("[Debug]seed=%d,%d,%d\n", seed, r0, c0);
-					SetConsoleMouseMode(0);
-					printf("[0:生成/1:更改]\n>");
-					showCursor(1);
-					scanf("%d", &temp);
-					if(temp == 1)
-					{
-						printf("[seed] [r0] [c0]\n>");
-						scanf("%d%d%d", &seed, &r0, &c0);
-					}
-				}
 			}
 			/*生成地图*/
 			if(lastMap == 0 && summonCheckMode > 2)//可解地图生成
 			{
 				seed = SearchSeed(seed, r0, c0, difficulty);
-				if(debug == 1 || debug == 2) system("pause");
 			}
 			else if(lastMap != 2)
 			{
@@ -1568,7 +1542,7 @@ int main(int argc, char** argv)
 						debug = c;
 						if(debug == 2)
 						{
-							printf("<Debug>\nWelcome! Administrator Ltabsyy or Jws!\n");
+							printf("<Debug>\nWelcome! Administrator Ltabsyy!\n");
 						}
 						system("pause");
 						clrscr();
@@ -1760,57 +1734,16 @@ int main(int argc, char** argv)
 						if(widthOfBoard > LimWidth) widthOfBoard = LimWidth;
 						gotoxy(13, 6);
 						printf("%d*%d", heightOfBoard, widthOfBoard);
-						//界面校正
-						/*if(widthOfBoard == LimWidth && heightOfBoard > 100)
-						{
-							printf(":(\n界面不足以容纳行坐标轴！\n");
-							printf("(1)维持当前界面高度，界面宽度-1\n");
-							printf("(2)维持当前界面宽度，界面高度设为100\n");
-							printf("(3)坚持设置！\n");
-							printf(">");
-							scanf("%d", &temp);
-							if(temp == 1) widthOfBoard--;
-							else if(temp == 2) heightOfBoard = 100;
-						}*/
 						//设置雷数
 						gotoxy(0, 10);
 						printf("[雷数]>");
 						scanf("%d", &numberOfMine);
 						if(numberOfMine < 0) numberOfMine = 0;
-						if(numberOfMine >= heightOfBoard * widthOfBoard)
+						if(numberOfMine > heightOfBoard * widthOfBoard)
 						{
 							numberOfMine = heightOfBoard * widthOfBoard;//雷数校正
-							//summonCheckMode = 0;//起始点必为雷
+							//地图生成校验在地图生成时自适应调整，不会难以生成地图
 						}
-						/*else if(numberOfMine > heightOfBoard * widthOfBoard * 715/1000
-							|| numberOfMine > heightOfBoard * widthOfBoard - 9)//调整地图生成校验
-						{
-							summonCheckMode = 1;//起始点难以为空
-						}*/
-						//更新密度
-						/*density =(float) numberOfMine / heightOfBoard / widthOfBoard;
-						if(density > 0.72) printf(":(\n当前密度%.2f，难以生成地图\n", density);
-						if(density > 0.24)
-						{
-							printf(":(\n当前密度%.2f，难度可能过高！\n", density);
-							printf("(1)更改雷数\n");
-							printf("(2)更改密度\n");
-							printf("(3)坚持挑战！\n");//坚持访问！(doge)
-							printf(">");
-							scanf("%d", &temp);
-							if(temp == 1)
-							{
-								printf("/set numberOfMine ");
-								scanf("%d", &numberOfMine);
-							}
-							else if(temp == 2)
-							{
-								printf(">");
-								scanf("%f", &density);
-								numberOfMine = density * heightOfBoard * widthOfBoard;
-								printf("/set numberOfMine %d\n", numberOfMine);
-							}
-						}*/
 						difficulty = Difficulty(heightOfBoard, widthOfBoard, numberOfMine);
 						//重新申请矩阵内存空间
 						ReallocMemory(heightOfBoard, widthOfBoard, dictionaryCapacity, lengthOfThinkMineCheck);
@@ -6347,14 +6280,17 @@ void Solve(int showAnswer)//程序核心部分(doge)
 		{
 			printf("[Debug]无确定解\n");
 		}
-		for(r=0; r<heightOfBoard; r++)
+		if(minMineRateNotZero != 1)
 		{
-			for(c=0; c<widthOfBoard; c++)
+			for(r=0; r<heightOfBoard; r++)
 			{
-				if(isMineRate[r][c] == minMineRateNotZero)
+				for(c=0; c<widthOfBoard; c++)
 				{
-					//solution[r][c] = 1;
-					solution[r][c] = 3;//不确定翻开
+					if(isMineRate[r][c] == minMineRateNotZero)
+					{
+						//solution[r][c] = 1;
+						solution[r][c] = 3;//不确定翻开
+					}
 				}
 			}
 		}
@@ -6430,7 +6366,7 @@ void Solve(int showAnswer)//程序核心部分(doge)
 				if(solution[r][c] == 1) break;
 			}
 		}
-		else//随机标记确定点和翻开不确定点
+		else if(minMineRateNotZero != 1)//随机标记确定点和翻开不确定点
 		{
 			while(1)//随机选择
 			{
@@ -6442,7 +6378,11 @@ void Solve(int showAnswer)//程序核心部分(doge)
 				}
 			}
 		}
-		if(solution[r][c] == 1)
+		if(minMineRateNotZero == 1)
+		{
+			printf(":)\nYou Win!\n");
+		}
+		else if(solution[r][c] == 1)
 		{
 			printf(":)\n>@ %d %d\n", r, c);
 		}
@@ -6457,24 +6397,27 @@ void Solve(int showAnswer)//程序核心部分(doge)
 	}
 	else if(showAnswer == 2 && isFound == 0)//翻开不确定点
 	{
-		while(1)//随机选择
+		if(minMineRateNotZero != 1)//已终局不进行随机翻开
 		{
-			r = rand() % heightOfBoard;
-			c = rand() % widthOfBoard;
-			if(solution[r][c] != 0)
+			while(1)//随机选择
 			{
-				break;
+				r = rand() % heightOfBoard;
+				c = rand() % widthOfBoard;
+				if(solution[r][c] != 0)
+				{
+					break;
+				}
 			}
-		}
-		/*for(r=0; r<heightOfBoard; r++)
-		{
-			for(c=0; c<widthOfBoard; c++)
+			/*for(r=0; r<heightOfBoard; r++)
 			{
+				for(c=0; c<widthOfBoard; c++)
+				{
+					if(solution[r][c] == 3) break;
+				}
 				if(solution[r][c] == 3) break;
-			}
-			if(solution[r][c] == 3) break;
-		}*/
-		isShown[r][c] = 1;
+			}*/
+			isShown[r][c] = 1;
+		}
 	}
 	/*else if(showAnswer == 2 && isFound == 1 && isFoundOpen == 0)
 	{
@@ -6491,11 +6434,69 @@ void Solve(int showAnswer)//程序核心部分(doge)
 	}*/
 }
 /*
+void OpenZeroChainUpdateNumber(int r0, int c0)//翻开0链，适用于连续求解的直接更新数字版本
+{
+	int r, c, isRising;
+	int rc1 = r0, cc1 = c0, rc2 = r0, cc2 = c0;//0链框架
+	if(isShown[r0][c0] == 1 && board[r0][c0] == 0)
+	{
+		//生成0链SummonZeroChain(r0, c0);
+		for(r=0; r<heightOfBoard; r++)//初始化
+		{
+			for(c=0; c<widthOfBoard; c++)
+			{
+				zeroChain[r][c] = 0;
+			}
+		}
+		zeroChain[r0][c0] = 1;
+		if(rc1 > 0) rc1--;//初始化0链框架
+		if(cc1 > 0) cc1--;
+		if(rc2+1 < heightOfBoard) rc2++;
+		if(cc2+1 < widthOfBoard) cc2++;
+		isRising = 1;
+		while(isRising == 1)//0链向四边生长
+		{
+			isRising = 0;
+			for(r=rc1; r<=rc2; r++)
+			{
+				for(c=cc1; c<=cc2; c++)
+				{
+					if(board[r][c] == 0 && zeroChain[r][c] == 0//可能的生长点
+						&& IsAroundZeroChain(r, c) == 1)//与0链连接
+					{
+						zeroChain[r][c] = 1;
+						isRising = 1;
+					}
+				}
+			}
+			if(isRising == 1)//调整0链框架
+			{
+				if(rc1 > 0) rc1--;
+				if(cc1 > 0) cc1--;
+				if(rc2+1 < heightOfBoard) rc2++;
+				if(cc2+1 < widthOfBoard) cc2++;
+			}
+		}
+		for(r=rc1; r<=rc2; r++)//周围有0链则翻开
+		{
+			for(c=cc1; c<=cc2; c++)
+			{
+				if(isShown[r][c] == 0 && IsAroundZeroChain(r, c) == 1)//在0链上或与0链连接
+				{
+					isShown[r][c] = 1;
+					numberShown[r][c] = board[r][c];
+				}
+			}
+		}
+	}
+}
+
 void ContinuousSolve()//对当前地图连续简单判断和逻辑推理
 {
-	int r, c, ra, ca, rb, cb;
-	int isSolving = 1, isOpenZero = 0;
+	int r, c, ra, ca, r1, c1, r2, c2, i;
+	int isSolving = 1;
 	int numberOfNotShownAround, numberOfSignAround;
+	int numberOfMine1, numberOfMine2, numberOfNotShown1, numberOfNotShown2;
 	//初次获取已知数字
 	for(r=0; r<heightOfBoard; r++)
 	{
@@ -6550,18 +6551,7 @@ void ContinuousSolve()//对当前地图连续简单判断和逻辑推理
 										{
 											isShown[ra][ca] = 1;
 											numberShown[ra][ca] = board[ra][ca];
-											if(board[ra][ca] == 0)
-											{
-												OpenZeroChain(ra, ca);
-												//isOpenZero = 1;
-												for(rb=0; rb<heightOfBoard; rb++)
-												{
-													for(cb=0; cb<widthOfBoard; cb++)
-													{
-														if(isShown[rb][cb] == 1) numberShown[rb][cb] = board[rb][cb];
-													}
-												}
-											}
+											if(board[ra][ca] == 0) OpenZeroChainUpdateNumber(ra, ca);//使用定制的获取数字版0链提高效率
 										}
 									}
 								}
@@ -6575,6 +6565,150 @@ void ContinuousSolve()//对当前地图连续简单判断和逻辑推理
 		if(isSolving == 0)
 		{
 			//逻辑推理
+			for(r=0; r<heightOfBoard; r++)
+			{
+				for(c=0; c<widthOfBoard; c++)
+				{
+					isThought[r][c] = 0;//每轮都需更新
+					if(isShown[r][c] == 1 && numberShown[r][c] != 9 && numberShown[r][c] != 0 && NumberOfNotShownAround(r, c) != 0)
+					{
+						isThought[r][c] = 2;//标记周围有未知方块的数字，原版标记未知方块因需调试装B显示?(doge)
+						isSolving = 1;
+					}
+				}
+			}
+			if(isSolving == 1)
+			{
+				isSolving = 0;
+				for(r1=0; r1<heightOfBoard; r1++)
+				{
+					for(c1=0; c1<widthOfBoard; c1++)
+					{
+						if(isThought[r1][c1] == 2)//数对之一
+						{
+							for(i=0; i<4; i++)//只遍历上左右下4个方块
+							{
+								r2 = r1;
+								c2 = c1;
+								if(i == 0)
+								{
+									if(r2-1 >= 0) r2--;
+									else continue;
+								}
+								else if(i == 1)
+								{
+									if(c2-1 >= 0) c2--;
+									else continue;
+								}
+								else if(i == 2)
+								{
+									if(c2+1 < widthOfBoard) c2++;
+									else continue;
+								}
+								else
+								{
+									if(r2+1 < heightOfBoard) r2++;
+									else break;
+								}
+								if(isShown[r2][c2] == 1 && numberShown[r2][c2] != 9 && numberShown[r2][c2] != 0)//数对之二
+								{
+									//求独占区雷数和未知数
+									for(r=0; r<heightOfBoard; r++)
+									{
+										for(c=0; c<widthOfBoard; c++)
+										{
+											numberTeam[r][c] = 0;
+										}
+									}
+									for(r=r1-1; r<=r1+1; r++)
+									{
+										for(c=c1-1; c<=c1+1; c++)
+										{
+											if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)
+											{
+												numberTeam[r][c] += 1;
+											}
+										}
+									}
+									for(r=r2-1; r<=r2+1; r++)
+									{
+										for(c=c2-1; c<=c2+1; c++)
+										{
+											if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)
+											{
+												numberTeam[r][c] += 2;
+											}
+										}
+									}
+									numberTeam[r1][c1] = 9;
+									numberTeam[r2][c2] = 9;
+									numberOfMine1 = 0;
+									numberOfMine2 = 0;
+									numberOfNotShown1 = 0;
+									numberOfNotShown2 = 0;
+									for(r=0; r<heightOfBoard; r++)
+									{
+										for(c=0; c<widthOfBoard; c++)
+										{
+											if(numberTeam[r][c] == 1)
+											{
+												if(isShown[r][c] == 2) numberOfMine1++;
+												else if(isShown[r][c] == 0) numberOfNotShown1++;
+											}
+											else if(numberTeam[r][c] == 2)
+											{
+												if(isShown[r][c] == 2) numberOfMine2++;
+												else if(isShown[r][c] == 0) numberOfNotShown2++;
+											}
+										}
+									}
+									if(numberOfNotShown1 != 0)
+									{
+										if(numberShown[r2][c2] - numberShown[r1][c1] == numberOfMine2 - numberOfMine1 + numberOfNotShown2)
+										{
+											//翻开数对之一独占区未知方块
+											for(r=r1-1; r<=r1+1; r++)
+											{
+												for(c=c1-1; c<=c1+1; c++)
+												{
+													if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)
+													{
+														if(numberTeam[r][c] == 1 && isShown[r][c] == 0)
+														{
+															isShown[r][c] = 1;
+															numberShown[r][c] = board[r][c];
+															if(board[r][c] == 0) OpenZeroChainUpdateNumber(r, c);
+														}
+													}
+												}
+											}
+											isSolving = 1;
+										}
+										if(numberShown[r1][c1] - numberShown[r2][c2] == numberOfMine1 - numberOfMine2 + numberOfNotShown1)
+										{
+											//标记数对之一独占区未知方块
+											for(r=r1-1; r<=r1+1; r++)
+											{
+												for(c=c1-1; c<=c1+1; c++)
+												{
+													if(r>=0 && r<heightOfBoard && c>=0 && c<widthOfBoard)
+													{
+														if(numberTeam[r][c] == 1 && isShown[r][c] == 0)
+														{
+															isShown[r][c] = 2;
+														}
+													}
+												}
+											}
+											isSolving = 1;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 }
@@ -7532,6 +7666,8 @@ int IsSolvableIsland()//判断当前地图岛上可解性
 		}
 		if(isOpenMine == 1) break;
 		if(RemainedMineWin()) break;
+		//ContinuousSolve();
+		//if(RemainedMineWin()) break;
 		LookMap();
 		temp = debug;
 		debug = 0;//不显示求解信息
@@ -7590,15 +7726,12 @@ int IsSolvableMap(int seed, int r0, int c0)
 		if(isOpenMine == 1) break;
 		if(RemainedMineWin()) break;
 		//ContinuousSolve();
+		//if(RemainedMineWin()) break;//需要性能时，一般都未解完
 		LookMap();
 		temp = debug;
 		debug = 0;//不显示求解信息
 		Solve(0);
 		debug = temp;
-	}
-	if(debug == 2)
-	{
-		ShowBoard(1);
 	}
 	ShownModeBak(0);
 	return 1-isOpenMine;
@@ -10827,6 +10960,7 @@ void Bench(int seedMin, int seedMax, int r0, int c0, int showStep, int showSolut
 		}
 		if(showStep != -1) ShowBoard(1);
 		temp = BBBV(0);
+		if(isOpenMine == 0) temp = 0;//仅标记雷可赢的胜局可能有少量方块未翻开
 		BBBVOfSeed[seed-seedMin][0] = BBBVOfSeed[seed-seedMin][1] - temp;
 		countOfSolved3BV -= temp;//减未解3BV计算已解3BV
 		if(showTime == 1) DrawProgressBar(100 * (seed-seedMin+1) / (seedMax-seedMin+1));//进度条
@@ -12507,6 +12641,11 @@ MineSweeper Run 5.19
 ——优化 地图搜索模块使用顺延迭代代替定位迭代
 ——优化 可解和筛选地图生成使用顺延迭代
 ——优化 地图可解性和岛上可解性判断不再调试
+MineSweeper Run 5.20
+——优化 地图求解器不再对终局局面进行随机翻开
+——优化 移除部分不必要的调试和过时的注释代码
+——修复 地图可解性判断调试显示地图未被移除
+——修复 Bench胜局的已解3BV计算不正确
 //——新增 Window操作模式
 //——新增 组合雷率计算（根据多块枚举的结果组合进行雷率计算）
 //——新增 内外雷率扰动（根据内部雷分布组合数对应枚举结果雷数扰动交界线雷率）
