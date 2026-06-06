@@ -44,12 +44,12 @@ int xRemainedMine, xRemainedMineNumber, xTime, xTimeNumber, x3BV, x3BVNumber, x3
 int mouseR = -1, mouseC = -1;//悬浮高亮
 void DrawMine(PIMAGE pimg);//在图像中绘制地图地雷
 void DrawMineA(int x0, int y0, int r);//绘制地雷图形
-void DrawFlag(PIMAGE pimg);//在图像中绘制地图旗帜
+void DrawFlag(color_t flagColor, PIMAGE pimg);//在图像中绘制地图旗帜
 void DrawBlock(int board, int isShown, int highlight, PIMAGE pimg);//在图像中绘制方块
 void DrawLineA(int x0, int y0, int r, int angle);//绘制时钟指针
 void DrawClock(int x0, int y0, int r, int time);//绘制时钟
 void DrawFace(int mode);//绘制笑脸
-void Draw3BVIcon();
+void Draw3BVIcon(int n);
 void Draw3BVpsIcon();
 void DrawBlockP(int r, int c, int board, int isShown, int highlight);//绘制方块
 void DrawBoard(int mode);//绘制总外部窗口
@@ -660,7 +660,7 @@ void DrawMineA(int x0, int y0, int r)//绘制地雷图形
 	ege_fillrect(x0-r+11.0/16*r, y0-r+11.0/16*r, 4.0/16*r, 4.0/16*r);
 }
 
-void DrawFlag(PIMAGE pimg)//在图像中绘制地图旗帜
+void DrawFlag(color_t flagColor, PIMAGE pimg)//在图像中绘制地图旗帜
 {
 	//setcolor(LIGHTRED, pimg);
 	//outtextxy(xOfChar, yOfChar, '#', pimg);
@@ -671,7 +671,7 @@ void DrawFlag(PIMAGE pimg)//在图像中绘制地图旗帜
 	//绘制旗杆
 	ege_fillrect(15.0/32*widthOfBlock, 16.0/32*heightOfBlock, 2.0/32*widthOfBlock, 8.0/32*heightOfBlock, pimg);
 	//绘制旗帜
-	setfillcolor(RED, pimg);
+	setfillcolor(flagColor, pimg);
 	ege_point polyPoints[3] =
 	{
 		{6.0f/32*widthOfBlock, 11.0f/32*heightOfBlock},
@@ -728,7 +728,7 @@ void DrawBlock(int board, int isShown, int highlight, PIMAGE pimg)//在图像中
 			setfillcolor(LIGHTRED, pimg);
 			ege_fillrect(widthOfBlock*2.0/32, heightOfBlock*2.0/32, widthOfBlock*28/32, heightOfBlock*28/32, pimg);
 		}
-		DrawFlag(pimg);
+		DrawFlag(RED, pimg);
 	}
 	else if(isShown == 0)
 	{
@@ -867,15 +867,13 @@ void DrawFace(int mode)//绘制笑脸
 	}
 }
 
-void Draw3BVIcon()
+void Draw3BVIcon(int n)
 {
 	float h = heightOfBlock*5/4;
 	float w = widthOfBlock*5/4;
 	float x = x3BV;
 	float y = (heightOfBar-h)/2;
 	int r, c;
-	int n = (game.total3BV-game.unsolved3BV)*9/game.total3BV;
-	//n = 1;
 	setfillcolor(CYAN);
 	setcolor(BLACK);
 	setlinewidth(sideLength/16);
@@ -955,6 +953,23 @@ void DrawBoard(int mode)//绘制总外部窗口
 	int r, c;
 	int rc1, cc1, rc2, cc2;
 	int highlight;
+	static int cacheSideLength = 0;
+	static PIMAGE cacheBlueFlag[2];
+	if(cacheSideLength != sideLength)//重绘蓝色旗帜图像缓存
+	{
+		if(cacheSideLength != 0)
+		{
+			delimage(cacheBlueFlag[0]);
+			delimage(cacheBlueFlag[1]);
+		}
+		cacheBlueFlag[0] = newimage(widthOfBlock, heightOfBlock);
+		cacheBlueFlag[1] = newimage(widthOfBlock, heightOfBlock);
+		DrawBlock(0, 0, 0, cacheBlueFlag[0]);//先绘制未翻开方块
+		DrawFlag(BLUE, cacheBlueFlag[0]);
+		DrawBlock(0, 0, 1, cacheBlueFlag[1]);
+		DrawFlag(BLUE, cacheBlueFlag[1]);
+		cacheSideLength = sideLength;
+	}
 	setfillcolor(LIGHTGRAY);
 	ege_fillrect(0, 0, windowWidth, heightOfBar);//清除旧顶栏减少锯齿感
 	//绘制地图边框
@@ -1016,38 +1031,40 @@ void DrawBoard(int mode)//绘制总外部窗口
 					if(r == mouseR || c == mouseC) highlight = 1;
 				}
 			}
-			if(mode == 1)//后台
+			if(isShown[r][c] == 1)
 			{
-				if(isShown[r][c] == 2)
-				{
-					DrawBlockP(r, c, board[r][c], 2, highlight);
-				}
-				else if(board[r][c] == 0)
-				{
-					DrawBlockP(r, c, 0, 1, highlight);
-				}
-				else if(board[r][c] == 9)
-				{
-					DrawBlockP(r, c, 9, isShown[r][c], highlight);
-				}
-				else
-				{
-					DrawBlockP(r, c, board[r][c], 1, highlight);
-				}
+				DrawBlockP(r, c, board[r][c], 1, highlight);
 			}
-			else if(mode == 0)//前台
+			else if(isShown[r][c] == 2)
 			{
-				if(isShown[r][c] == 2)
+				if(mode == 0)
 				{
 					DrawBlockP(r, c, 9, 2, highlight);
 				}
-				else if(isShown[r][c] == 0)
-				{
-					DrawBlockP(r, c, 0, 0, highlight);
-				}
 				else
 				{
+					DrawBlockP(r, c, board[r][c], 2, highlight);
+				}
+			}
+			else// if(isShown[r][c] == 0)
+			{
+				if(mode == 0)//非终局
+				{
+					DrawBlockP(r, c, 0, 0, highlight);//不显示雷
+				}
+				else if(board[r][c] != 9)//终局显示所有数字
+				{
 					DrawBlockP(r, c, board[r][c], 1, highlight);
+					//DrawBlockP(r, c, board[r][c], 0, highlight);不显示
+				}
+				else if(mode == 1)//败局未翻开的雷
+				{
+					DrawBlockP(r, c, 9, 0, highlight);
+				}
+				else//胜局未翻开的雷，显示蓝色旗帜
+				{
+					//DrawBlockP(r, c, 9, 0, highlight);
+					putimage(c*widthOfBlock+widthOfBorder+dx, r*heightOfBlock+heightOfBar+widthOfBorder+dy, cacheBlueFlag[highlight]);
 				}
 			}
 		}
@@ -1067,29 +1084,37 @@ void DrawBoard(int mode)//绘制总外部窗口
 		xyprintf(xTimeNumber, (heightOfBar-heightOfChar)/2, " %d ", game.t1-game.t0+game.t2);
 	}
 	//3BV
-	if(show3BV == 1 && game.showInformation == 1 && widthOfBoard > 27)
+	if(show3BV == 1 && widthOfBoard > 27)
 	{
-		Draw3BVIcon();
+		Draw3BVIcon(game.showInformation == 1 ? (game.total3BV-game.unsolved3BV)*9/game.total3BV : 0);
 		Draw3BVpsIcon();
 		setcolor(RED);
 		setfontbkcolor(BLACK);
-		//xyprintf(x3BVNumber, (heightOfBar-heightOfChar)/2, " %d/%d ", game.total3BV-game.unsolved3BV, game.total3BV);
-		if(mode == 1 || game.total3BV < 10)
+		if(game.showInformation == 1)
 		{
-			xyprintf(x3BVNumber, (heightOfBar-heightOfChar)/2, " %d/%d ", game.total3BV-game.unsolved3BV, game.total3BV);
-		}
-		else if(game.total3BV < 100)//前台的全图3BV隐藏十位
-		{
-			xyprintf(x3BVNumber, (heightOfBar-heightOfChar)/2, " %d/#%d ", game.total3BV-game.unsolved3BV, game.total3BV%10);
+			//xyprintf(x3BVNumber, (heightOfBar-heightOfChar)/2, " %d/%d ", game.total3BV-game.unsolved3BV, game.total3BV);
+			if(mode == 1 || game.total3BV < 10)
+			{
+				xyprintf(x3BVNumber, (heightOfBar-heightOfChar)/2, " %d/%d ", game.total3BV-game.unsolved3BV, game.total3BV);
+			}
+			else if(game.total3BV < 100)//前台的全图3BV隐藏十位
+			{
+				xyprintf(x3BVNumber, (heightOfBar-heightOfChar)/2, " %d/#%d ", game.total3BV-game.unsolved3BV, game.total3BV%10);
+			}
+			else
+			{
+				xyprintf(x3BVNumber, (heightOfBar-heightOfChar)/2, " %d/%d#%d ", game.total3BV-game.unsolved3BV, game.total3BV/100, game.total3BV%10);
+			}
+			xyprintf(x3BVpsNumber, (heightOfBar-heightOfChar)/2, " %.2f ", (float)(game.total3BV-game.unsolved3BV)/(game.t1-game.t0+game.t2));
 		}
 		else
 		{
-			xyprintf(x3BVNumber, (heightOfBar-heightOfChar)/2, " %d/%d#%d ", game.total3BV-game.unsolved3BV, game.total3BV/100, game.total3BV%10);
+			xyprintf(x3BVNumber, (heightOfBar-heightOfChar)/2, " 0/- ");
+			xyprintf(x3BVpsNumber, (heightOfBar-heightOfChar)/2, " nan ");//0/0为非数
 		}
-		xyprintf(x3BVpsNumber, (heightOfBar-heightOfChar)/2, " %.2f ", (float)(game.total3BV-game.unsolved3BV)/(game.t1-game.t0+game.t2));
 	}
 	setbkmode(TRANSPARENT);
-	DrawFace(0);
+	DrawFace(mode == 0 ? 0 : mode+1);
 	//int xm, ym;
 	//mousepos(&xm, &ym);
 	//DrawMouse(xm, ym);
@@ -1501,72 +1526,25 @@ int CloseWindow(int isWinning)
 {
 	int r, c, newGame = -1;
 	int xm, ym, xn, yn, clock0, clock1;
+	const char* tip = "左键新游戏，右键关闭窗口";//"请按键盘任意键关闭窗口"
 	mouse_msg mouseMsg;
-	if(isWinning == 1)//胜利后自动全部标记
-	{
-		for(r=0; r<heightOfBoard; r++)
-		{
-			for(c=0; c<widthOfBoard; c++)
-			{
-				if(isMine[r][c] == 1 && isShown[r][c] == 0)
-				{
-					isShown[r][c] = 2;
-				}
-			}
-		}
-	}
-	DrawBoard(1);
-	if(isWinning == 1)
-	{
-		DrawFace(3);
-		setcolor(BLACK);//显示阴影
-		xyprintf(widthOfBlock+sideLength/16, heightOfBar+widthOfBorder+sideLength/16, "You Win!");
-		setcolor(YELLOW);
-		xyprintf(widthOfBlock, heightOfBar+widthOfBorder, "You Win!");
-	}
-	else
-	{
-		DrawFace(2);
-		setcolor(BLACK);
-		xyprintf(widthOfBlock+sideLength/16, heightOfBar+widthOfBorder+sideLength/16, "Game Over!");
-		setcolor(RED);
-		xyprintf(widthOfBlock, heightOfBar+widthOfBorder, "Game Over!");
-	}
+	initgraph(windowWidth, windowHeight, INIT_RENDERMANUAL);
+	DrawBoard(1+isWinning);
 	delay_ms(1000);
 	flushmouse();
 	while(newGame == -1)
 	{
 		cleardevice();//清除旧游戏结束文字减少锯齿感
-		DrawBoard(1);//刷新界面
-		if(isWinning == 1)
+		DrawBoard(1+isWinning);//刷新界面
+		if(tip != NULL)
 		{
-			DrawFace(3);
+			setfont(heightOfChar/2, 0, "黑体");
 			setcolor(BLACK);
-			xyprintf(widthOfBlock+sideLength/16, heightOfBar+widthOfBorder+sideLength/16, "You Win!");
-			setcolor(YELLOW);
-			xyprintf(widthOfBlock, heightOfBar+widthOfBorder, "You Win!");
-		}
-		else
-		{
-			DrawFace(2);
-			setcolor(BLACK);
-			xyprintf(widthOfBlock+sideLength/16, heightOfBar+widthOfBorder+sideLength/16, "Game Over!");
+			xyprintf(widthOfBlock+sideLength/32, heightOfBar+widthOfBorder-heightOfChar/2+sideLength/32, tip);
 			setcolor(RED);
-			xyprintf(widthOfBlock, heightOfBar+widthOfBorder, "Game Over!");
+			xyprintf(widthOfBlock, heightOfBar+widthOfBorder-heightOfChar/2, tip);
+			setfont(heightOfChar, 0, "Consolas");
 		}
-		setfont(heightOfChar/2, 0, "黑体");
-		setcolor(BLACK);
-		//xyprintf(widthOfBlock+sideLength/32, heightOfBar+widthOfBorder+heightOfBlock+sideLength/32, "请按键盘任意键关闭窗口");
-		xyprintf(widthOfBlock+sideLength/32, heightOfBar+widthOfBorder+heightOfBlock+sideLength/32, "左键新游戏，右键关闭窗口");
-		setcolor(RED);
-		//xyprintf(widthOfBlock, heightOfBar+widthOfBorder+heightOfBlock, "请按键盘任意键关闭窗口");
-		xyprintf(widthOfBlock, heightOfBar+widthOfBorder+heightOfBlock, "左键新游戏，右键关闭窗口");
-		//xyprintf(widthOfBlock, heightOfBar+heightOfBlock*3/2, "请勿按右上角退出！");
-		//xyprintf(widthOfBlock, heightOfBar+heightOfBlock, "Press any key to continue . . .");
-		setfont(heightOfChar, 0, "Consolas");
-		//getch();
-		//delay_ms(2000);
-		//break;
 		if(IsMousePosOutside())
 		{
 			mouseR = -1;
@@ -1604,9 +1582,7 @@ int CloseWindow(int isWinning)
 							dx += xn-xm;
 							dy += yn-ym;
 							cleardevice();
-							DrawBoard(1);
-							if(isWinning == 1) DrawFace(3);
-							else DrawFace(2);
+							DrawBoard(1+isWinning);
 							dx -= xn-xm;
 							dy -= yn-ym;
 							clock0 = clock();
@@ -1618,9 +1594,7 @@ int CloseWindow(int isWinning)
 					if(dx > -widthOfBlock && dx < widthOfBlock) dx = 0;//趋向回正
 					if(dy > -heightOfBlock && dy < heightOfBlock) dy = 0;
 					cleardevice();
-					DrawBoard(1);
-					if(isWinning == 1) DrawFace(3);//保持笑脸
-					else DrawFace(2);
+					DrawBoard(1+isWinning);//保持笑脸
 				}
 				else
 				{
@@ -1638,9 +1612,7 @@ int CloseWindow(int isWinning)
 				if(mouseMsg.wheel > 0) ResizeWindow('+');
 				else ResizeWindow('-');
 				cleardevice();
-				DrawBoard(1);
-				if(isWinning == 1) DrawFace(3);
-				else DrawFace(2);
+				DrawBoard(1+isWinning);
 			}
 		}
 		delay_ms(refreshCycle);
@@ -1896,12 +1868,20 @@ MineSweeper EGE 11.1
 ——新增 3BV和3BV/s图标
 ——新增 终局前全图3BV隐藏十位
 ——优化 鼠标绘制使用绝对坐标
+MineSweeper EGE 11.2
+——新增 胜利后未标记方块显示蓝色旗帜
+——优化 开局也显示3BV和3BV/s图标，数字显示为0/-和nan
+——优化 方块显示逻辑分支
+——优化 不再显示You Win!和Game Over!
+//——新增 按N新游戏，且可打断终局1秒延时
 //——新增 根据位数自动调整图标位置
-//——新增 胜利后未标记方块显示蓝色旗帜
 //——优化 分立地图和窗口绘制代码
 //——优化 编译体积（加链接参数-Wl,--gc-sections）
 //——优化 根据位偏移统一图标位置设计语言
 //——优化 通过地图快速显示技术降低按键延迟
 //——优化 地雷和数字在方块内的居中性
+//——优化 统一地图坐标体系
+//——优化 游戏结束提示文本由参数控制
+//——优化 显示3BV的地图列数下限由28下调到26
 //——修复 按下Alt时抬起Ctrl会进入Ctrl锁死状态
 --------------------------------*/
