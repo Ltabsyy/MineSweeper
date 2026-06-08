@@ -60,7 +60,7 @@ void InitWindow(int mode);
 void ResizeWindow(char mode);//调整显示大小
 int IsMousePosOutside();//鼠标在窗口边界外
 void GetWindowOperation(char* operation, int* r, int* c);
-int CloseWindow(int isWinning);
+int CloseWindow(int isWinning, const char* tip);
 
 // 后台计算
 int IsAroundZeroChain(int r0, int c0);
@@ -316,7 +316,7 @@ int main()
 				}*/
 			}
 			/*游戏结束*/
-			choiceMode = CloseWindow(1-isOpenMine);
+			choiceMode = CloseWindow(1-isOpenMine, "左键新游戏，右键关闭窗口");
 		}
 		/*--设置--*/
 		else if(choiceMode == 2)
@@ -1084,7 +1084,7 @@ void DrawBoard(int mode)//绘制总外部窗口
 		xyprintf(xTimeNumber, (heightOfBar-heightOfChar)/2, " %d ", game.t1-game.t0+game.t2);
 	}
 	//3BV
-	if(show3BV == 1 && widthOfBoard > 27)
+	if(show3BV == 1 && widthOfBoard > 25)
 	{
 		Draw3BVIcon(game.showInformation == 1 ? (game.total3BV-game.unsolved3BV)*9/game.total3BV : 0);
 		Draw3BVpsIcon();
@@ -1093,7 +1093,7 @@ void DrawBoard(int mode)//绘制总外部窗口
 		if(game.showInformation == 1)
 		{
 			//xyprintf(x3BVNumber, (heightOfBar-heightOfChar)/2, " %d/%d ", game.total3BV-game.unsolved3BV, game.total3BV);
-			if(mode == 1 || game.total3BV < 10)
+			if(mode != 0 || game.total3BV < 10)
 			{
 				xyprintf(x3BVNumber, (heightOfBar-heightOfChar)/2, " %d/%d ", game.total3BV-game.unsolved3BV, game.total3BV);
 			}
@@ -1245,7 +1245,7 @@ void UpdateWindowSize()//根据当前方块边长更新窗口大小
 		x3BVNumber = 14*widthOfBlock+xOfChar;
 		x3BVpsNumber = 22*widthOfBlock+xOfChar;
 	}
-	else if(widthOfBoard > 27)
+	else if(widthOfBoard > 25)
 	{
 		x3BV = (widthOfBoard+3)*widthOfBlock/2+xOfChar;
 		x3BVps = (widthOfBoard+17)*widthOfBlock/2+xOfChar;
@@ -1518,25 +1518,44 @@ void GetWindowOperation(char* operation, int* r, int* c)
 			{
 				*operation = '\t';
 			}
+			if(keyMsg.key == 'N')
+			{
+				*operation = '%';
+			}
 		}
 	}
 }
 
-int CloseWindow(int isWinning)
+int CloseWindow(int isWinning, const char* tip)
 {
 	int r, c, newGame = -1;
 	int xm, ym, xn, yn, clock0, clock1;
-	const char* tip = "左键新游戏，右键关闭窗口";//"请按键盘任意键关闭窗口"
 	mouse_msg mouseMsg;
-	initgraph(windowWidth, windowHeight, INIT_RENDERMANUAL);
-	DrawBoard(1+isWinning);
-	delay_ms(1000);
+	key_msg keyMsg;
+	clock0 = clock();
+	while(newGame == -1 && clock()-clock0 < 1000)
+	{
+		DrawBoard(1+isWinning);
+		while(kbmsg())
+		{
+			keyMsg = getkey();
+			if(keyMsg.msg == key_msg_down)
+			{
+				if(keyMsg.key == 'N')
+				{
+					newGame = 1;
+					break;
+				}
+			}
+		}
+		delay_ms(refreshCycle);
+	}
 	flushmouse();
 	while(newGame == -1)
 	{
 		cleardevice();//清除旧游戏结束文字减少锯齿感
 		DrawBoard(1+isWinning);//刷新界面
-		if(tip != NULL)
+		if(tip != NULL)//"左键新游戏，右键关闭窗口""请按键盘任意键关闭窗口"
 		{
 			setfont(heightOfChar/2, 0, "黑体");
 			setcolor(BLACK);
@@ -1613,6 +1632,18 @@ int CloseWindow(int isWinning)
 				else ResizeWindow('-');
 				cleardevice();
 				DrawBoard(1+isWinning);
+			}
+		}
+		while(kbmsg())
+		{
+			keyMsg = getkey();
+			if(keyMsg.msg == key_msg_down)
+			{
+				if(keyMsg.key == 'N')
+				{
+					newGame = 1;
+					break;
+				}
 			}
 		}
 		delay_ms(refreshCycle);
@@ -1873,7 +1904,11 @@ MineSweeper EGE 11.2
 ——优化 开局也显示3BV和3BV/s图标，数字显示为0/-和nan
 ——优化 方块显示逻辑分支
 ——优化 不再显示You Win!和Game Over!
-//——新增 按N新游戏，且可打断终局1秒延时
+MineSweeper EGE 11.3
+——新增 按N新游戏，且可打断终局1秒延时
+——优化 显示3BV的地图列数下限由28下调到26
+——优化 游戏结束提示文本由参数控制
+——修复 胜局的3BV仍隐藏十位
 //——新增 根据位数自动调整图标位置
 //——优化 分立地图和窗口绘制代码
 //——优化 编译体积（加链接参数-Wl,--gc-sections）
@@ -1881,7 +1916,5 @@ MineSweeper EGE 11.2
 //——优化 通过地图快速显示技术降低按键延迟
 //——优化 地雷和数字在方块内的居中性
 //——优化 统一地图坐标体系
-//——优化 游戏结束提示文本由参数控制
-//——优化 显示3BV的地图列数下限由28下调到26
 //——修复 按下Alt时抬起Ctrl会进入Ctrl锁死状态
 --------------------------------*/
