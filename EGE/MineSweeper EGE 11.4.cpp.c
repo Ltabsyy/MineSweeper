@@ -1055,7 +1055,7 @@ void DrawBoard(int mode)//绘制总外部窗口
 				else if(board[r][c] != 9)//终局显示所有数字
 				{
 					DrawBlockP(r, c, board[r][c], 1, highlight);
-					//DrawBlockP(r, c, board[r][c], 0, highlight);不显示
+					//DrawBlockP(r, c, board[r][c], 0, highlight);//不显示
 				}
 				else if(mode == 1)//败局未翻开的雷
 				{
@@ -1372,7 +1372,7 @@ void GetWindowOperation(char* operation, int* r, int* c)
 		ym = mouseMsg.y;
 		//if(game.showInformation == 1)
 		//{
-			//AddOperation(&operationRecord, clock()-game.clock0, 'm',
+			//AddOperation(&operationRecord, clock()-game.clock0+game.clock2, 'm',
 				//(ym-dy-heightOfBar-widthOfBorder)*64/sideLength, (xm-dx-widthOfBorder)*64/sideLength);//坐标拟合到64边长
 		//}
 		mouseR = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
@@ -1499,8 +1499,7 @@ void GetWindowOperation(char* operation, int* r, int* c)
 		}
 		if(mouseMsg.is_wheel() && keystate(key_control))
 		{
-			if(mouseMsg.wheel > 0) ResizeWindow('+');
-			else ResizeWindow('-');
+			ResizeWindow(mouseMsg.wheel > 0 ? '+' : '-');
 			cleardevice();//地图偏移时避免重影
 			DrawBoard(0);//避免闪烁
 		}
@@ -1528,7 +1527,7 @@ void GetWindowOperation(char* operation, int* r, int* c)
 
 int CloseWindow(int isWinning, const char* tip)
 {
-	int r, c, newGame = -1;
+	int newGame = -1;
 	int xm, ym, xn, yn, clock0, clock1;
 	mouse_msg mouseMsg;
 	key_msg keyMsg;
@@ -1628,8 +1627,7 @@ int CloseWindow(int isWinning, const char* tip)
 			}
 			if(mouseMsg.is_wheel() && keystate(key_control))
 			{
-				if(mouseMsg.wheel > 0) ResizeWindow('+');
-				else ResizeWindow('-');
+				ResizeWindow(mouseMsg.wheel > 0 ? '+' : '-');
 				cleardevice();
 				DrawBoard(1+isWinning);
 			}
@@ -1909,6 +1907,8 @@ MineSweeper EGE 11.3
 ——优化 显示3BV的地图列数下限由28下调到26
 ——优化 游戏结束提示文本由参数控制
 ——修复 胜局的3BV仍隐藏十位
+MineSweeper EGE 11.4
+——优化 简化部分代码
 //——新增 根据位数自动调整图标位置
 //——优化 分立地图和窗口绘制代码
 //——优化 编译体积（加链接参数-Wl,--gc-sections）
@@ -1916,5 +1916,8 @@ MineSweeper EGE 11.3
 //——优化 通过地图快速显示技术降低按键延迟
 //——优化 地雷和数字在方块内的居中性
 //——优化 统一地图坐标体系
+//——优化 终局延时集成逻辑
+//——优化 统一调整大小和移动视角函数
+//——优化 操作全链路延迟
 //——修复 按下Alt时抬起Ctrl会进入Ctrl锁死状态
 --------------------------------*/
