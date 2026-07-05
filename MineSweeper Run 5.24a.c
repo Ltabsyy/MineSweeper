@@ -7781,6 +7781,7 @@ void AdjustSolvableMap(int seed, int r0, int c0)//生成调整式可解地图
 			while(isSolving)
 			{
 				isSolving = 0;
+				ContinuousSolve();
 				LookMap();
 				temp = debug;
 				debug = 0;//不显示求解信息
@@ -7808,7 +7809,7 @@ void AdjustSolvableMap(int seed, int r0, int c0)//生成调整式可解地图
 			{
 				for(c=0; c<widthOfBoard; c++)
 				{
-					if(isShown[r][c] == 1 && board[r][c] != 0 && NumberOfNotShownAround(r, c) != 0)
+					if(isThought[r][c])//利用求解后产生信息
 					{
 						needChiselWall = 0;//存在未知方块、数字靠近
 						break;
@@ -7859,9 +7860,6 @@ void AdjustSolvableMap(int seed, int r0, int c0)//生成调整式可解地图
 				{
 					printf("[Debug]凿墙完毕(%d,%d)<->(%d,%d)\n", r, c, ra, ca);
 				}
-				ShownModeBak(0);//恢复并重推
-				isShown[r0][c0] = 1;
-				OpenZeroChain(r0, c0);
 			}
 			else
 			{
@@ -7948,14 +7946,23 @@ void AdjustSolvableMap(int seed, int r0, int c0)//生成调整式可解地图
 					else board[r][c] = numberOfMineAround[r][c];
 				}
 			}
-			//打开可能未完全打开的0链
-			for(r=0; r<heightOfBoard; r++)
+			if(needChiselWall)
 			{
-				for(c=0; c<widthOfBoard; c++)
+				ShownModeBak(0);//恢复并重推
+				isShown[r0][c0] = 1;
+				OpenZeroChain(r0, c0);
+			}
+			else
+			{
+				//打开可能未完全打开的0链
+				for(r=0; r<heightOfBoard; r++)
 				{
-					if(board[r][c] == 0 && isShown[r][c] == 1)
+					for(c=0; c<widthOfBoard; c++)
 					{
-						OpenZeroChain(r, c);
+						if(isThought[r][c] == 2 && board[r][c] == 0 && isShown[r][c] == 1)
+						{
+							OpenZeroChain(r, c);
+						}
 					}
 				}
 			}
@@ -13012,6 +13019,8 @@ MineSweeper Run 5.23
 ——优化 添加操作记录效率
 ——修复 可解地图生成效率用时不准确
 ——修复 种域可解性显示结束种子错误
+MineSweeper Run 5.24
+——优化 调整式可解地图生成效率
 //——新增 Window操作模式
 //——新增 组合雷率计算（根据多块枚举的结果组合进行雷率计算）
 //——新增 内外雷率扰动（根据内部雷分布组合数对应枚举结果雷数扰动交界线雷率）
@@ -13027,5 +13036,4 @@ MineSweeper Run 5.23
 //——优化 统一游戏操作函数，游戏时不再调试
 //——优化 游戏胜利判断，可解性判断时序
 //——修复 未操作的Tab后不使用快速显示
-//——修复 调整式可解地图可能闪退
 --------------------------------*/
