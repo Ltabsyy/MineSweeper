@@ -7772,6 +7772,8 @@ void AdjustSolvableMap(int seed, int r0, int c0)//生成调整式可解地图
 	int r, c, i, temp, ra, ca, n;
 	int isSolving, numberOfNotShown, remainedMine, needChiselWall;
 	int isSwing = 1, iterator = 1;
+	int* rList =(int*) calloc(heightOfBoard*widthOfBoard, sizeof(int));
+	int* cList =(int*) calloc(heightOfBoard*widthOfBoard, sizeof(int));
 	int* mineList =(int*) calloc(heightOfBoard*widthOfBoard, sizeof(int));
 	for(; isSwing; iterator++)//仅摇摆时重新生成地图，否则凿墙/重排
 	{
@@ -7899,61 +7901,85 @@ void AdjustSolvableMap(int seed, int r0, int c0)//生成调整式可解地图
 					ShowBoard(0);
 					//system("pause");
 				}
-				for(i=0; i<remainedMine; i++) mineList[i] = 1;
-				for(; i<numberOfNotShown; i++) mineList[i] = 0;
-				for(i=numberOfNotShown-1; i>=0; i--)//Knuth洗牌算法
-				{
-					c = rand() % (i+1);
-					temp = mineList[c];
-					mineList[c] = mineList[i];
-					mineList[i] = temp;
-				}
-				i = 0;
+				n = 0;
 				for(r=0; r<heightOfBoard; r++)
 				{
 					for(c=0; c<widthOfBoard; c++)
 					{
-						if(isShown[r][c] == 0)
+						if(isThought[r][c] != 0 && isThought[r][c] != 2)//交界线处未知方块，需要Solve()
 						{
-							isMine[r][c] = mineList[i];
-							i++;
+							rList[n] = r;
+							cList[n] = c;
+							n++;
 						}
 					}
 				}
-				//更新数字
-				for(r=0; r<heightOfBoard; r++)
+				if(n > 5)//只重排交界线
 				{
-					for(c=0; c<widthOfBoard; c++)
+					for(i=n-1; i>=0; i--)//Knuth洗牌算法
 					{
-						numberOfMineAround[r][c] = 0;
-						board[r][c] = 0;
+						c = rand() % (i+1);
+						SwapMineUpdateBoard(rList[c], cList[c], rList[i], cList[i]);
 					}
 				}
-				for(r=0; r<heightOfBoard; r++)
+				else//可能交界线上摇摆，重排全部未知区
 				{
-					for(c=0; c<widthOfBoard; c++)
+					for(i=0; i<remainedMine; i++) mineList[i] = 1;
+					for(; i<numberOfNotShown; i++) mineList[i] = 0;
+					for(i=numberOfNotShown-1; i>=0; i--)//Knuth洗牌算法
 					{
-						if(isMine[r][c] == 1)
+						c = rand() % (i+1);
+						temp = mineList[c];
+						mineList[c] = mineList[i];
+						mineList[i] = temp;
+					}
+					i = 0;
+					for(r=0; r<heightOfBoard; r++)
+					{
+						for(c=0; c<widthOfBoard; c++)
 						{
-							for(ra=r-1; ra<=r+1; ra++)
+							if(isShown[r][c] == 0)
 							{
-								for(ca=c-1; ca<=c+1; ca++)
+								isMine[r][c] = mineList[i];
+								i++;
+							}
+						}
+					}
+					//更新数字
+					for(r=0; r<heightOfBoard; r++)
+					{
+						for(c=0; c<widthOfBoard; c++)
+						{
+							numberOfMineAround[r][c] = 0;
+							board[r][c] = 0;
+						}
+					}
+					for(r=0; r<heightOfBoard; r++)
+					{
+						for(c=0; c<widthOfBoard; c++)
+						{
+							if(isMine[r][c] == 1)
+							{
+								for(ra=r-1; ra<=r+1; ra++)
 								{
-									if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
+									for(ca=c-1; ca<=c+1; ca++)
 									{
-										numberOfMineAround[ra][ca]++;
+										if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
+										{
+											numberOfMineAround[ra][ca]++;
+										}
 									}
 								}
 							}
 						}
 					}
-				}
-				for(r=0; r<heightOfBoard; r++)
-				{
-					for(c=0; c<widthOfBoard; c++)
+					for(r=0; r<heightOfBoard; r++)
 					{
-						if(isMine[r][c] == 1) board[r][c] = 9;
-						else board[r][c] = numberOfMineAround[r][c];
+						for(c=0; c<widthOfBoard; c++)
+						{
+							if(isMine[r][c] == 1) board[r][c] = 9;
+							else board[r][c] = numberOfMineAround[r][c];
+						}
 					}
 				}
 				//打开可能未完全打开的0链
@@ -7971,6 +7997,8 @@ void AdjustSolvableMap(int seed, int r0, int c0)//生成调整式可解地图
 			}
 		}
 	}
+	free(rList);
+	free(cList);
 	free(mineList);
 	ShownModeBak(0);
 }
@@ -13033,6 +13061,8 @@ MineSweeper Run 5.24
 ——优化 游戏时不再调试
 ——优化 简化枚举限制设置
 ——修复 未操作的Tab后不使用快速显示
+MineSweeper Run 5.25
+——优化 修改调整式可解地图算法逻辑以提升性能
 //——新增 Window操作模式
 //——新增 组合雷率计算（根据多块枚举的结果组合进行雷率计算）
 //——新增 内外雷率扰动（根据内部雷分布组合数对应枚举结果雷数扰动交界线雷率）
