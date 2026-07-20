@@ -4,7 +4,7 @@
 #include <time.h>
 #include <math.h>
 #include <graphics.h>//链接参数-mwindows
-//#include <ege/sys_edit.h>
+#include <ege/sys_edit.h>
 /**
  * 扫雷 MineSweeper EGE
  *
@@ -89,84 +89,148 @@ int show3BV = 0;
 int refreshCycle = 25;
 int newCursor = 2;
 
+void DrawButton(int x, int y, int w, int h, int highlight, const char* text)//启动界面的按钮
+{
+	ege_point polyPoints1[3] =
+	{
+		{(float)x, (float)y}, {(float)x+w, (float)y}, {(float)x, (float)y+h}
+	};
+	ege_point polyPoints2[3] =
+	{
+		{(float)x+w, (float)y}, {(float)x, (float)y+h}, {(float)x+w, (float)y+h}
+	};
+	setfillcolor(WHITE);
+	ege_fillpoly(3, polyPoints1);
+	setfillcolor(GRAY);
+	ege_fillpoly(3, polyPoints2);
+	setfillcolor(highlight ? LIGHTBLUE : LIGHTGRAY);
+	ege_fillrect(x+w*2.0/32, y+h*2.0/32, w*28/32, h*28/32);
+	setcolor(BLACK);
+	setfont(sideLength*3/4, 0, text[0] == 'G' ? "Consolas" : "黑体");
+	settextjustify(CENTER_TEXT, CENTER_TEXT);
+	outtextrect(x+w*2.0/32, y+h*2.0/32, w*28/32, h*28/32, text);
+	settextjustify(LEFT_TEXT, TOP_TEXT);
+}
+
+void StartPage()//启动界面
+{
+	int i, difficulty = -1, isChecked;
+	char str[16];
+	sys_edit editBox[3];
+	mouse_msg mouseMsg;
+	resizewindow(sideLength*10, sideLength*8);
+	DrawMineA(sideLength*1, sideLength*1, 20*sideLength/32*4/3);
+	setcolor(BLACK);
+	xyprintf(sideLength*2, sideLength/2, "MineSweeper EGE");
+	xyprintf(sideLength*3+sideLength/4, sideLength*6, "*");
+	xyprintf(sideLength*6+sideLength/4, sideLength*6, "-");
+	for(i=0; i<3; i++)//初始化文本框
+	{
+		editBox[i].create(0);//单行文本框
+		editBox[i].move(sideLength*(3*i+1), sideLength*6);//位置
+		editBox[i].size(sideLength*2, 8+sideLength);//大小
+		//editBox[i].setbgcolor(WHITE);
+		//editBox[i].setcolor(BLACK);
+		editBox[i].setfont(heightOfChar, 0, "Consolas");
+		editBox[i].setmaxlen(11);//最大输入长度
+		editBox[i].visible(1);//默认不可见，设为可见
+		editBox[i].settext("10");//默认难度为10*10-10
+	}
+	editBox[2].setbgcolor(BLACK);
+	editBox[2].setcolor(RED);
+	while(1)
+	{
+		DrawButton(sideLength*1, sideLength*2, sideLength*2, sideLength*1, difficulty == 0, "默认");
+		DrawButton(sideLength*4, sideLength*2, sideLength*2, sideLength*1, difficulty == 1, "初级");
+		DrawButton(sideLength*7, sideLength*2, sideLength*2, sideLength*1, difficulty == 2, "中级");
+		DrawButton(sideLength*1, sideLength*4, sideLength*2, sideLength*1, difficulty == 3, "高级");
+		DrawButton(sideLength*4, sideLength*4, sideLength*2, sideLength*1, difficulty == 4, "顶级");
+		DrawButton(sideLength*7, sideLength*4, sideLength*2, sideLength*1, difficulty == 5, "Go!");
+		isChecked = 0;
+		while(mousemsg())
+		{
+			mouseMsg = getmouse();
+			int xm = mouseMsg.x;
+			int ym = mouseMsg.y;
+			if(IsPosInRectangle(xm, ym, sideLength*1, sideLength*2, sideLength*9, sideLength*5))
+			{
+				difficulty = (xm-sideLength*1)/(sideLength*3)+(ym-sideLength*2)/(sideLength*2)*3;
+			}
+			else
+			{
+				difficulty = -1;
+			}
+			if(mouseMsg.is_up())
+			{
+				isChecked = 1;
+			}
+		}
+		if(isChecked)
+		{
+			if(difficulty == 5) break;//选择Go退出
+			if(difficulty == 0)//默认为10*10-10，比初级更简单(doge)
+			{
+				numberOfMine = 10;//密度0.1
+				heightOfBoard = 10;
+				widthOfBoard = 10;
+			}
+			else if(difficulty == 1)//初级，胜率96%
+			{
+				numberOfMine = 10;//密度0.12345679
+				heightOfBoard = 9;
+				widthOfBoard = 9;
+			}
+			else if(difficulty == 2)//中级，胜率84%
+			{
+				numberOfMine = 40;//密度0.15625
+				heightOfBoard = 16;
+				widthOfBoard = 16;
+			}
+			else if(difficulty == 3)//高级，胜率48%
+			{
+				numberOfMine = 99;//密度0.20625
+				heightOfBoard = 16;
+				widthOfBoard = 30;
+			}
+			else if(difficulty == 4)//顶级，胜率26%
+			{
+				numberOfMine = 715;//密度0.193452
+				heightOfBoard = 42;
+				widthOfBoard = 88;//实测较为合适的全屏地图
+			}
+			sprintf(str, "%d", heightOfBoard);
+			editBox[0].settext(str);
+			sprintf(str, "%d", widthOfBoard);
+			editBox[1].settext(str);
+			sprintf(str, "%d", numberOfMine);
+			editBox[2].settext(str);
+		}
+		delay_ms(refreshCycle);
+	}
+	//统一根据文本框内容设置难度
+	editBox[0].gettext(16, str);
+	sscanf(str, "%d", &heightOfBoard);
+	editBox[1].gettext(16, str);
+	sscanf(str, "%d", &widthOfBoard);
+	editBox[2].gettext(16, str);
+	sscanf(str, "%d", &numberOfMine);
+	if(heightOfBoard < 1) heightOfBoard = 1;
+	if(heightOfBoard > LimHeight) heightOfBoard = LimHeight;
+	if(widthOfBoard < 1) widthOfBoard = 1;
+	if(widthOfBoard > LimWidth) widthOfBoard = LimWidth;
+	if(numberOfMine < 0) numberOfMine = 0;
+	if(numberOfMine > heightOfBoard * widthOfBoard) numberOfMine = heightOfBoard * widthOfBoard;
+}
+
 int main()
 {
 	int newGame = 1;
 	int seed, r0, c0;//地图生成
 	int r, c, isOpenMine, ra, ca;
 	char operation;
-	int difficulty;//设置
-	mouse_msg mouseMsg;
-	/*--设置--*/
+	/*--启动界面--*/
 	InitWindow(0);
-	initgraph(sideLength*10, heightOfChar*6);
-	setcolor(BLACK);
-	xyprintf(0, heightOfChar*0, "默认：10*10 - 10");
-	xyprintf(0, heightOfChar*1, "初级： 9*9  - 10");
-	xyprintf(0, heightOfChar*2, "中级：16*16 - 40");
-	xyprintf(0, heightOfChar*3, "高级：16*30 - 99");
-	xyprintf(0, heightOfChar*4, "顶级：42*88 - 715");
-	xyprintf(0, heightOfChar*5, "自定义");
-	difficulty = -1;
-	while(difficulty == -1)
-	{
-		while(mousemsg())
-		{
-			mouseMsg = getmouse();
-			if(mouseMsg.is_left() && mouseMsg.is_up())
-			{
-				difficulty = mouseMsg.y/heightOfChar;
-				break;
-			}
-		}
-		delay_ms(refreshCycle);
-	}
-	if(difficulty == 0)//默认为10*10-10，比初级更简单(doge)
-	{
-		numberOfMine = 10;//密度0.1
-		heightOfBoard = 10;
-		widthOfBoard = 10;
-	}
-	else if(difficulty == 1)//初级，胜率96%
-	{
-		numberOfMine = 10;//密度0.12345679
-		heightOfBoard = 9;
-		widthOfBoard = 9;
-	}
-	else if(difficulty == 2)//中级，胜率84%
-	{
-		numberOfMine = 40;//密度0.15625
-		heightOfBoard = 16;
-		widthOfBoard = 16;
-	}
-	else if(difficulty == 3)//高级，胜率48%
-	{
-		numberOfMine = 99;//密度0.20625
-		heightOfBoard = 16;
-		widthOfBoard = 30;
-	}
-	else if(difficulty == 4)//顶级，胜率26%
-	{
-		numberOfMine = 715;//密度0.193452
-		heightOfBoard = 42;
-		widthOfBoard = 88;//实测较为合适的全屏地图
-	}
-	else
-	{
-		char str[64];
-		resizewindow(13*32, 10*32);
-		inputbox_getline("自定义难度输入框",
-						 "[行数] [列数] [雷数]\n注意空格，输入后回车。\n"
-						 "最大地图256*384，雷数任意。\n"
-						 "什么？输入框太丑？请到https://github.com/x-ege/xege反馈！", str, 64);
-		sscanf(str, "%d%d%d", &heightOfBoard, &widthOfBoard, &numberOfMine);
-		if(heightOfBoard < 1) heightOfBoard = 1;
-		if(heightOfBoard > LimHeight) heightOfBoard = LimHeight;
-		if(widthOfBoard < 1) widthOfBoard = 1;
-		if(widthOfBoard > LimWidth) widthOfBoard = LimWidth;
-		if(numberOfMine < 0) numberOfMine = 0;
-		if(numberOfMine > heightOfBoard * widthOfBoard) numberOfMine = heightOfBoard * widthOfBoard;
-	}
+	StartPage();
 	/*--游戏--*/
 	while(newGame == 1)//main内循环防止变量重复定义
 	{
@@ -1897,8 +1961,8 @@ MineSweeper EGE 11.3
 MineSweeper EGE 11.4
 ——优化 简化部分代码
 MineSweeper EGE 11.5
+——新增 EGE版引入sys_edit文本框，重构启动界面
 ——优化 EGE版转为纯GUI程序，移除全部控制台代码(m)
-//——新增 EGE版引入sys_edit，重构启动界面
 //——新增 根据位数自动调整图标位置
 //——优化 分立地图和窗口绘制代码
 //——优化 编译体积（加链接参数-Wl,--gc-sections）
