@@ -3,7 +3,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
-#include <graphics.h>
+#include <graphics.h>//链接参数-mwindows
+//#include <ege/sys_edit.h>
 /**
  * 扫雷 MineSweeper EGE
  *
@@ -34,6 +35,7 @@ struct Information
 	int clock0, clock1, clock2;//毫秒用时
 }game;
 int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2);
+void SummonNumber();//根据雷场生成数字
 void SummonBoard(int seed, int r0, int c0, int summonMode, int iterateMode);//地图生成
 
 // EGE窗口显示
@@ -65,7 +67,7 @@ int CloseWindow(int isWinning, const char* tip);
 // 后台计算
 int IsAroundZeroChain(int r0, int c0);
 void OpenZeroChain(int r0, int c0);
-int NumberOfNotShown();
+int WinByAllOpen();
 int NumberOfSignAround(int r0, int c0);
 
 // 全局矩阵
@@ -89,308 +91,279 @@ int newCursor = 2;
 
 int main()
 {
-	int choiceMode = 0;//游戏功能的选择
+	int newGame = 1;
 	int seed, r0, c0;//地图生成
 	int r, c, isOpenMine, ra, ca;
 	char operation;
-	int temp, difficulty;//设置
-	while(1)//main内循环防止变量重复定义
+	int difficulty;//设置
+	mouse_msg mouseMsg;
+	/*--设置--*/
+	InitWindow(0);
+	initgraph(sideLength*10, heightOfChar*6);
+	setcolor(BLACK);
+	xyprintf(0, heightOfChar*0, "默认：10*10 - 10");
+	xyprintf(0, heightOfChar*1, "初级： 9*9  - 10");
+	xyprintf(0, heightOfChar*2, "中级：16*16 - 40");
+	xyprintf(0, heightOfChar*3, "高级：16*30 - 99");
+	xyprintf(0, heightOfChar*4, "顶级：42*88 - 715");
+	xyprintf(0, heightOfChar*5, "自定义");
+	difficulty = -1;
+	while(difficulty == -1)
 	{
-		system("cls");//清屏
-		printf("*******************************\n"//宽31
-			   "(1)新游戏\n"
-			   "(2)设置\n"
-			   "(3)退出\n"
-			   "*******************************\n");
-		if(choiceMode == 0)
+		while(mousemsg())
 		{
-			printf(">");
-			scanf("%d", &choiceMode);
+			mouseMsg = getmouse();
+			if(mouseMsg.is_left() && mouseMsg.is_up())
+			{
+				difficulty = mouseMsg.y/heightOfChar;
+				break;
+			}
 		}
-		/*--新游戏--*/
-		if(choiceMode == 1)
+		delay_ms(refreshCycle);
+	}
+	if(difficulty == 0)//默认为10*10-10，比初级更简单(doge)
+	{
+		numberOfMine = 10;//密度0.1
+		heightOfBoard = 10;
+		widthOfBoard = 10;
+	}
+	else if(difficulty == 1)//初级，胜率96%
+	{
+		numberOfMine = 10;//密度0.12345679
+		heightOfBoard = 9;
+		widthOfBoard = 9;
+	}
+	else if(difficulty == 2)//中级，胜率84%
+	{
+		numberOfMine = 40;//密度0.15625
+		heightOfBoard = 16;
+		widthOfBoard = 16;
+	}
+	else if(difficulty == 3)//高级，胜率48%
+	{
+		numberOfMine = 99;//密度0.20625
+		heightOfBoard = 16;
+		widthOfBoard = 30;
+	}
+	else if(difficulty == 4)//顶级，胜率26%
+	{
+		numberOfMine = 715;//密度0.193452
+		heightOfBoard = 42;
+		widthOfBoard = 88;//实测较为合适的全屏地图
+	}
+	else
+	{
+		char str[64];
+		resizewindow(13*32, 10*32);
+		inputbox_getline("自定义难度输入框",
+						 "[行数] [列数] [雷数]\n注意空格，输入后回车。\n"
+						 "最大地图256*384，雷数任意。\n"
+						 "什么？输入框太丑？请到https://github.com/x-ege/xege反馈！", str, 64);
+		sscanf(str, "%d%d%d", &heightOfBoard, &widthOfBoard, &numberOfMine);
+		if(heightOfBoard < 1) heightOfBoard = 1;
+		if(heightOfBoard > LimHeight) heightOfBoard = LimHeight;
+		if(widthOfBoard < 1) widthOfBoard = 1;
+		if(widthOfBoard > LimWidth) widthOfBoard = LimWidth;
+		if(numberOfMine < 0) numberOfMine = 0;
+		if(numberOfMine > heightOfBoard * widthOfBoard) numberOfMine = heightOfBoard * widthOfBoard;
+	}
+	/*--游戏--*/
+	while(newGame == 1)//main内循环防止变量重复定义
+	{
+		/*重置*/
+		game.remainedMine = numberOfMine;
+		game.t0 = 0;
+		game.t1 = 0;
+		game.showInformation = 0;//不刷新游戏信息
+		isOpenMine = 0;
+		game.t2 = 0;
+		//game.clock2 = 0;
+		for(r=0; r<heightOfBoard; r++)
 		{
-			/*重置*/
-			system("cls");
-			game.remainedMine = numberOfMine;
-			game.t0 = 0;
-			game.t1 = 0;
-			game.showInformation = 0;//不刷新游戏信息
-			isOpenMine = 0;
-			for(r=0; r<heightOfBoard; r++)
+			for(c=0; c<widthOfBoard; c++)
 			{
-				for(c=0; c<widthOfBoard; c++)
-				{
-					isShown[r][c] = 0;
-				}
+				isShown[r][c] = 0;
 			}
-			/*初始化*/
-			printf("选择坐标[r:行][c:列]\n");
-			InitWindow(0);//创建窗口
-			operation = 0;
-			r0 = heightOfBoard/2;
-			c0 = widthOfBoard/2;
-			while(operation == 0)
+		}
+		/*初始化*/
+		InitWindow(0);//创建窗口
+		operation = 0;
+		r0 = heightOfBoard/2;
+		c0 = widthOfBoard/2;
+		while(operation == 0)
+		{
+			DrawBoard(0);
+			GetWindowOperation(&operation, &r0, &c0);
+			delay_ms(refreshCycle);
+		}
+		seed = time(0);//当前时间戳作种子生成随机数
+		SummonBoard(seed, r0, c0, summonCheckMode, mapIterator);
+		for(r=0; r<heightOfBoard; r++)
+		{
+			for(c=0; c<widthOfBoard; c++)
 			{
-				DrawBoard(0);
-				GetWindowOperation(&operation, &r0, &c0);
-				delay_ms(refreshCycle);
+				solution[r][c] = 0;
 			}
-			seed = time(0);//当前时间戳作种子生成随机数
-			game.t0 = time(0);
-			game.t1 = game.t0;
-			game.t2 = 0;
-			game.showInformation = 1;
-			SummonBoard(seed, r0, c0, summonCheckMode, mapIterator);
-			for(r=0; r<heightOfBoard; r++)
+		}
+		r = r0;
+		c = c0;
+		game.showInformation = 1;
+		isShown[r][c] = 1;
+		game.t0 = time(0);
+		game.t1 = game.t0;//第一次点击可能直接结束游戏
+		//game.clock0 = clock();
+		//game.clock1 = game.clock0;
+		/*游戏循环*/
+		while(1)
+		{
+			/*计算*/
+			if(isShown[r][c] == 1)//对翻开操作做出反应
 			{
-				for(c=0; c<widthOfBoard; c++)
+				if(board[r][c] == 0)//翻开0连锁翻开
 				{
-					solution[r][c] = 0;
+					OpenZeroChain(r,c);
 				}
-			}
-			r = r0;
-			c = c0;
-			isShown[r][c] = 1;
-			/*游戏循环*/
-			while(1)
-			{
-				/*计算*/
-				if(isShown[r][c] == 1)//对翻开操作做出反应
+				else if(board[r][c] == 9)//寄
 				{
-					if(board[r][c] == 0)//翻开0连锁翻开
-					{
-						OpenZeroChain(r,c);
-					}
-					else if(board[r][c] == 9)//寄
-					{
-						system("cls");
-						printf(":(\nGame Over!\n");
-						isOpenMine = 1;
-						break;
-					}
-				}
-				if(NumberOfNotShown() == game.remainedMine)//未翻开的都是雷则胜利
-				{
-					system("cls");
-					printf(":)\nYou Win!\n");
+					isOpenMine = 1;
 					break;
 				}
-				/*显示*/
-				//system("cls");
-				//printf("剩余雷数: %d 用时: %d\n", game.remainedMine, t1-t0);//打印剩余雷数
-				/*输入*/
-				operation = 0;
-				while(1)
+			}
+			if(WinByAllOpen())//未翻开的都是雷则胜利
+			{
+				break;
+			}
+			/*显示*/
+			/*输入*/
+			operation = 0;
+			while(1)
+			{
+				if(1)
 				{
-					if(1)
+					game.t1 = time(0);
+					DrawBoard(0);
+					DrawSolution();
+					GetWindowOperation(&operation, &r, &c);
+					if(operation == '%')//重新生成地图
 					{
-						game.t1 = time(0);
-						DrawBoard(0);
-						DrawSolution();
-						GetWindowOperation(&operation, &r, &c);
-						if(operation == '%')//重新生成地图
+						game.remainedMine = numberOfMine;
+						game.t0 = 0;
+						game.t1 = 0;
+						game.t2 = 0;
+						//game.clock2 = 0;
+						game.showInformation = 0;
+						for(r=0; r<heightOfBoard; r++)
 						{
-							game.remainedMine = numberOfMine;
-							game.t0 = 0;
-							game.t1 = 0;
-							game.t2 = 0;
-							//game.clock2 = 0;
-							game.showInformation = 0;
+							for(c=0; c<widthOfBoard; c++)
+							{
+								isShown[r][c] = 0;
+								solution[r][c] = 0;
+							}
+						}
+						operation = 0;
+						r0 = heightOfBoard/2;
+						c0 = widthOfBoard/2;
+						while(operation == 0)
+						{
+							DrawBoard(0);
+							GetWindowOperation(&operation, &r0, &c0);
+							delay_ms(refreshCycle);
+						}
+						seed = time(0);
+						/*if(summonCheckMode > 2)//可解地图生成
+						{
+							mapIterator = 1;
+							seed = SearchSeed(seed, r0, c0, difficulty);
 							for(r=0; r<heightOfBoard; r++)
 							{
 								for(c=0; c<widthOfBoard; c++)
 								{
-									isShown[r][c] = 0;
 									solution[r][c] = 0;
 								}
 							}
-							operation = 0;
-							r0 = heightOfBoard/2;
-							c0 = widthOfBoard/2;
-							while(operation == 0)
-							{
-								DrawBoard(0);
-								GetWindowOperation(&operation, &r0, &c0);
-								delay_ms(refreshCycle);
-							}
-							seed = time(0);
-							/*if(summonCheckMode > 2)//可解地图生成
-							{
-								mapIterator = 1;
-								seed = SearchSeed(seed, r0, c0, difficulty);
-								for(r=0; r<heightOfBoard; r++)
-								{
-									for(c=0; c<widthOfBoard; c++)
-									{
-										solution[r][c] = 0;
-									}
-								}
-							}*/
-							SummonBoard(seed, r0, c0, summonCheckMode, mapIterator);
-							//game.total3BV = BBBV(3);
-							//game.unsolved3BV = game.total3BV;
-							game.showInformation = 1;
-							r = r0;
-							c = c0;
-							isShown[r][c] = 1;
-							//isHelped = 0;
-							//ClearOperations(operationRecord);
-							//operationRecord = AddOperations(seed, r0, c0);
-							game.t0 = time(0);
-							//game.clock0 = clock();
-						}
+						}*/
+						SummonBoard(seed, r0, c0, summonCheckMode, mapIterator);
+						//game.total3BV = BBBV(3);
+						//game.unsolved3BV = game.total3BV;
+						game.showInformation = 1;
+						r = r0;
+						c = c0;
+						isShown[r][c] = 1;
+						//isHelped = 0;
+						//ClearOperations(operationRecord);
+						//operationRecord = AddOperations(seed, r0, c0);
+						game.t0 = time(0);
+						//game.clock0 = clock();
 					}
-					if(operation != 0)
-					{
-						delay_ms(0);//连续操作显示
-						break;
-					}
-					else delay_ms(refreshCycle);
-					//delay_fps(1000/refreshCycle);//维持帧率稳定
-					//if(operation != 0) break;
 				}
-				if(operation == '@')
+				if(operation != 0)
 				{
-					if(isShown[r][c] == 1)//翻开数字则尝试翻开周围
+					delay_ms(0);//连续操作显示
+					break;
+				}
+				else delay_ms(refreshCycle);
+				//delay_fps(1000/refreshCycle);//维持帧率稳定
+				//if(operation != 0) break;
+			}
+			if(operation == '@')
+			{
+				if(isShown[r][c] == 1)//翻开数字则尝试翻开周围
+				{
+					if(NumberOfSignAround(r, c) == numberOfMineAround[r][c])
 					{
-						if(NumberOfSignAround(r, c) == numberOfMineAround[r][c])
+						for(ra=r-1; ra<=r+1; ra++)
 						{
-							for(ra=r-1; ra<=r+1; ra++)
+							for(ca=c-1; ca<=c+1; ca++)
 							{
-								for(ca=c-1; ca<=c+1; ca++)
+								if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
 								{
-									if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
+									if(isShown[ra][ca] == 0)//翻开所有%，如果标错则%中有雷
 									{
-										if(isShown[ra][ca] == 0)//翻开所有%，如果标错则%中有雷
+										isShown[ra][ca] = 1;
+										if(board[ra][ca] == 0)//翻开0连锁翻开
 										{
-											isShown[ra][ca] = 1;
-											if(board[ra][ca] == 0)//翻开0连锁翻开
-											{
-												OpenZeroChain(ra, ca);
-											}
-											else if(board[ra][ca] == 9)//寄
-											{
-												isOpenMine = 1;
-												r = ra;
-												c = ca;
-												break;//维持坐标退出
-											}
+											OpenZeroChain(ra, ca);
+										}
+										else if(board[ra][ca] == 9)//寄
+										{
+											isOpenMine = 1;
+											r = ra;
+											c = ca;
+											break;//维持坐标退出
 										}
 									}
 								}
-								if(isOpenMine == 1) break;
 							}
+							if(isOpenMine == 1) break;
 						}
 					}
-					else if(isShown[r][c] == 2)
-					{
-						game.remainedMine++;//取消标记，剩余雷数+1
-						isShown[r][c] = 1;
-					}
-					else
-					{
-						isShown[r][c] = 1;//翻开
-					}
 				}
-				else if(operation == '#')
+				else if(isShown[r][c] == 2)
 				{
-					if(isShown[r][c] == 0)//标记
-					{
-						isShown[r][c] = 2;
-						game.remainedMine--;
-					}
-					else if(isShown[r][c] == 2)//取消标记
-					{
-						isShown[r][c] = 0;
-						game.remainedMine++;
-					}
-					/*else
-					{
-						printf(":(\n该坐标已翻开！\n");
-					}*/
+					game.remainedMine++;//取消标记，剩余雷数+1
+					isShown[r][c] = 1;
 				}
-				/*else
+				else
 				{
-					printf(":(\n未选择操作模式！\n");
-				}*/
+					isShown[r][c] = 1;//翻开
+				}
 			}
-			/*游戏结束*/
-			choiceMode = CloseWindow(1-isOpenMine, "左键新游戏，右键关闭窗口");
+			else if(operation == '#')
+			{
+				if(isShown[r][c] == 0)//标记
+				{
+					isShown[r][c] = 2;
+					game.remainedMine--;
+				}
+				else if(isShown[r][c] == 2)//取消标记
+				{
+					isShown[r][c] = 0;
+					game.remainedMine++;
+				}
+			}
 		}
-		/*--设置--*/
-		else if(choiceMode == 2)
-		{
-			system("cls");
-			printf("*******************************\n"//宽31
-				   "(0)默认：10*10 - 10\n"
-				   "(1)初级： 9*9  - 10\n"
-				   "(2)中级：16*16 - 40\n"
-				   "(3)高级：16*30 - 99\n"
-				   "(4)顶级：42*88 - 715\n"
-				   "(5)自定义**********\n"
-				   "*******************************\n");
-			printf("当前雷数:%d|当前界面大小:%d*%d\n", numberOfMine, heightOfBoard, widthOfBoard);
-			printf(">");
-			scanf("%d", &difficulty);
-			if(difficulty == 0)//默认为10*10-10，比初级更简单(doge)
-			{
-				numberOfMine = 10;//密度0.1
-				heightOfBoard = 10;
-				widthOfBoard = 10;
-			}
-			else if(difficulty == 1)//初级，胜率96%
-			{
-				numberOfMine = 10;//密度0.12345679
-				heightOfBoard = 9;
-				widthOfBoard = 9;
-			}
-			else if(difficulty == 2)//中级，胜率84%
-			{
-				numberOfMine = 40;//密度0.15625
-				heightOfBoard = 16;
-				widthOfBoard = 16;
-			}
-			else if(difficulty == 3)//高级，胜率48%
-			{
-				numberOfMine = 99;//密度0.20625
-				heightOfBoard = 16;
-				widthOfBoard = 30;
-			}
-			else if(difficulty == 4)//顶级，胜率26%
-			{
-				numberOfMine = 715;//密度0.193452
-				heightOfBoard = 42;
-				widthOfBoard = 88;//实测较为合适的全屏地图，雷数为胡桃生日
-			}
-			else
-			{
-				printf("[行数] [列数] [雷数]>");
-				scanf("%d", &temp);
-				if(temp < 1) heightOfBoard = 1;
-				else if(temp > LimHeight) heightOfBoard = LimHeight;
-				else heightOfBoard = temp;
-				scanf("%d", &temp);
-				if(temp < 1) widthOfBoard = 1;
-				else if(temp > LimWidth) widthOfBoard = LimWidth;
-				else widthOfBoard = temp;
-				scanf("%d", &temp);
-				if(temp < 0) numberOfMine = 0;
-				else if(temp > heightOfBoard * widthOfBoard) numberOfMine = heightOfBoard * widthOfBoard;
-				else numberOfMine = temp;
-			}
-			choiceMode = 0;
-		}
-		/*--退出--*/
-		else if(choiceMode == 3)
-		{
-			break;
-		}
-		else
-		{
-			getchar();
-			choiceMode = 0;
-		}
+		/*游戏结束*/
+		newGame = CloseWindow(1-isOpenMine, "左键新游戏，右键关闭窗口");
 	}
 	return 0;
 }
@@ -404,6 +377,56 @@ int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2)
 	else
 	{
 		return 0;
+	}
+}
+
+void SummonNumber()//根据雷场生成数字和后台总板
+{
+	int r, c, ra, ca;
+	// 重置
+	for(r=0; r<heightOfBoard; r++)
+	{
+		for(c=0; c<widthOfBoard; c++)
+		{
+			numberOfMineAround[r][c] = 0;
+			//board[r][c] = 0;
+		}
+	}
+	// 生成雷周围数字
+	for(r=0; r<heightOfBoard; r++)
+	{
+		for(c=0; c<widthOfBoard; c++)
+		{
+			if(isMine[r][c] == 1)//循环遍历雷，在雷周围生成数字
+			{
+				for(ra=r-1; ra<=r+1; ra++)
+				{
+					for(ca=c-1; ca<=c+1; ca++)
+					{
+						if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
+						{
+							numberOfMineAround[ra][ca]++;
+						}
+					}
+				}
+			}//挨得过紧的雷也会被数字覆盖
+			//方法2：循环遍历方块，计算周围雷数，因为不跳过雷，方法1始终不弱于方法2
+		}
+	}
+	// 生成后台总板
+	for(r=0; r<heightOfBoard; r++)
+	{
+		for(c=0; c<widthOfBoard; c++)
+		{
+			if(isMine[r][c] == 1)
+			{
+				board[r][c] = 9;//雷标记为9，解决数字覆盖掉雷的情况
+			}
+			else
+			{
+				board[r][c] = numberOfMineAround[r][c];
+			}
+		}
 	}
 }
 
@@ -424,8 +447,6 @@ void SummonBoard(int seed, int r0, int c0, int summonMode, int iterateMode)//地
 	{
 		for(c=0; c<widthOfBoard; c++)
 		{
-			numberOfMineAround[r][c] = 0;
-			//board[r][c] = 0;
 			isShown[r][c] = 0;//清零显示方式矩阵
 		}
 	}
@@ -591,42 +612,8 @@ void SummonBoard(int seed, int r0, int c0, int summonMode, int iterateMode)//地
 			break;
 		}
 	}
-	// 生成雷周围数字
-	for(r=0; r<heightOfBoard; r++)
-	{
-		for(c=0; c<widthOfBoard; c++)
-		{
-			if(isMine[r][c] == 1)//循环遍历雷，在雷周围生成数字
-			{
-				for(ra=r-1; ra<=r+1; ra++)
-				{
-					for(ca=c-1; ca<=c+1; ca++)
-					{
-						if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
-						{
-							numberOfMineAround[ra][ca]++;
-						}
-					}
-				}
-			}//挨得过紧的雷也会被数字覆盖
-			//方法2：循环遍历方块，计算周围雷数，因为不跳过雷，方法1始终不弱于方法2
-		}
-	}
-	// 生成后台总板
-	for(r=0; r<heightOfBoard; r++)
-	{
-		for(c=0; c<widthOfBoard; c++)
-		{
-			if(isMine[r][c] == 1)
-			{
-				board[r][c] = 9;//雷标记为9，解决数字覆盖掉雷的情况
-			}
-			else
-			{
-				board[r][c] = numberOfMineAround[r][c];
-			}
-		}
-	}
+	// 生成雷周围数字和后台总板
+	SummonNumber();
 }
 
 void DrawMine(PIMAGE pimg)//在图像中绘制地图地雷
@@ -1725,20 +1712,20 @@ void OpenZeroChain(int r0, int c0)//翻开0连锁翻开
 	}
 }
 
-int NumberOfNotShown()//未翻开或标记的数量(%)
+int WinByAllOpen()//判断所有非雷都被翻开
 {
-	int r, c, n = 0;
+	int r, c;
 	for(r=0; r<heightOfBoard; r++)
 	{
 		for(c=0; c<widthOfBoard; c++)
 		{
-			if(isShown[r][c] == 0)
+			if(isMine[r][c] == 0 && isShown[r][c] != 1)
 			{
-				n++;
+				return 0;
 			}
 		}
 	}
-	return n;
+	return 1;
 }
 
 int NumberOfSignAround(int r0, int c0)
@@ -1909,6 +1896,9 @@ MineSweeper EGE 11.3
 ——修复 胜局的3BV仍隐藏十位
 MineSweeper EGE 11.4
 ——优化 简化部分代码
+MineSweeper EGE 11.5
+——优化 EGE版转为纯GUI程序，移除全部控制台代码(m)
+//——新增 EGE版引入sys_edit，重构启动界面
 //——新增 根据位数自动调整图标位置
 //——优化 分立地图和窗口绘制代码
 //——优化 编译体积（加链接参数-Wl,--gc-sections）
