@@ -3684,8 +3684,6 @@ void SummonBoard(int seed, int r0, int c0, int summonMode, int iterateMode)//地
 	{
 		for(c=0; c<widthOfBoard; c++)
 		{
-			numberOfMineAround[r][c] = 0;
-			//board[r][c] = 0;
 			isShown[r][c] = 0;//清零显示方式矩阵
 		}
 	}
@@ -6996,7 +6994,7 @@ int ThinkSelect()//生成未知链
 {
 	int r, c, r1, c1, r2, c2;//循环变量
 	int isFoundThinkChain, isRising, isAroundThinkChain;//未知链生成
-	//int rc1, cc1, rc2, cc2;//未知链框架
+	int rc1, cc1, rc2, cc2;//未知链框架
 	//每次更新的时候，旧算法总是突然体现出卓越性能，而在平常，性能则平平无奇
 	int numberOfThought;//未知链长度
 	/*生成准备*/
@@ -7030,27 +7028,27 @@ int ThinkSelect()//生成未知链
 			if(isThought[r][c] == 1 && isFoundThinkChain == 0)
 			{
 				thinkChain[r][c] = 1;
-				/*rc1 = r;
+				rc1 = r;
 				cc1 = c;
 				rc2 = r;
-				cc2 = c;*/
+				cc2 = c;
 				isFoundThinkChain = 1;//找到生成点
 			}
 		}
 	}
 	if(isFoundThinkChain == 0) return 0;//退出
 	/*生成未知链*/
-	/*if(rc1 > 0) rc1--;//初始化未知链框架
+	if(rc1 > 0) rc1--;//初始化未知链框架
 	if(cc1 > 0) cc1--;
 	if(rc2+1 < heightOfBoard) rc2++;
-	if(cc2+1 < widthOfBoard) cc2++;*/
+	if(cc2+1 < widthOfBoard) cc2++;
 	isRising = 1;
 	while(isRising == 1)//向周围生长
 	{
 		isRising = 0;
-		for(r2=0; r2<heightOfBoard; r2++)//标记周围数字用于校验
+		for(r2=rc1; r2<=rc2; r2++)//标记周围数字用于校验
 		{
-			for(c2=0; c2<widthOfBoard; c2++)
+			for(c2=cc1; c2<=cc2; c2++)
 			{
 				if(isShown[r2][c2] == 1 && numberShown[r2][c2] != 9 && numberShown[r2][c2] != 0)
 				{
@@ -7075,13 +7073,13 @@ int ThinkSelect()//生成未知链
 				}
 			}
 		}
-		/*if(rc1 > 0) rc1--;//调整未知链框架框住生长点
+		if(rc1 > 0) rc1--;//调整未知链框架框住生长点
 		if(cc1 > 0) cc1--;
 		if(rc2+1 < heightOfBoard) rc2++;
-		if(cc2+1 < widthOfBoard) cc2++;*/
-		for(r1=0; r1<heightOfBoard; r1++)//3*3范围有数字则生长
+		if(cc2+1 < widthOfBoard) cc2++;
+		for(r1=rc1; r1<=rc2; r1++)//3*3范围有数字则生长
 		{
-			for(c1=0; c1<widthOfBoard; c1++)
+			for(c1=cc1; c1<=cc2; c1++)
 			{
 				if(isThought[r1][c1] == 1 && thinkChain[r1][c1] == 0)//可能的生长点
 				{
@@ -7108,13 +7106,13 @@ int ThinkSelect()//生成未知链
 				}
 			}
 		}
-		/*if(isRising == 1)//调整未知链框架框住数字
+		if(isRising == 1)//调整未知链框架框住数字
 		{
 			if(rc1 > 0) rc1--;
 			if(cc1 > 0) cc1--;
 			if(rc2+1 < heightOfBoard) rc2++;
 			if(cc2+1 < widthOfBoard) cc2++;
-		}*/
+		}
 	}
 	if(debug == 2)
 	{
@@ -7132,9 +7130,9 @@ int ThinkSelect()//生成未知链
 	}
 	/*计算长度*/
 	numberOfThought = 0;
-	for(r=0; r<heightOfBoard; r++)
+	for(r=rc1; r<=rc2; r++)
 	{
-		for(c=0; c<widthOfBoard; c++)
+		for(c=cc1; c<=cc2; c++)
 		{
 			if(thinkChain[r][c] == 1)
 			{
@@ -13145,9 +13143,12 @@ MineSweeper Run 5.25
 ——优化 独立根据雷场生成数字函数
 ——优化 起始点必非空时不再确保地图可解性
 ——修复 第一次点击直接结束游戏时用时不正确
+MineSweeper Run 5.26
+——优化 通过未知链框架加速未知链选取
 //——新增 Window操作模式
 //——新增 组合雷率计算（根据多块枚举的结果组合进行雷率计算）
 //——新增 内外雷率扰动（根据内部雷分布组合数对应枚举结果雷数扰动交界线雷率）
+//——新增 以雷数和字典代替全字典解决字典溢出问题，原和字典改称全和字典
 //——新增 调试选项可启用屏蔽鼠标点击翻开标记
 //——新增 调试选项可启用统一标记（鼠标点击拖动标记根据起始操作统一标记/取消标记）
 //——新增 游戏信息显示预计用时、SS
@@ -13158,4 +13159,5 @@ MineSweeper Run 5.25
 //——优化 上一次游戏、自制地图的操作记录
 //——优化 最大枚举限制由72提高到96，移除NC算法
 //——优化 统一游戏操作函数
+//——优化 简化插入历史记录
 --------------------------------*/
