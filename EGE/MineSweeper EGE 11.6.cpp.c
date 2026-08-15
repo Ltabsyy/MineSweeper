@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
-#include <graphics.h>//链接参数-mwindows
-#include <ege/sys_edit.h>
+#include "graphics.h"//链接参数-mwindows
+#include "ege/sys_edit.h"
 /**
  * 扫雷 MineSweeper EGE
  *
@@ -89,27 +89,25 @@ int show3BV = 0;
 int refreshCycle = 25;
 int newCursor = 2;
 
-void DrawButton(int x, int y, int w, int h, int highlight, const char* text)//启动界面的按钮
+void DrawButton(int x, int y, int w, int h, int highlight)//启动界面的按钮
 {
-	ege_point polyPoints1[3] =
+	int b = sideLength/16;
+	ege_point polyPoints1[6] =
 	{
-		{(float)x, (float)y}, {(float)x+w, (float)y}, {(float)x, (float)y+h}
+		{(float)x, (float)y}, {(float)x+w, (float)y}, {(float)x+w-b, (float)y+b},
+		{(float)x+b, (float)y+b}, {(float)x+b, (float)y+h-b}, {(float)x, (float)y+h}
 	};
-	ege_point polyPoints2[3] =
+	ege_point polyPoints2[6] =
 	{
-		{(float)x+w, (float)y}, {(float)x, (float)y+h}, {(float)x+w, (float)y+h}
+		{(float)x+w, (float)y}, {(float)x+w-b, (float)y+b}, {(float)x+w-b, (float)y+h-b},
+		{(float)x+b, (float)y+h-b}, {(float)x, (float)y+h}, {(float)x+w, (float)y+h}
 	};
 	setfillcolor(WHITE);
-	ege_fillpoly(3, polyPoints1);
+	ege_fillpoly(6, polyPoints1);
 	setfillcolor(GRAY);
-	ege_fillpoly(3, polyPoints2);
+	ege_fillpoly(6, polyPoints2);
 	setfillcolor(highlight ? LIGHTBLUE : LIGHTGRAY);
-	ege_fillrect(x+w*2.0/32, y+h*2.0/32, w*28/32, h*28/32);
-	setcolor(BLACK);
-	setfont(sideLength*3/4, 0, text[0] == 'G' ? "Consolas" : "黑体");
-	settextjustify(CENTER_TEXT, CENTER_TEXT);
-	outtextrect(x+w*2.0/32, y+h*2.0/32, w*28/32, h*28/32, text);
-	settextjustify(LEFT_TEXT, TOP_TEXT);
+	ege_fillrect(x+b, y+b, w-2*b, h-2*b);
 }
 
 void StartPage()//启动界面
@@ -118,16 +116,17 @@ void StartPage()//启动界面
 	char str[16];
 	sys_edit editBox[3];
 	mouse_msg mouseMsg;
-	resizewindow(sideLength*10, sideLength*8);
+	key_msg keyMsg;
+	resizewindow(sideLength*10, sideLength*9);
 	DrawMineA(sideLength*1, sideLength*1, 20*sideLength/32*4/3);
 	setcolor(BLACK);
 	xyprintf(sideLength*2, sideLength/2, "MineSweeper EGE");
-	xyprintf(sideLength*3+sideLength/4, sideLength*6, "*");
-	xyprintf(sideLength*6+sideLength/4, sideLength*6, "-");
+	xyprintf(sideLength*3+sideLength/4, sideLength*7+sideLength/8, "*");
+	xyprintf(sideLength*6+sideLength/4, sideLength*7+sideLength/8, "-");
 	for(i=0; i<3; i++)//初始化文本框
 	{
 		editBox[i].create(0);//单行文本框
-		editBox[i].move(sideLength*(3*i+1), sideLength*6);//位置
+		editBox[i].move(sideLength*(3*i+1), sideLength*7+sideLength/8);//位置
 		editBox[i].size(sideLength*2, 8+sideLength);//大小
 		//editBox[i].setbgcolor(WHITE);
 		//editBox[i].setcolor(BLACK);
@@ -140,34 +139,72 @@ void StartPage()//启动界面
 	editBox[2].setcolor(RED);
 	while(1)
 	{
-		DrawButton(sideLength*1, sideLength*2, sideLength*2, sideLength*1, difficulty == 0, "默认");
-		DrawButton(sideLength*4, sideLength*2, sideLength*2, sideLength*1, difficulty == 1, "初级");
-		DrawButton(sideLength*7, sideLength*2, sideLength*2, sideLength*1, difficulty == 2, "中级");
-		DrawButton(sideLength*1, sideLength*4, sideLength*2, sideLength*1, difficulty == 3, "高级");
-		DrawButton(sideLength*4, sideLength*4, sideLength*2, sideLength*1, difficulty == 4, "顶级");
-		DrawButton(sideLength*7, sideLength*4, sideLength*2, sideLength*1, difficulty == 5, "Go!");
+		const char* text[10] =
+		{
+			"默认：", "10*10 - 10",
+			"初级：", " 9*9  - 10",
+			"中级：", "16*16 - 40",
+			"高级：", "16*30 - 99",
+			"顶级：", "42*88 - 715"
+		};
+		for(i=0; i<5; i++)
+		{
+			DrawButton(sideLength*1, sideLength*(2+i), sideLength*8, sideLength*1, difficulty == i);
+			setcolor(BLACK);
+			setfont(sideLength*3/4, 0, "黑体");
+			outtextxy(sideLength*2, sideLength*(2+i)+sideLength/8, text[2*i]);
+			setfont(sideLength*3/4, 0, "Consolas");
+			outtextxy(sideLength*17/4, sideLength*(2+i)+sideLength/8, text[2*i+1]);
+		}
 		isChecked = 0;
 		while(mousemsg())
 		{
 			mouseMsg = getmouse();
 			int xm = mouseMsg.x;
 			int ym = mouseMsg.y;
-			if(IsPosInRectangle(xm, ym, sideLength*1, sideLength*2, sideLength*9, sideLength*5))
+			difficulty = -1;
+			if(IsPosInRectangle(xm, ym, sideLength*1, sideLength*2, sideLength*9, sideLength*7))
 			{
-				difficulty = (xm-sideLength*1)/(sideLength*3)+(ym-sideLength*2)/(sideLength*2)*3;
+				difficulty = (ym-sideLength*2)/(sideLength);
+				if(mouseMsg.is_up()) isChecked = 1;
 			}
-			else
+		}
+		while(kbmsg())
+		{
+			keyMsg = getkey();
+			if(keyMsg.msg == key_msg_down)
 			{
-				difficulty = -1;
+				if(!(editBox[0].isfocus() || editBox[1].isfocus() || editBox[2].isfocus()))
+				{
+					//editBox[0].setfocus();
+					//editBox[0].settext("");
+					editBox[0].select();
+				}
 			}
-			if(mouseMsg.is_up())
+			if(keyMsg.msg == key_msg_up && keyMsg.key == key_enter)
 			{
-				isChecked = 1;
+				if(editBox[0].isfocus())
+				{
+					//editBox[1].setfocus();
+					//editBox[1].settext("");
+					editBox[1].select();
+				}
+				else if(editBox[1].isfocus())
+				{
+					//editBox[2].setfocus();
+					//editBox[2].settext("");
+					editBox[2].select();
+				}
+				else if(editBox[2].isfocus())
+				{
+					difficulty = 5;
+					isChecked = 1;
+				}
 			}
 		}
 		if(isChecked)
 		{
-			if(difficulty == 5) break;//选择Go退出
+			if(difficulty == 5) break;//自定义回车退出
 			if(difficulty == 0)//默认为10*10-10，比初级更简单(doge)
 			{
 				numberOfMine = 10;//密度0.1
@@ -204,6 +241,7 @@ void StartPage()//启动界面
 			editBox[1].settext(str);
 			sprintf(str, "%d", numberOfMine);
 			editBox[2].settext(str);
+			break;
 		}
 		delay_ms(refreshCycle);
 	}
@@ -285,7 +323,7 @@ int main()
 			{
 				if(board[r][c] == 0)//翻开0连锁翻开
 				{
-					OpenZeroChain(r,c);
+					OpenZeroChain(r, c);
 				}
 				else if(board[r][c] == 9)//寄
 				{
@@ -1671,7 +1709,7 @@ int CloseWindow(int isWinning, const char* tip)
 					break;//仅处理点击，不处理移动
 				}
 			}
-			if(mouseMsg.is_right() && mouseMsg.is_down())
+			if(mouseMsg.is_right() && mouseMsg.is_up())//右键弹起触发，避免窗口消失误操作其他软件
 			{
 				newGame = 0;
 				break;
@@ -1963,9 +2001,13 @@ MineSweeper EGE 11.4
 MineSweeper EGE 11.5
 ——新增 EGE版引入sys_edit文本框，重构启动界面
 ——优化 EGE版转为纯GUI程序，移除全部控制台代码(m)
+MineSweeper EGE 11.6
+——新增 EGE版文本框回车聚焦跳转（自研EGE sys_edit回车不响铃和select）
+——优化 终局鼠标右键改为弹起触发
+——优化 编译体积（自研EGE模块分离）
+——修复 按下Alt时抬起Ctrl会进入Ctrl锁死状态（使用新版EGE）
 //——新增 根据位数自动调整图标位置
 //——优化 分立地图和窗口绘制代码
-//——优化 编译体积（加链接参数-Wl,--gc-sections）
 //——优化 根据位偏移统一图标位置设计语言
 //——优化 通过地图快速显示技术降低按键延迟
 //——优化 地雷和数字在方块内的居中性
@@ -1973,5 +2015,4 @@ MineSweeper EGE 11.5
 //——优化 终局延时集成逻辑
 //——优化 统一调整大小和移动视角函数
 //——优化 操作全链路延迟
-//——修复 按下Alt时抬起Ctrl会进入Ctrl锁死状态
 --------------------------------*/

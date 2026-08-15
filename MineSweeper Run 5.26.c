@@ -11,7 +11,7 @@
 #include <math.h>
 #include <direct.h>//创建文件夹
 //#define SHOW_CONSOLE//vs专属(doge)
-//#include <graphics.h>//Easy Graphics Engine
+//#include "graphics.h"//Easy Graphics Engine
 /**
  * 扫雷 MineSweeper Run
  * 
@@ -127,6 +127,7 @@ void LookMap();//从实时游戏获取地图
 void TranslateMap(int rs0, int cs0);//从键盘输入获取地图
 //int PreviewMap();//键盘输入地图预处理
 void Solve(int showAnswer);//生成方案矩阵并修改显示方式矩阵，1显示1解，2不确定翻开
+void PrintASolution(int isSmile, char operation, int r, int c);
 void OpenZeroChainUpdateNumber(int r0, int c0);
 void ContinuousSolve();
 int NumberTeamType(int number1, int number2, int numberOfMine1, int numberOfMine2, int numberOfNotShown1, int numberOfNotShown2);
@@ -5521,7 +5522,7 @@ int CloseWindow(int isWinning, const char* tip)
 					break;//仅处理点击，不处理移动
 				}
 			}
-			if(mouseMsg.is_right() && mouseMsg.is_down())
+			if(mouseMsg.is_right() && mouseMsg.is_up())//右键弹起触发，避免窗口消失误操作其他软件
 			{
 				newGame = 0;
 				break;
@@ -5858,6 +5859,7 @@ void TranslateMap(int rs0, int cs0)//将输入翻译为地图、显示方式矩�
 		for(c=0,cs=cs0; c<widthOfBoard; c++,cs+=2)
 		{
 			map[r][c] = mapShown[rs][cs];
+			if(map[r][c] == '\0') map[r][c] = ' ';//fgets读入回车的同时还有空终止符
 		}
 	}
 	if(debug == 1 || debug == 2)
@@ -5916,33 +5918,33 @@ int PreviewMap()//地图求解前置校验，检查0链打开不全、明显错�
 			{
 				if(numberShown[r][c] == 0)
 				{
-					if(NumberOfNotShownAround(r, c) != 0)
+					if(NumberOfNotShownAround(r, c) != 0)//0链打开不全
 					{
-						//0链打开不全
-						printf(":(\n>@ %d %d\n", r, c);
+						PrintASolution(0, '@', r, c);
+						return 1;
 					}
-					if(NumberOfSignAround(r, c) != 0)
+					if(NumberOfSignAround(r, c) != 0)//0周围错误标记
 					{
-						//0周围错误标记
-						printf(":(\n># %d %d\n", r, c);
+						PrintASolution(0, '#', r, c);
+						return 1;
 					}
 				}
-				else if(numberShown[r][c] == 9)
+				else if(numberShown[r][c] == 9)//非法数字9
 				{
-					//非法数字9
-					printf(":(\n>? %d %d\n", r, c);
+					PrintASolution(0, '?', r, c);
+					return 1;
 				}
 				else//数字1-8
 				{
-					if(NumberOfSignAround(r, c) > numberShown[r][c])
+					if(NumberOfSignAround(r, c) > numberShown[r][c])//错误标记
 					{
-						//错误标记
-						printf(":(\n># %d %d\n", r, c);
+						PrintASolution(0, '#', r, c);
+						return 1;
 					}
-					if(NumberOfNotShownAround(r, c) + NumberOfSignAround(r, c) < numberShown[r][c])
+					if(NumberOfNotShownAround(r, c) + NumberOfSignAround(r, c) < numberShown[r][c])//非法地图
 					{
-						//非法地图
-						printf(":(\n>? %d %d\n", r, c);
+						PrintASolution(0, '?', r, c);
+						return 1;
 					}
 				}
 			}
@@ -6378,15 +6380,15 @@ void Solve(int showAnswer)//程序核心部分(doge)
 		}
 		else if(solution[r][c] == 1)
 		{
-			printf(":)\n>@ %d %d\n", r, c);
+			PrintASolution(1, '@', r, c);
 		}
 		else if(solution[r][c] == 2)
 		{
-			printf(":)\n># %d %d\n", r, c);
+			PrintASolution(1, '#', r, c);
 		}
 		else if(solution[r][c] == 3)
 		{
-			printf(":(\n>@ %d %d\n", r, c);
+			PrintASolution(0, '@', r, c);
 		}
 	}
 	else if(showAnswer == 2 && isFound == 0)//翻开不确定点
@@ -6426,6 +6428,11 @@ void Solve(int showAnswer)//程序核心部分(doge)
 			}
 		}//我愿称为抽象行为(doge)
 	}*/
+}
+
+void PrintASolution(int isSmile, char operation, int r, int c)
+{
+	printf(":%c\n>%c %d %d\n", (isSmile ? ')' : '('), operation, r, c);
 }
 
 void OpenZeroChainUpdateNumber(int r0, int c0)//翻开0链，适用于连续求解的直接更新数字版本
@@ -6998,34 +7005,13 @@ int ThinkSelect()//生成未知链
 	//每次更新的时候，旧算法总是突然体现出卓越性能，而在平常，性能则平平无奇
 	int numberOfThought;//未知链长度
 	/*生成准备*/
-	/*for(r=0; r<heightOfBoard; r++)//重置
-	{
-		for(c=0; c<widthOfBoard; c++)
-		{
-			thinkChain[r][c] = 0;
-		}
-	}
-	isFoundThinkChain = 0;
-	for(r=0; r<heightOfBoard; r++)//找到生成点
-	{
-		for(c=0; c<widthOfBoard; c++)
-		{
-			if(isThought[r][c] == 1)
-			{
-				thinkChain[r][c] = 1;
-				isFoundThinkChain = 1;
-				break;
-			}
-		}
-		if(isFoundThinkChain == 1) break;
-	}*/
 	isFoundThinkChain = 0;
 	for(r=0; r<heightOfBoard; r++)
 	{
 		for(c=0; c<widthOfBoard; c++)
 		{
 			thinkChain[r][c] = 0;//重置未知链
-			if(isThought[r][c] == 1 && isFoundThinkChain == 0)
+			if(isFoundThinkChain == 0 && isThought[r][c] == 1)
 			{
 				thinkChain[r][c] = 1;
 				rc1 = r;
@@ -11120,24 +11106,38 @@ void Solution()//地图求解模块
 				printf("%3d: ", r);
 				for(c=0; c<widthOfMapShown; c++)
 				{
-					printf("%c", mapShown[r][c]);
+					if(mapShown[r][c] == '\n')
+					{
+						printf("[\\n]");
+					}
+					else if(mapShown[r][c] == '\0')
+					{
+						printf("[\\0]");
+					}
+					else
+					{
+						printf("%c", mapShown[r][c]);
+					}
 					//if(mapShown[r][c] == '\n') break;//确保对齐
 				}
-				//printf("\n");//fgets不丢弃回车
+				printf("\n");//fgets不丢弃回车
 			}
 		}
 		TranslateMap(rs0, cs0);
 		/*扫雷策略和输出*/
-		Solve(1);
-		if(debug == 2)
+		//if(PreviewMap() == 0)
 		{
-			system("pause");
-			clrscr();
-			yOfMap = 0;
+			Solve(1);
+			if(debug == 2)
+			{
+				system("pause");
+				clrscr();
+				yOfMap = 0;
+			}
+			gotoxy(0, yOfMap);
+			PrintSolvingMap(0);//以彩色重绘地图
+			ShowSolution(yOfMap);
 		}
-		gotoxy(0, yOfMap);
-		PrintSolvingMap(0);//以彩色重绘地图
-		ShowSolution(yOfMap);
 		yOfMap += heightOfMapShown+2;
 		if(debug == 2) yOfMap -= 2;
 		gotoxy(0, yOfMap);
@@ -12237,90 +12237,45 @@ struct Records RecordsEditer(struct Records records)//记录编辑器模块
 		}
 		else if(choice == 9)//插入一条记录
 		{
-			printf("[插入序号]>");
-			scanf("%d", &choice);
-			if(choice < 0) choice = 0;
-			if(choice > records.numberOfRecords) choice = records.numberOfRecords;
-			printf("[Records Editer]将在%d位置插入新记录\n", choice);
-			printf("(0)默认10*10-10 (1)初级9*9-10 (2)中级16*16-40 (3)高级16*30-99 (4)顶级42*88-715 (5)自定义\n");
-			printf("[地图难度]>");
-			scanf("%d", &(newRecord.difficulty));
-			if(newRecord.difficulty == 0)
+			printf("默认10*10-10 初级9*9-10 中级16*16-40 高级16*30-99 顶级42*88-715\n");
+			printf("[地图高度] [地图宽度] [雷数]>");
+			while(scanf("%d", &(newRecord.heightOfBoard)) == 0) getchar();//同时兼容空格、逗号、回车、特殊形式
+			if(newRecord.heightOfBoard < 1) newRecord.heightOfBoard = 1;
+			if(newRecord.heightOfBoard > LimHeight) newRecord.heightOfBoard = LimHeight;
+			while(scanf("%d", &(newRecord.widthOfBoard)) == 0) getchar();
+			if(newRecord.widthOfBoard < 1) newRecord.widthOfBoard = 1;
+			if(newRecord.widthOfBoard > LimWidth) newRecord.widthOfBoard = LimWidth;
+			while(scanf("%d", &(newRecord.numberOfMine)) == 0) getchar();
+			if(newRecord.numberOfMine < 0) newRecord.numberOfMine *= -1;//兼容减号
+			if(newRecord.numberOfMine > newRecord.heightOfBoard * newRecord.widthOfBoard)
 			{
-				newRecord.numberOfMine = 10;
-				newRecord.heightOfBoard = 10;
-				newRecord.widthOfBoard = 10;
+				newRecord.numberOfMine = newRecord.heightOfBoard * newRecord.widthOfBoard;
 			}
-			else if(newRecord.difficulty == 1)
-			{
-				newRecord.numberOfMine = 9;
-				newRecord.heightOfBoard = 9;
-				newRecord.widthOfBoard = 10;
-			}
-			else if(newRecord.difficulty == 2)
-			{
-				newRecord.numberOfMine = 16;
-				newRecord.heightOfBoard = 16;
-				newRecord.widthOfBoard = 40;
-			}
-			else if(newRecord.difficulty == 3)
-			{
-				newRecord.numberOfMine = 16;
-				newRecord.heightOfBoard = 30;
-				newRecord.widthOfBoard = 99;
-			}
-			else if(newRecord.difficulty == 4)
-			{
-				newRecord.numberOfMine = 42;
-				newRecord.heightOfBoard = 88;
-				newRecord.widthOfBoard = 715;
-			}
-			else
-			{
-				newRecord.difficulty = 5;
-				printf("[地图高度]>");
-				scanf("%d", &(newRecord.heightOfBoard));
-				if(newRecord.heightOfBoard < 1) newRecord.heightOfBoard = 1;
-				if(newRecord.heightOfBoard > LimHeight) newRecord.heightOfBoard = LimHeight;
-				printf("[地图宽度]>");
-				scanf("%d", &(newRecord.widthOfBoard));
-				if(newRecord.widthOfBoard < 1) newRecord.widthOfBoard = 1;
-				if(newRecord.widthOfBoard > LimWidth) newRecord.widthOfBoard = LimWidth;
-				printf("[雷数]>");
-				scanf("%d", &(newRecord.numberOfMine));
-				if(newRecord.numberOfMine < 0) newRecord.numberOfMine = 0;
-				if(newRecord.numberOfMine > newRecord.heightOfBoard * newRecord.widthOfBoard)
-				{
-					newRecord.numberOfMine = newRecord.heightOfBoard * newRecord.widthOfBoard;
-				}
-			}
-			printf("(0)关闭校验 (1)起始点必非雷 (2)起始点必为空 (3)地图可解\n");
-			printf("[地图生成校验]>");
-			scanf("%d", &(newRecord.summonMode));
-			if(newRecord.summonMode < 0) newRecord.summonMode = 0;
-			if(newRecord.summonMode > 3) newRecord.summonMode = 3;
-			newRecord.iterateMode = 1;
+			newRecord.difficulty = Difficulty(newRecord.heightOfBoard, newRecord.widthOfBoard, newRecord.numberOfMine);
 			printf("地图种子(例如%d)，起始点位置\n", (int)time(0));
 			printf("[seed] [r0] [c0]>");
-			scanf("%d%d%d", &(newRecord.seed), &(newRecord.r0), &(newRecord.c0));
+			while(scanf("%d", &(newRecord.seed)) == 0) getchar();
+			while(scanf("%d", &(newRecord.r0)) == 0) getchar();
+			while(scanf("%d", &(newRecord.c0)) == 0) getchar();
 			if(newRecord.r0 < 0) newRecord.r0 = 0;
 			if(newRecord.r0 >= newRecord.heightOfBoard) newRecord.r0 = newRecord.heightOfBoard-1;
 			if(newRecord.c0 < 0) newRecord.c0 = 0;
 			if(newRecord.c0 >= newRecord.widthOfBoard) newRecord.c0 = newRecord.widthOfBoard-1;
+			printf("(0)关闭校验 (1)起始点必非雷 (2)起始点必为空 (3)地图可解 (4)地图经筛选\n");
+			printf("[生成模式]>");
+			while(scanf("%d", &(newRecord.summonMode)) == 0) getchar();
+			if(newRecord.summonMode < 0) newRecord.summonMode = 0;
+			if(newRecord.summonMode > 4) newRecord.summonMode = 4;
+			printf("[迭代模式:1]>");
+			while(scanf("%d", &(newRecord.iterateMode)) == 0) getchar();
+			if(newRecord.iterateMode < 1 && newRecord.iterateMode != -2) newRecord.iterateMode = 1;
 			printf("[用时]>");
 			scanf("%d", &(newRecord.sTime));
 			if(newRecord.sTime < 0) newRecord.sTime = 0;
-			newRecord.msTime = newRecord.sTime*1000;
-			//计算地图3BV
-			numberOfMine = newRecord.numberOfMine;
-			heightOfBoard = newRecord.heightOfBoard;
-			widthOfBoard = newRecord.widthOfBoard;
-			summonCheckMode = newRecord.summonMode;
-			SummonBoard(newRecord.seed, newRecord.r0, newRecord.c0, summonCheckMode, 1);
-			newRecord.total3BV = BBBV(1);
-			printf("当前地图3BV：%d\n", newRecord.total3BV);
-			printf("[已解3BV]>");
-			scanf("%d", &(newRecord.solved3BV));
+			newRecord.msTime = newRecord.sTime*1000;//毫秒用时
+			printf("[已解3BV] [全部3BV]>");
+			scanf("%d%d", &(newRecord.solved3BV), &(newRecord.total3BV));
+			if(newRecord.total3BV < 0) newRecord.total3BV = 0;
 			if(newRecord.solved3BV < 0) newRecord.solved3BV = 0;
 			if(newRecord.solved3BV > newRecord.total3BV) newRecord.solved3BV = newRecord.total3BV;
 			if(debug == 1 || debug == 2)
@@ -13145,6 +13100,8 @@ MineSweeper Run 5.25
 ——修复 第一次点击直接结束游戏时用时不正确
 MineSweeper Run 5.26
 ——优化 通过未知链框架加速未知链选取
+——优化 RecordsEditer插入历史记录
+——优化 地图求解模块文本输入的稳定性
 //——新增 Window操作模式
 //——新增 组合雷率计算（根据多块枚举的结果组合进行雷率计算）
 //——新增 内外雷率扰动（根据内部雷分布组合数对应枚举结果雷数扰动交界线雷率）
@@ -13159,5 +13116,4 @@ MineSweeper Run 5.26
 //——优化 上一次游戏、自制地图的操作记录
 //——优化 最大枚举限制由72提高到96，移除NC算法
 //——优化 统一游戏操作函数
-//——优化 简化插入历史记录
 --------------------------------*/
