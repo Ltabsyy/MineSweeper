@@ -30,4 +30,6 @@ MineSweeper Run是一款基于Windows控制台的扫雷游戏程序，Window版�
 
 （3）点击笑脸按钮或按N重新生成地图，以及控制台鼠标模式下的其他操作逻辑
 
+（4）深入上游 [xege](https://github.com/x-ege/xege) 绘图库开发，编译程序文件小于1M
+
 可查阅详细介绍获取更多信息。
