@@ -14,7 +14,7 @@ MineSweeper Run是一款基于Windows控制台的扫雷游戏程序，Window版�
 
 （5）生成缓存文件，自动保存用户设置、上一次地图和历史记录，胜利时显示打破纪录
 
-（6）可对外部输入的地图进行求解、游戏时按!/Tab对实时求解、连续生成地图并不断求解（压榨CPU）
+（6）可对外部输入的地图进行求解、游戏时按!/Tab实时求解、连续生成地图并不断求解（压榨CPU）
 
 （7）控制台可切换深浅模式、设置自选光标、设置是否实时显示用时和3BV，界面个性化
 
@@ -32,4 +32,4 @@ MineSweeper Run是一款基于Windows控制台的扫雷游戏程序，Window版�
 
 （4）深入上游 [xege](https://github.com/x-ege/xege) 绘图库开发，编译程序文件小于1M
 
-可查阅详细介绍获取更多信息。
+可查阅[详细介绍](MineSweeper Run详细介绍.md)或[网页](https://ltabsyy.github.io/MSR.html)获取更多信息。
