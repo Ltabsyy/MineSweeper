@@ -32,4 +32,4 @@ MineSweeper Run是一款基于Windows控制台的扫雷游戏程序，Window版�
 
 （4）深入上游 [xege](https://github.com/x-ege/xege) 绘图库开发，编译程序文件小于1M
 
-可查阅[详细介绍](MineSweeper Run详细介绍.md)或[网页](https://ltabsyy.github.io/MSR.html)获取更多信息。
+可查阅[详细介绍](MineSweeper%20Run详细介绍.md)或[网页](https://ltabsyy.github.io/MSR.html)获取更多信息。

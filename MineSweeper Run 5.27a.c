@@ -297,7 +297,7 @@ int BBBV(int mode);//Bechtel'sBoardBenchmarkValue，计算地图3BV
 double SS(int h, int w, int n, double time, int solved3BV, int total3BV);//计算标准分数SS，代表发挥水平
 int SearchSeed(int seedMin, int r0, int c0, int difficulty);//可解和筛选种子搜索模块
 void MapSearch(int seedMin, int seedMax, int r0, int c0, int iterateMax);//地图搜索模块
-void** MatrixMemory(void** matrix, int rm, int cm, int sizeOfElements, int mode);//矩阵内存操作
+void** MatrixMemory(void** matrix, unsigned int rm, unsigned int cm, size_t sizeOfElements, int mode);//矩阵内存操作
 void ReallocMemory(int height, int width, int dic, int length);//全局矩阵内存重分配
 struct Records RecordsEditer(struct Records records);//RecordsEditer模块
 int CustomMapsEditer();
@@ -10505,6 +10505,10 @@ void PlayOperations(struct Operations operations)
 	ReallocMemory(heightOfBoard, widthOfBoard, dictionaryCapacity, lengthOfThinkMineCheck);
 	AdaptScreenBufferWidth();
 	SummonBoard(operations.seed, operations.r0, operations.c0, operations.summonMode, operations.iterateMode);
+	if(adjustedSolvableMap == 1 && Difficulty(heightOfBoard, widthOfBoard, numberOfMine) == 5 && board[operations.r0][operations.c0] == 0)
+	{
+		AdjustSolvableMap(operations.seed, operations.r0, operations.c0);
+	}
 	game.total3BV = BBBV(3);
 	game.unsolved3BV = game.total3BV;
 	game.remainedMine = numberOfMine;
@@ -12023,7 +12027,7 @@ void MapSearch(int seedMin, int seedMax, int r0, int c0, int iterateMax)//地图
 	}
 }
 
-void** MatrixMemory(void** matrix, int rm, int cm, int sizeOfElements, int mode)//矩阵内存操作，1申请，0释放
+void** MatrixMemory(void** matrix, unsigned int rm, unsigned int cm, size_t sizeOfElements, int mode)//矩阵内存操作，1申请，0释放
 {
 	int r;
 	if(mode == 1)
@@ -13102,6 +13106,9 @@ MineSweeper Run 5.26
 ——优化 通过未知链框架加速未知链选取
 ——优化 RecordsEditer插入历史记录
 ——优化 地图求解模块文本输入的稳定性
+MineSweeper Run 5.27
+——新增 启用调整式可解地图时操作记录播放按对应规则生成地图
+——优化 矩阵内存操作
 //——新增 Window操作模式
 //——新增 组合雷率计算（根据多块枚举的结果组合进行雷率计算）
 //——新增 内外雷率扰动（根据内部雷分布组合数对应枚举结果雷数扰动交界线雷率）
