@@ -53,8 +53,9 @@ void DrawClock(int x0, int y0, int r, int time);//绘制时钟
 void DrawFace(int mode);//绘制笑脸
 void Draw3BVIcon(int n);
 void Draw3BVpsIcon();
-void DrawBlockP(int r, int c, int board, int isShown, int highlight);//绘制方块
-void DrawBoard(int mode);//绘制总外部窗口
+void DrawBlockP(int r, int c, int board, int isShown, int highlight, PIMAGE pimg);//绘制方块
+void DrawBoard(int mode, int rc1, int cc1, int rc2, int cc2);
+void DrawGameWindow(int mode);//绘制总外部窗口
 void DrawSolution();//在外部窗口绘制方案矩阵
 void DrawMouse(int x, int y);//绘制鼠标
 void UpdateWindowSize();//根据当前方块边长更新窗口大小
@@ -69,6 +70,7 @@ int IsAroundZeroChain(int r0, int c0);
 void OpenZeroChain(int r0, int c0);
 int WinByAllOpen();
 int NumberOfSignAround(int r0, int c0);
+void** MatrixMemory(void** matrix, unsigned int rm, unsigned int cm, size_t sizeOfElements, int mode);
 
 // 全局矩阵
 int isMine[LimHeight][LimWidth]={0};
@@ -294,7 +296,7 @@ int main()
 		c0 = widthOfBoard/2;
 		while(operation == 0)
 		{
-			DrawBoard(0);
+			DrawGameWindow(0);
 			GetWindowOperation(&operation, &r0, &c0);
 			delay_ms(refreshCycle);
 		}
@@ -343,7 +345,7 @@ int main()
 				if(1)
 				{
 					game.t1 = time(0);
-					DrawBoard(0);
+					DrawGameWindow(0);
 					DrawSolution();
 					GetWindowOperation(&operation, &r, &c);
 					if(operation == '%')//重新生成地图
@@ -367,7 +369,7 @@ int main()
 						c0 = widthOfBoard/2;
 						while(operation == 0)
 						{
-							DrawBoard(0);
+							DrawGameWindow(0);
 							GetWindowOperation(&operation, &r0, &c0);
 							delay_ms(refreshCycle);
 						}
@@ -999,10 +1001,10 @@ void Draw3BVpsIcon()
 	ege_line(x+21*k, y+25*k, x+30*k, y+25*k);
 }
 
-void DrawBlockP(int r, int c, int board, int isShown, int highlight)//绘制方块
+void DrawBlockP(int r, int c, int board, int isShown, int highlight, PIMAGE pimg)//绘制方块
 {
-	float x = c*widthOfBlock+widthOfBorder+dx;
-	float y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
+	//float x = c*widthOfBlock+widthOfBorder+dx;
+	//float y = r*heightOfBlock+heightOfBar+widthOfBorder+dy;
 	static int cacheSideLength = 0;
 	static PIMAGE cacheBlock[10][3][2];
 	int i, j, k;
@@ -1034,16 +1036,35 @@ void DrawBlockP(int r, int c, int board, int isShown, int highlight)//绘制方�
 		}
 		cacheSideLength = sideLength;
 	}
-	putimage(x, y, cacheBlock[board][isShown][highlight]);
+	putimage(pimg, c*widthOfBlock, r*heightOfBlock, cacheBlock[board][isShown][highlight]);
 }
 
-void DrawBoard(int mode)//绘制总外部窗口
+void DrawBoard(int mode, int rc1, int cc1, int rc2, int cc2)//绘制裁剪优化后的局部地图
 {
+	//mode: 0非终局，1败局，2胜局，-1初始化
 	int r, c;
-	int rc1, cc1, rc2, cc2;
 	int highlight;
+	static int** isShownCache = 0;//记录变化，窗口独立缓存，不使用isShownBuf
+	static int** highlightCache = 0;
+	static int heightCache = 0;
 	static int cacheSideLength = 0;
+	static int cacheRc1, cacheCc1, cacheRc2, cacheCc2;
+	static int cacheMode = -1;
 	static PIMAGE cacheBlueFlag[2];
+	static PIMAGE cacheBoard;
+	if(mode == -1)
+	{
+		if(isShownCache != 0)//释放上一局
+		{
+			isShownCache =(int**) MatrixMemory((void**)isShownCache, heightCache, 0, 0, 0);
+			highlightCache =(int**) MatrixMemory((void**)highlightCache, heightCache, 0, 0, 0);
+		}
+		isShownCache =(int**) MatrixMemory((void**)isShownCache, heightOfBoard, widthOfBoard, sizeof(int), 1);
+		highlightCache =(int**) MatrixMemory((void**)highlightCache, heightOfBoard, widthOfBoard, sizeof(int), 1);
+		cacheMode = -1;//使下次触发全重绘
+		heightCache = heightOfBoard;//变化缓存矩阵行数，用于跨局释放缓存
+		return;//直接退出
+	}
 	if(cacheSideLength != sideLength)//重绘蓝色旗帜图像缓存
 	{
 		if(cacheSideLength != 0)
@@ -1057,8 +1078,95 @@ void DrawBoard(int mode)//绘制总外部窗口
 		DrawFlag(BLUE, cacheBlueFlag[0]);
 		DrawBlock(0, 0, 1, cacheBlueFlag[1]);
 		DrawFlag(BLUE, cacheBlueFlag[1]);
-		cacheSideLength = sideLength;
+		//cacheSideLength = sideLength;
 	}
+	if(cacheSideLength != sideLength || mode != cacheMode
+		|| rc1 != cacheRc1 || cc1 != cacheCc1 || rc2 != cacheRc2 || cc2 != cacheCc2)
+	{
+		if(cacheSideLength != 0)
+		{
+			delimage(cacheBoard);
+		}
+		cacheBoard = newimage(widthOfBlock*(cc2-cc1+1), heightOfBlock*(rc2-rc1+1));
+		cacheSideLength = sideLength;
+		cacheMode = mode;
+		cacheRc1 = rc1;
+		cacheCc1 = cc1;
+		cacheRc2 = rc2;
+		cacheCc2 = cc2;
+		for(r=0; r<heightOfBoard; r++)
+		{
+			for(c=0; c<widthOfBoard; c++)
+			{
+				highlightCache[r][c] = 2;//全重绘
+			}//isShown在0-2，highlight在0-1，将highlight设为2即全重绘
+		}
+	}
+	//更新局部地图图像缓存
+	for(r=rc1; r<=rc2; r++)
+	{
+		for(c=cc1; c<=cc2; c++)
+		{
+			//计算是否有鼠标悬浮高亮
+			highlight = 0;
+			if(newCursor > 1)//淡黄色高亮光标
+			{
+				if(r == mouseR && c == mouseC) highlight = 1;
+				if(newCursor == 3)
+				{
+					if(r == mouseR || c == mouseC) highlight = 1;
+				}
+			}
+			//判断变化，不变则跳过
+			if(isShown[r][c] == isShownCache[r][c] && highlight == highlightCache[r][c]) continue;
+			isShownCache[r][c] = isShown[r][c];
+			highlightCache[r][c] = highlight;
+			//将该方块绘制入局部地图图像缓存
+			if(isShown[r][c] == 1)
+			{
+				DrawBlockP(r-rc1, c-cc1, board[r][c], 1, highlight, cacheBoard);
+			}
+			else if(isShown[r][c] == 2)
+			{
+				if(mode == 0)
+				{
+					DrawBlockP(r-rc1, c-cc1, 9, 2, highlight, cacheBoard);
+				}
+				else
+				{
+					DrawBlockP(r-rc1, c-cc1, board[r][c], 2, highlight, cacheBoard);
+				}
+			}
+			else// if(isShown[r][c] == 0)
+			{
+				if(mode == 0)//非终局
+				{
+					DrawBlockP(r-rc1, c-cc1, 0, 0, highlight, cacheBoard);//不显示雷
+				}
+				else if(board[r][c] != 9)//终局显示所有数字
+				{
+					DrawBlockP(r-rc1, c-cc1, board[r][c], 1, highlight, cacheBoard);
+					//DrawBlockP(r-rc1, c-cc1, board[r][c], 0, highlight, cacheBoard);//不显示
+				}
+				else if(mode == 1)//败局未翻开的雷
+				{
+					DrawBlockP(r-rc1, c-cc1, 9, 0, highlight, cacheBoard);
+				}
+				else//胜局未翻开的雷，显示蓝色旗帜
+				{
+					//DrawBlockP(r-rc1, c-cc1, 9, 0, highlight, cacheBoard);
+					putimage(cacheBoard, (c-cc1)*widthOfBlock, (r-rc1)*heightOfBlock, cacheBlueFlag[highlight]);
+				}
+			}
+		}
+	}
+	//将局部地图图像缓存绘制入窗口
+	putimage(cc1*widthOfBlock+widthOfBorder+dx, rc1*heightOfBlock+heightOfBar+widthOfBorder+dy, cacheBoard);
+}
+
+void DrawGameWindow(int mode)//绘制总外部窗口
+{
+	int rc1, cc1, rc2, cc2;
 	setfillcolor(LIGHTGRAY);
 	ege_fillrect(0, 0, windowWidth, heightOfBar);//清除旧顶栏减少锯齿感
 	//绘制地图边框
@@ -1107,57 +1215,7 @@ void DrawBoard(int mode)//绘制总外部窗口
 		cc2 = -(-widthOfBlock+widthOfBorder+dx-screenWidth)/widthOfBlock;
 	}
 	else cc2 = (-(-widthOfBlock+widthOfBorder+dx-screenWidth)-widthOfBlock+1)/widthOfBlock;
-	for(r=rc1; r<=rc2; r++)
-	{
-		for(c=cc1; c<=cc2; c++)
-		{
-			highlight = 0;
-			if(newCursor > 1)//淡黄色高亮光标
-			{
-				if(r == mouseR && c == mouseC) highlight = 1;
-				if(newCursor == 3)
-				{
-					if(r == mouseR || c == mouseC) highlight = 1;
-				}
-			}
-			if(isShown[r][c] == 1)
-			{
-				DrawBlockP(r, c, board[r][c], 1, highlight);
-			}
-			else if(isShown[r][c] == 2)
-			{
-				if(mode == 0)
-				{
-					DrawBlockP(r, c, 9, 2, highlight);
-				}
-				else
-				{
-					DrawBlockP(r, c, board[r][c], 2, highlight);
-				}
-			}
-			else// if(isShown[r][c] == 0)
-			{
-				if(mode == 0)//非终局
-				{
-					DrawBlockP(r, c, 0, 0, highlight);//不显示雷
-				}
-				else if(board[r][c] != 9)//终局显示所有数字
-				{
-					DrawBlockP(r, c, board[r][c], 1, highlight);
-					//DrawBlockP(r, c, board[r][c], 0, highlight);//不显示
-				}
-				else if(mode == 1)//败局未翻开的雷
-				{
-					DrawBlockP(r, c, 9, 0, highlight);
-				}
-				else//胜局未翻开的雷，显示蓝色旗帜
-				{
-					//DrawBlockP(r, c, 9, 0, highlight);
-					putimage(c*widthOfBlock+widthOfBorder+dx, r*heightOfBlock+heightOfBar+widthOfBorder+dy, cacheBlueFlag[highlight]);
-				}
-			}
-		}
-	}
+	DrawBoard(mode, rc1, cc1, rc2, cc2);//绘制地图
 	setbkmode(OPAQUE);
 	//剩余雷数
 	DrawMineA(xRemainedMine, heightOfBar/2, 20*heightOfBar/64*4/3);
@@ -1390,6 +1448,7 @@ void InitWindow(int mode)//创建窗口
 	if(widthOfBoard < 10) dx = widthOfBlock*(10-widthOfBoard)/2;
 	else dx = 0;
 	dy = 0;//偏移回正
+	DrawBoard(-1, 0, 0, heightOfBoard-1, widthOfBoard-1);
 	GetWindowOperation(NULL, NULL, NULL);
 	//showmouse(0);//隐藏鼠标指针
 }
@@ -1506,7 +1565,7 @@ void GetWindowOperation(char* operation, int* r, int* c)
 							dx += xn-xm;
 							dy += yn-ym;
 							cleardevice();
-							DrawBoard(0);
+							DrawGameWindow(0);
 							dx -= xn-xm;
 							dy -= yn-ym;
 							clock0 = clock();
@@ -1519,7 +1578,7 @@ void GetWindowOperation(char* operation, int* r, int* c)
 					if(dx > -widthOfBlock/8 && dx < widthOfBlock/8) dx = 0;//弱趋向回正
 					if(dy > -heightOfBlock/8 && dy < heightOfBlock/8) dy = 0;
 					cleardevice();//避免重影
-					DrawBoard(0);//避免闪烁
+					DrawGameWindow(0);//避免闪烁
 				}
 				else
 				{
@@ -1590,7 +1649,7 @@ void GetWindowOperation(char* operation, int* r, int* c)
 		{
 			ResizeWindow(mouseMsg.wheel > 0 ? '+' : '-');
 			cleardevice();//地图偏移时避免重影
-			DrawBoard(0);//避免闪烁
+			DrawGameWindow(0);//避免闪烁
 		}
 	}
 	while(kbmsg())//鼠标专门处理，避免无尽滚动，随后处理纯键盘操作输入
@@ -1623,7 +1682,7 @@ int CloseWindow(int isWinning, const char* tip)
 	clock0 = clock();
 	while(newGame == -1 && clock()-clock0 < 1000)
 	{
-		DrawBoard(1+isWinning);
+		DrawGameWindow(1+isWinning);
 		while(kbmsg())
 		{
 			keyMsg = getkey();
@@ -1642,7 +1701,7 @@ int CloseWindow(int isWinning, const char* tip)
 	while(newGame == -1)
 	{
 		cleardevice();//清除旧游戏结束文字减少锯齿感
-		DrawBoard(1+isWinning);//刷新界面
+		DrawGameWindow(1+isWinning);//刷新界面
 		if(tip != NULL)//"左键新游戏，右键关闭窗口""请按键盘任意键关闭窗口"
 		{
 			setfont(heightOfChar/2, 0, "黑体");
@@ -1689,7 +1748,7 @@ int CloseWindow(int isWinning, const char* tip)
 							dx += xn-xm;
 							dy += yn-ym;
 							cleardevice();
-							DrawBoard(1+isWinning);
+							DrawGameWindow(1+isWinning);
 							dx -= xn-xm;
 							dy -= yn-ym;
 							clock0 = clock();
@@ -1701,7 +1760,7 @@ int CloseWindow(int isWinning, const char* tip)
 					if(dx > -widthOfBlock && dx < widthOfBlock) dx = 0;//趋向回正
 					if(dy > -heightOfBlock && dy < heightOfBlock) dy = 0;
 					cleardevice();
-					DrawBoard(1+isWinning);//保持笑脸
+					DrawGameWindow(1+isWinning);//保持笑脸
 				}
 				else
 				{
@@ -1718,7 +1777,7 @@ int CloseWindow(int isWinning, const char* tip)
 			{
 				ResizeWindow(mouseMsg.wheel > 0 ? '+' : '-');
 				cleardevice();
-				DrawBoard(1+isWinning);
+				DrawGameWindow(1+isWinning);
 			}
 		}
 		while(kbmsg())
@@ -1847,6 +1906,28 @@ int NumberOfSignAround(int r0, int c0)
 		}
 	}
 	return n;
+}
+
+void** MatrixMemory(void** matrix, unsigned int rm, unsigned int cm, size_t sizeOfElements, int mode)//矩阵内存操作，1申请，0释放
+{
+	int r;
+	if(mode == 1)
+	{
+		matrix =(void**) calloc(rm, sizeof(void*));
+		for(r=0; r<rm; r++)
+		{
+			matrix[r] =(void*) calloc(cm, sizeOfElements);
+		}
+	}
+	else if(mode == 0)
+	{
+		for(r=0; r<rm; r++)
+		{
+			free(matrix[r]);
+		}
+		free(matrix);
+	}
+	return matrix;
 }
 
 /*--------------------------------
@@ -2006,10 +2087,12 @@ MineSweeper EGE 11.6
 ——优化 终局鼠标右键改为弹起触发
 ——优化 编译体积（自研EGE模块分离）
 ——修复 按下Alt时抬起Ctrl会进入Ctrl锁死状态（使用新版EGE）
+MineSweeper EGE 11.7
+——优化 通过地图快速显示技术降低大地图显示延迟
+//——修复 二次初始化窗口时的残影（自研新版EGE）
 //——新增 根据位数自动调整图标位置
 //——优化 分立地图和窗口绘制代码
 //——优化 根据位偏移统一图标位置设计语言
-//——优化 通过地图快速显示技术降低按键延迟
 //——优化 地雷和数字在方块内的居中性
 //——优化 统一地图坐标体系
 //——优化 终局延时集成逻辑
