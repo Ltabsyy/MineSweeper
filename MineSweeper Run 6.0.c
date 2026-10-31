@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>//时间戳作种子生成随机数，用于生成地图和无确定解时随机翻开
-//#include <conio.h>//非阻塞式输入
+#include <conio.h>//非阻塞式输入
 //#define kbhit _kbhit
 //#define getch _getch
 //#define mkdir _mkdir//vs没救了，必须关闭SDL检查
@@ -11,7 +11,7 @@
 #include <math.h>
 #include <direct.h>//创建文件夹
 //#define SHOW_CONSOLE//vs专属(doge)
-#include "graphics.h"//Easy Graphics Engine
+//#include "graphics.h"//Easy Graphics Engine
 /**
  * 扫雷 MineSweeper Run
  * 
@@ -27,14 +27,14 @@
 //内存占用至多约为 79*H*W+L*D Byte，默认约1.3MB
 
 // 外部窗口形态
-int sideLength = 32;//外部窗口方块边长
+/*int sideLength = 32;//外部窗口方块边长
 #define heightOfBlock (sideLength)
 #define widthOfBlock (sideLength)//锁定纵横比，被用作除数需加括号
 #define heightOfBar 2*sideLength
 #define widthOfBorder sideLength/4
 #define xOfChar widthOfBlock*10/32
 #define yOfChar heightOfBlock/32
-#define heightOfChar heightOfBlock
+#define heightOfChar heightOfBlock*/
 
 // 控制栏
 int IsPosInRectangle(int x, int y, int x1, int y1, int x2, int y2);
@@ -85,7 +85,7 @@ void PrintSolvingMap(int mode);
 void ShowInformation();//更新时间并显示游戏信息
 
 // 外部窗口显示
-int dx = 0, dy = 0;//地图偏移
+/*int dx = 0, dy = 0;//地图偏移
 int screenHeight, screenWidth;
 int windowHeight, windowWidth, xFace;
 int xRemainedMine, xRemainedMineNumber, xTime, xTimeNumber, x3BV, x3BVNumber, x3BVps, x3BVpsNumber;
@@ -109,7 +109,7 @@ void InitWindow(int mode);
 void ResizeWindow(char mode);//调整显示大小
 int IsMousePosOutside();//鼠标在窗口边界外
 void GetWindowOperation(char* operation, int* r, int* c);
-int CloseWindow(int isWinning, const char* tip);
+int CloseWindow(int isWinning, const char* tip);*/
 
 // 后台计算
 int Difficulty(int height, int width, int mine);//根据地图信息判断难度
@@ -341,7 +341,7 @@ int mapIterator = 1;//记录地图迭代次数
 int showTime = 1;//显示用时，0不显示，1显示
 int show3BV = 0;//显示3BV和3BV/s
 int backgroundColor = 0x07;//背景颜色，深色模式0x07，浅色模式0xf0
-int operateMode = 3;//操作模式，0@#rc，1wasd23，2鼠标点击，3Window
+int operateMode = 2;//操作模式，0@#rc，1wasd23，2鼠标点击，3Window
 int solveMode = 1;//0简单模式，1游戏模式，2分析模式
 //int lengthOfThinkChain = 19;//未知链长度
 int lengthOfThinkNumberCheck = 0;
@@ -697,7 +697,7 @@ int main(int argc, char** argv)
 				}
 			}
 			showCursor(visibleCursor);//避免调整窗口大小恢复控制台光标
-			api_sleep(refreshCycle);
+			Sleep(refreshCycle);
 		}
 		if(choiceMode == 1)//游戏
 		{
@@ -745,7 +745,7 @@ int main(int argc, char** argv)
 				}
 			}
 			/*获取种子和生成位置*/
-			if(operateMode == 3) InitWindow(0);//创建窗口
+			//if(operateMode == 3) InitWindow(0);//创建窗口
 			if(lastMap != 1)
 			{
 				ShowBoard(0);
@@ -807,11 +807,11 @@ int main(int argc, char** argv)
 						FreshCursor(r0, c0, 3);
 						//gotoxy(cs0+2*c0, heightOfMapShown+2-heightOfBoard+1+r0);
 						showCursor(visibleCursor);
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					gotoxy(0, heightOfMapShown+5);
 				}
-				else if(operateMode == 3)
+				/*else if(operateMode == 3)
 				{
 					operation = 0;
 					r0 = heightOfBoard/2;
@@ -825,7 +825,7 @@ int main(int argc, char** argv)
 						FreshCursor(r0, c0, 3);
 						delay_ms(refreshCycle);
 					}
-				}
+				}*/
 				seed = time(0);//当前时间戳作种子生成随机数
 			}
 			/*生成地图*/
@@ -979,7 +979,7 @@ int main(int argc, char** argv)
 				c = co;
 				while(choiceMode == 1)
 				{
-					if(operateMode == 3)
+					/*if(operateMode == 3)
 					{
 						DrawGameWindow(0);
 						DrawSolution();
@@ -1038,7 +1038,7 @@ int main(int argc, char** argv)
 							game.t0 = time(0);
 							game.clock0 = clock();
 						}
-					}
+					}*/
 					if(operateMode == 2)
 					{
 						isReadyRefreshMouseOpenPos = 1;
@@ -1050,7 +1050,7 @@ int main(int argc, char** argv)
 							//gotoxy(1, game.yOfCommand);//操作指令位置
 							gotoxy(cs0+2*c, game.yOfMap+rs0+r);//对应点位置
 							showCursor(visibleCursor);//避免调整窗口大小恢复控制台光标
-							api_sleep(refreshCycle);
+							Sleep(refreshCycle);
 							continue;
 						}
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
@@ -1226,9 +1226,9 @@ int main(int argc, char** argv)
 							mouseSignPos.Y = 0;
 						}
 					}
-					if(operateMode < 2 && kbhit_console())//按键
+					if(operateMode < 2 && kbhit())//按键
 					{
-						key = getch_console();//接收字符但不显示
+						key = getch();//接收字符但不显示
 						if(key == '`')//清空已输入操作
 						{
 							operation = 0;
@@ -1343,7 +1343,7 @@ int main(int argc, char** argv)
 						}
 						else if(operation == '\t')
 						{
-							api_sleep(refreshCycle);
+							Sleep(refreshCycle);
 							for(r=0; r<heightOfBoard; r++)
 							{
 								for(c=0; c<widthOfBoard; c++)
@@ -1386,14 +1386,14 @@ int main(int argc, char** argv)
 						FreshCursor(r, c, game.yOfMap);
 						if(operation != 0)
 						{
-							if(operateMode == 3) delay_ms(0);
-							//api_sleep(refreshCycle);//保持延迟统一，通过降低按键跟手性减弱轻浮感
+							//if(operateMode == 3) delay_ms(0);
+							//Sleep(refreshCycle);//保持延迟统一，通过降低按键跟手性减弱轻浮感
 							gotoxy(0, game.yOfCommand+1);
 							break;
 						}
 					}
-					if(operateMode == 3) delay_ms(0);
-					api_sleep(refreshCycle);//每25ms刷新一次
+					//if(operateMode == 3) delay_ms(0);
+					Sleep(refreshCycle);//每25ms刷新一次
 				}
 				ro = r;
 				co = c;
@@ -1543,7 +1543,7 @@ int main(int argc, char** argv)
 					WriteOperations(operationRecord, newRecord);
 				}
 				ClearOperations(operationRecord);
-				if(operateMode == 3) choiceMode = CloseWindow(1-isOpenMine, "左键新游戏，右键关闭窗口");
+				//if(operateMode == 3) choiceMode = CloseWindow(1-isOpenMine, "左键新游戏，右键关闭窗口");
 			}
 		}
 		else if(choiceMode == 2)//地图求解
@@ -1602,7 +1602,7 @@ int main(int argc, char** argv)
 					while(rcd.EventType == MOUSE_EVENT && rcd.Event.MouseEvent.dwButtonState != 0)//设置游戏难度抗双击
 					{
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					clrscr();
 					DrawSetDifficulty(-1);
@@ -1632,12 +1632,12 @@ int main(int argc, char** argv)
 							}
 						}
 						showCursor(visibleCursor);
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					while(rcd.EventType == MOUSE_EVENT && rcd.Event.MouseEvent.dwButtonState != 0)//设置游戏难度返回抗双击
 					{
 						ReadConsoleInput(hdin, &rcd, 1, &rcdnum);
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					if(difficulty == 0)//默认为10*10-10，比初级更简单(doge)
 					{
@@ -1795,7 +1795,7 @@ int main(int argc, char** argv)
 										temp = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-8
 									}
 								}
-								api_sleep(refreshCycle);
+								Sleep(refreshCycle);
 							}
 							if(temp >= 0 && temp <= 5)
 							{
@@ -1835,7 +1835,7 @@ int main(int argc, char** argv)
 							DrawSetSummonCheckMode(-1);
 							choiceSubSet = -1;
 						}
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					clrscr();
 					DrawControlBar(0);
@@ -1908,7 +1908,7 @@ int main(int argc, char** argv)
 								choiceSubSet = rcd.Event.KeyEvent.wVirtualKeyCode-'a'+1;//小键盘1-3
 							}
 						}
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					if(choiceSubSet != -1) operateMode = choiceSubSet;
 					/*if(operateMode == 1) visibleCursor = 1;//仅wasd23显示光标
@@ -2019,7 +2019,7 @@ int main(int argc, char** argv)
 							DrawSetCursor(0);
 							choiceSubSet = 0;
 						}
-						api_sleep(refreshCycle);
+						Sleep(refreshCycle);
 					}
 					clrscr();
 					DrawControlBar(0);
@@ -2308,7 +2308,7 @@ int main(int argc, char** argv)
 					choiceSet = 0;
 				}
 				showCursor(visibleCursor);
-				api_sleep(refreshCycle);
+				Sleep(refreshCycle);
 			}
 			if(choiceSet == 9)//返回并保存
 			{
@@ -3403,9 +3403,9 @@ void DrawSetOperateMode(int select)
 	printf("* [(2)鼠标点击操作模式]\n");
 	printf("* 可通过鼠标，wasd，方向键移动光标。\n");
 	printf("* 兼容wasd23，但无法使用@#rc和鼠标全选复制地图。\n");
-	printf("* [(3)Window操作模式]\n");
-	printf("* 在独立图形界面窗口进行游戏，控制台内操作均屏蔽，\n");
-	printf("* 游戏结束后按鼠标右键返回控制台。\n");
+	//printf("* [(3)Window操作模式]\n");
+	//printf("* 在独立图形界面窗口进行游戏，控制台内操作均屏蔽，\n");
+	//printf("* 游戏结束后按鼠标右键返回控制台。\n");
 	printf("**************************************************************\n");
 	if(select == 0)
 	{
@@ -3425,7 +3425,7 @@ void DrawSetOperateMode(int select)
 	else if(select == 3)
 	{
 		gotoxy(2, 26);
-		ColorStr("[(3)Window操作模式]", 0xff-backgroundColor);
+		//ColorStr("[(3)Window操作模式]", 0xff-backgroundColor);
 	}
 	gotoxy(0, 27);
 }
@@ -4531,7 +4531,7 @@ void ShowInformation()//更新时间并显示游戏信息
 	if(show3BV == 1) printf("3BV：%d/%d 3BV/s：%.2f ", solved3BV, game.total3BV, (float)solved3BV/t);
 	printf("\n");
 }
-
+/*
 void DrawMine(PIMAGE pimg)//在图像中绘制地图地雷
 {
 	//setcolor(LIGHTRED, pimg);
@@ -5330,11 +5330,11 @@ void GetWindowOperation(char* operation, int* r, int* c)
 		//鼠标位置分析
 		xm = mouseMsg.x;
 		ym = mouseMsg.y;
-		if(game.showInformation == 1)
-		{
-			AddOperation(&operationRecord, clock()-game.clock0+game.clock2, 'm',
-				(ym-dy-heightOfBar-widthOfBorder)*64/sideLength, (xm-dx-widthOfBorder)*64/sideLength);//坐标拟合到64边长
-		}
+		//if(game.showInformation == 1)
+		//{
+			//AddOperation(&operationRecord, clock()-game.clock0+game.clock2, 'm',
+				//(ym-dy-heightOfBar-widthOfBorder)*64/sideLength, (xm-dx-widthOfBorder)*64/sideLength);//坐标拟合到64边长
+		//}
 		mouseR = (ym-dy-heightOfBar-widthOfBorder)/heightOfBlock;
 		mouseC = (xm-dx-widthOfBorder)/widthOfBlock;
 		if(IsPosInRectangle(xm-dx, ym-dy, widthOfBorder, heightOfBar+widthOfBorder,
@@ -5611,7 +5611,7 @@ int CloseWindow(int isWinning, const char* tip)
 	else closegraph();
 	return newGame;
 }
-
+*/
 int Difficulty(int height, int width, int mine)//根据地图信息判断难度
 {
 	if(height == 10 && width == 10 && mine == 10) return 0;
@@ -10223,7 +10223,7 @@ struct Map EditMap(struct Map map)
 					mouseOperatedPos.Y = 0;
 				}
 				showCursor(visibleCursor);
-				//api_sleep(refreshCycle);//此处无需延时，因为ReadConsoleInput()阻塞
+				//Sleep(refreshCycle);//此处无需延时，因为ReadConsoleInput()阻塞
 			}
 		}
 		else
@@ -10582,7 +10582,7 @@ void PlayOperations(struct Operations operations)
 	}
 	gotoxy(0, 3);
 	ShowBoard(0);
-	if(operateMode == 3)
+	/*if(operateMode == 3)
 	{
 		InitWindow(0);
 		for(p=operations.head; p!=NULL; p=p->next)
@@ -10604,13 +10604,13 @@ void PlayOperations(struct Operations operations)
 			delay_ms(refreshCycle);
 		}
 		//DrawPathP('i', ym, xm);
-	}
+	}*/
 	game.t0 = time(0);
 	game.t2 = 0;
 	clock0 = clock();
 	for(p=operations.head; p!=NULL; p=p->next)
 	{
-		while(clock()-clock0 < p->mstime) api_sleep(1);
+		while(clock()-clock0 < p->mstime) Sleep(1);
 		operation = p->operation;
 		r = p->r;
 		c = p->c;
@@ -10697,7 +10697,7 @@ void PlayOperations(struct Operations operations)
 		}
 		ShowBoardFast(3);
 		ShowInformation();
-		if(operateMode == 3)
+		/*if(operateMode == 3)
 		{
 			if(operation != 'm')//悬浮高亮
 			{
@@ -10723,7 +10723,7 @@ void PlayOperations(struct Operations operations)
 			}
 			DrawMouse(xm+widthOfBorder+dx, ym+heightOfBar+widthOfBorder+dy);
 			delay_ms(0);
-		}
+		}*/
 		if(operation == 'm')
 		{
 			//SetCursorPos(c, r);
@@ -10760,7 +10760,7 @@ void PlayOperations(struct Operations operations)
 		if(showTime == 1) printf("用时：%d ", operations.time);
 		if(show3BV == 1) printf("3BV：%d/%d 3BV/s：%.2f ", game.total3BV-game.unsolved3BV, game.total3BV, (float)(game.total3BV-game.unsolved3BV)/operations.time);
 	}
-	if(operateMode == 3)
+	/*if(operateMode == 3)
 	{
 		if(operations.isWin != 2)
 		{
@@ -10785,7 +10785,7 @@ void PlayOperations(struct Operations operations)
 			getch();
 			closegraph();
 		}
-	}
+	}*/
 	numberOfMine = temp.numberOfMine;
 	heightOfBoard = temp.heightOfBoard;
 	widthOfBoard = temp.widthOfBoard;
@@ -10801,9 +10801,9 @@ void RCScan(char* operation, int* r, int* c, int yOfCommand)//@#rc指令输入�
 	printf(">%c _     \r>%c ", *operation, *operation);//覆写>@ 128 92
 	while(p != 4)
 	{
-		if(kbhit_console())
+		if(kbhit())
 		{
-			key = getch_console();//接收字符但不显示
+			key = getch();//接收字符但不显示
 			gotoxy(0, yOfCommand);
 			//切为鼠标
 			if(key == 'm' || key == 'M')
@@ -10983,7 +10983,7 @@ void RCScan(char* operation, int* r, int* c, int yOfCommand)//@#rc指令输入�
 				//yOfCommand = heightOfMapShown-1+3+2
 			}
 		}
-		//api_sleep(refreshCycle);
+		//Sleep(refreshCycle);
 	}
 }
 
@@ -12549,9 +12549,9 @@ void Error()//错误
 	for(c=0; c<=10; c++)
 	{
 		printf("\r%3d%% 完成", c*10);
-		api_sleep(200);
+		Sleep(200);
 	}
-	api_sleep(4*200);
+	Sleep(4*200);
 	printf("\n");
 	//getchar();
 	fflush(stdin);//清空输入缓冲区，多字符仅蓝屏一次(doge)
@@ -13167,6 +13167,8 @@ MineSweeper Run 5.26
 MineSweeper Run 5.27
 ——新增 启用调整式可解地图时操作记录播放按对应规则生成地图
 ——优化 矩阵内存操作
+MineSweeper Run 6.0
+——优化 使用新版编译器
 //——新增 Window操作模式
 //——新增 组合雷率计算（根据多块枚举的结果组合进行雷率计算）
 //——新增 内外雷率扰动（根据内部雷分布组合数对应枚举结果雷数扰动交界线雷率）
