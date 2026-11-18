@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <stdint.h>
 
 // 操作记录
@@ -24,16 +25,20 @@ struct Operations
 	struct Operation* head;//头节点，顺序存储便于回放
 	struct Operation* tail;//尾节点，避免插入时搜索尾部
 };
+void AddOperationFast(struct Operations* operations, int mstime, char operation, int r, int c);
 void AddOperation(struct Operations* operations, int mstime, char operation, int r, int c);
 void ClearOperations(struct Operations operations);
+char* InputFileName();
 struct Operations ReadOperations(char* fileName);
 
+void SummonNumber();//根据雷场生成数字
 void SummonBoard(int seed, int r0, int c0, int summonMode, int iterateMode);//地图生成
 int IsAroundZeroChain(int r0, int c0);
 void OpenZeroChain(int r0, int c0);//翻开0连锁翻开
 int NumberOfSignAround(int r0, int c0);
 void ShownModeBak(int mode);//备份显示方式矩阵，1备份，0恢复
 int BBBV(int mode);//Bechtel'sBoardBenchmarkValue，计算地图3BV
+double SS(int h, int w, int n, double time, int solved3BV, int total3BV);//计算标准分数SS，代表发挥水平
 
 void WriteEVF(struct Operations operations);
 
@@ -75,10 +80,9 @@ int main(int argc, char** argv)
 	return 0;
 }
 
-void AddOperation(struct Operations* operations, int mstime, char operation, int r, int c)
+void AddOperationFast(struct Operations* operations, int mstime, char operation, int r, int c)
 {
 	struct Operation* newNode =(struct Operation*) malloc(sizeof(struct Operation));
-	if(operation == 0) operation = '?';//移动以?记录
 	newNode->mstime = mstime;
 	newNode->operation = operation;
 	newNode->r = r;
@@ -89,26 +93,36 @@ void AddOperation(struct Operations* operations, int mstime, char operation, int
 	if(operations->tail == NULL) operations->tail = newNode;
 	else//NULL情况一般不可能发生因必存在第一次打开
 	{
-		if(operation == '?' && operations->r == r && operations->c == c)
-		{//?方块定位操作与当前坐标相同
-			free(newNode);
+		operations->tail->next = newNode;
+		operations->tail = newNode;
+	}
+}
+
+void AddOperation(struct Operations* operations, int mstime, char operation, int r, int c)
+{
+	if(operation == 'm')
+	{
+		if(operations->tail != NULL && operations->tail->operation == 'm')//连续鼠标操作
+		{
+			if(operations->tail->r == r && operations->tail->c == c);//坐标相同，不保存
+			else if(operations->tail->mstime == mstime)//时间相同，高频情况
+			{
+				operations->tail->r = r;//改写上一次坐标，鼠标消息间隔式处理，最初时间的坐标已过时
+				operations->tail->c = c;
+			}
+			else AddOperationFast(operations, mstime, operation, r, c);
 		}
-		else if(operation == 'm' && operations->tail->operation == 'm'
-				  && (operations->tail->mstime == mstime || (operations->tail->r == r && operations->tail->c == c)))
-		{//连续鼠标且时间或坐标相同
-			//不保存这一次
-			free(newNode);
-		}
+		else AddOperationFast(operations, mstime, operation, r, c);//保存这一次操作记录
+	}
+	else
+	{
+		if(operation == 0) operation = '?';//移动以?记录
+		if(operation == '?' && operations->r == r && operations->c == c);//?方块定位操作与当前坐标相同
 		else
 		{
-			//保存这一次操作记录
-			operations->tail->next = newNode;
-			operations->tail = newNode;
-			if(operation != 'm')
-			{
-				operations->r = r;
-				operations->c = c;
-			}
+			AddOperationFast(operations, mstime, operation, r, c);
+			operations->r = r;//更新当前方块坐标
+			operations->c = c;
 		}
 	}
 }
@@ -163,8 +177,8 @@ struct Operations ReadOperations(char* fileName)
 	if((file = fopen(fileName, "r")))
 	{
 		fscanf(file, "Map:%d*%d-%d,%d,%d,%d,%d,%d\n",
-				 &(operations.heightOfBoard), &(operations.widthOfBoard), &(operations.numberOfMine),
-				 &(operations.seed), &(operations.r0), &(operations.c0), &(operations.summonMode), &(operations.iterateMode));
+			&(operations.heightOfBoard), &(operations.widthOfBoard), &(operations.numberOfMine),
+			&(operations.seed), &(operations.r0), &(operations.c0), &(operations.summonMode), &(operations.iterateMode));
 		fscanf(file, "time=%d\n", &(operations.time));
 		fscanf(file, "isWin=%d\n", &(operations.isWin));
 		operations.r = operations.r0;
@@ -177,6 +191,56 @@ struct Operations ReadOperations(char* fileName)
 		fclose(file);
 	}
 	return operations;
+}
+
+void SummonNumber()//根据雷场生成数字和后台总板
+{
+	int r, c, ra, ca;
+	// 重置
+	for(r=0; r<heightOfBoard; r++)
+	{
+		for(c=0; c<widthOfBoard; c++)
+		{
+			numberOfMineAround[r][c] = 0;
+			//board[r][c] = 0;
+		}
+	}
+	// 生成雷周围数字
+	for(r=0; r<heightOfBoard; r++)
+	{
+		for(c=0; c<widthOfBoard; c++)
+		{
+			if(isMine[r][c] == 1)//循环遍历雷，在雷周围生成数字
+			{
+				for(ra=r-1; ra<=r+1; ra++)
+				{
+					for(ca=c-1; ca<=c+1; ca++)
+					{
+						if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
+						{
+							numberOfMineAround[ra][ca]++;
+						}
+					}
+				}
+			}//挨得过紧的雷也会被数字覆盖
+			//方法2：循环遍历方块，计算周围雷数，因为不跳过雷，方法1始终不弱于方法2
+		}
+	}
+	// 生成后台总板
+	for(r=0; r<heightOfBoard; r++)
+	{
+		for(c=0; c<widthOfBoard; c++)
+		{
+			if(isMine[r][c] == 1)
+			{
+				board[r][c] = 9;//雷标记为9，解决数字覆盖掉雷的情况
+			}
+			else
+			{
+				board[r][c] = numberOfMineAround[r][c];
+			}
+		}
+	}
 }
 
 void SummonBoard(int seed, int r0, int c0, int summonMode, int iterateMode)//地图生成，生成雷，数字和后台总板
@@ -196,8 +260,6 @@ void SummonBoard(int seed, int r0, int c0, int summonMode, int iterateMode)//地
 	{
 		for(c=0; c<widthOfBoard; c++)
 		{
-			numberOfMineAround[r][c] = 0;
-			//board[r][c] = 0;
 			isShown[r][c] = 0;//清零显示方式矩阵
 		}
 	}
@@ -363,42 +425,8 @@ void SummonBoard(int seed, int r0, int c0, int summonMode, int iterateMode)//地
 			break;
 		}
 	}
-	// 生成雷周围数字
-	for(r=0; r<heightOfBoard; r++)
-	{
-		for(c=0; c<widthOfBoard; c++)
-		{
-			if(isMine[r][c] == 1)//循环遍历雷，在雷周围生成数字
-			{
-				for(ra=r-1; ra<=r+1; ra++)
-				{
-					for(ca=c-1; ca<=c+1; ca++)
-					{
-						if(ra>=0 && ra<heightOfBoard && ca>=0 && ca<widthOfBoard)//确认在范围内
-						{
-							numberOfMineAround[ra][ca]++;
-						}
-					}
-				}
-			}//挨得过紧的雷也会被数字覆盖
-			//方法2：循环遍历方块，计算周围雷数，因为不跳过雷，方法1始终不弱于方法2
-		}
-	}
-	// 生成后台总板
-	for(r=0; r<heightOfBoard; r++)
-	{
-		for(c=0; c<widthOfBoard; c++)
-		{
-			if(isMine[r][c] == 1)
-			{
-				board[r][c] = 9;//雷标记为9，解决数字覆盖掉雷的情况
-			}
-			else
-			{
-				board[r][c] = numberOfMineAround[r][c];
-			}
-		}
-	}
+	// 生成雷周围数字和后台总板
+	SummonNumber();
 }
 
 int IsAroundZeroChain(int r0, int c0)
@@ -546,6 +574,25 @@ int BBBV(int mode)//计算地图3BV
 	ShownModeBak(0);
 	return bbbv;
 }
+
+double SS(int h, int w, int n, double time, int solved3BV, int total3BV)//计算记录标准分数SS
+{
+	//计算相对难度值RDV = A(e^(n/h/w)-1)*(h^B)*(w^C)
+	const double A = 8.14593564;
+	const double B = 0.528462037;
+	const double C = 1.172055106;
+	double densityWeight = expm1(1.0*n/(h*w));
+	if(h > w)//约定长边为w
+	{
+		int temp = h;
+		h = w;
+		w = temp;
+	}
+	double rdv = A * densityWeight * pow(h, B) * pow(w, C);
+	double completionWeight = pow(1.0*solved3BV/total3BV, 0.7);
+	double qg = pow(time, 1.7) / solved3BV;
+	return rdv * completionWeight / qg;
+}
 /*
 int WriteBE(FILE* fp, void* pval, unsigned char bit)
 {
@@ -625,9 +672,13 @@ void WriteEVF(struct Operations operations)
 	summonCheckMode = operations.summonMode;
 	SummonBoard(operations.seed, operations.r0, operations.c0, operations.summonMode, operations.iterateMode);
 	bbbv = BBBV(1);
-	sprintf(fileName, "msr_%dx%d-%d_%.3f_%d_%.3f_%d.evf",
+	float score = SS(heightOfBoard, widthOfBoard, numberOfMine, mstime, bbbv, bbbv);
+	char scoreStr[16];
+	if(operations.isWin == 1) sprintf(scoreStr, "_%.3f", score);
+	else scoreStr[0] = '\0';
+	sprintf(fileName, "msr_%dx%d-%d_%.3f_%d_%.3f%s_%d.evf",
 			operations.heightOfBoard, operations.widthOfBoard, operations.numberOfMine,
-			mstime, bbbv, (float)bbbv/mstime, operations.seed);
+			mstime, bbbv, (float)bbbv/mstime, scoreStr, operations.seed);
 	file = fopen(fileName, "wb");
 	//版本号
 	fputc(4, file);
@@ -695,7 +746,7 @@ void WriteEVF(struct Operations operations)
 	fputs("MineSweeper Run 5.19+", file);
 	fputc(0, file);
 	//转码软件的名称
-	fputs("MSR Operations Transcoder 1.3", file);
+	fputs("MSR Operations Transcoder 1.4", file);
 	fputc(0, file);
 	//录像的用户标识、比赛标识、唯一性标识的可能的编码方式
 	fputs("ascii", file);
@@ -1071,4 +1122,7 @@ MSR Operations Transcoder 1.2
 ——修复 上游evf文档错误导致开问号
 MSR Operations Transcoder 1.3
 ——优化 调整写入大端法代码，风格统一
+MSR Operations Transcoder 1.4
+——新增 胜局文件名增加SS
+——优化 功能与函数跟随Run 6.0升级
 --------------------------------*/
